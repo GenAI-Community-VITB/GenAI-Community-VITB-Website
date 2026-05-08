@@ -755,7 +755,7 @@ export function AdminDashboardClient(props: {
                     <p className="font-semibold text-white">{event.title}</p>
                     <p className="mt-1 text-sm text-zinc-400">{event.venue}</p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {new Date(event.event_date).toLocaleString()} ·{" "}
+                      {new Date(event.event_date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} ·{" "}
                       <span className="text-[#f5b642]/80">{event.status}</span>
                     </p>
                     <p className="mt-2 line-clamp-2 text-sm text-zinc-500">{event.description}</p>

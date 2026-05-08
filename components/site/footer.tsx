@@ -50,7 +50,7 @@ export function Footer() {
             </p>
             <div className="mt-4 flex items-center gap-3">
               <Link
-                href="gen_ai@vitbhopal.ac.in"
+                href="mailto:gen_ai@vitbhopal.ac.in"
                 aria-label="Email us"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#2f2f2f] bg-[#121212] text-[#d6d6d6] transition hover:border-[#f5b642]/60 hover:text-[#f5b642]"
               >

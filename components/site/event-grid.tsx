@@ -57,7 +57,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
               </p>
               <p className="inline-flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-[#f5b642]/85" aria-hidden />
-                <span>{new Date(event.event_date).toLocaleString()}</span>
+                <span>{new Date(event.event_date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
               </p>
             </div>
 
