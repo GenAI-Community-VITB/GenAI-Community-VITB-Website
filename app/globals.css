@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --muted: #475569;
+  --brand: #2563eb;
 }
 
 @theme inline {
@@ -22,5 +24,42 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+.container-wrap {
+  @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+}
+
+.card {
+  @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md;
+}
+
+/* ── Scroll Ticker ─────────────────────────────────────────── */
+.ticker-solid {
+  font-size: clamp(2.6rem, 6.5vw, 5.5rem);
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: #f5b642;
+  font-family: var(--font-geist-sans);
+  white-space: nowrap;
+}
+
+.ticker-outline {
+  font-size: clamp(2.6rem, 6.5vw, 5.5rem);
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(245, 182, 66, 0.22);
+  font-family: var(--font-geist-sans);
+  white-space: nowrap;
+}
+
