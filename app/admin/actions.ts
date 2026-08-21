@@ -184,6 +184,39 @@ export async function tryHardcodedAdminSession(
   return { ok: true };
 }
 
+/**
+ * Unified Server-Side Staff & Admin Login Handler
+ * Sets session cookies atomically on the response headers.
+ */
+export async function loginStaff(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
+  const email = (formData.get("email") as string || "").trim().toLowerCase();
+  const password = (formData.get("password") as string || "").trim();
+
+  if (!email || !password) {
+    return { ok: false, error: "Please enter both your official email and password." };
+  }
+
+  // 1. Try Root / Dev Admin credentials
+  const hardcoded = await tryHardcodedAdminSession(email, password);
+  if (hardcoded.ok) {
+    return { ok: true };
+  }
+
+  // 2. Try Supabase Auth via Server Client (Atomically sets auth cookies)
+  try {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error || !data.user) {
+      return { ok: false, error: error?.message || "Invalid credentials. Please verify your email and password." };
+    }
+
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message || "Authentication service temporarily unavailable." };
+  }
+}
+
 export async function logoutAdmin() {
   const cookieStore = await cookies();
   cookieStore.delete(ADMIN_SESSION_COOKIE);

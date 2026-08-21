@@ -1,7 +1,6 @@
 "use client";
 
-import { tryHardcodedAdminSession } from "@/app/admin/actions";
-import { createClientSupabase } from "@/lib/supabase/client";
+import { loginStaff } from "@/app/admin/actions";
 import { submitPasswordResetQuery } from "@/lib/data/password-resets";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,30 +37,16 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
     setError("");
     setPending(true);
     const form = e.currentTarget;
-    const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim().toLowerCase();
-    const password = (form.elements.namedItem("password") as HTMLInputElement).value.trim();
-
-    if (!email || !password) {
-      setError("Please provide both your official email and password.");
-      setPending(false);
-      return;
-    }
+    const formData = new FormData(form);
 
     try {
-      const hardcoded = await tryHardcodedAdminSession(email, password);
-      if (hardcoded.ok) {
+      const res = await loginStaff(formData);
+      if (res.ok) {
         window.location.href = "/admin";
         return;
       }
-
-      const supabase = createClientSupabase();
-      const { error: signError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signError) {
-        setError(signError.message || "Invalid credentials. Please verify your email and password.");
-        setPending(false);
-        return;
-      }
-      window.location.href = "/admin";
+      setError(res.error || "Invalid credentials. Please verify your email and password.");
+      setPending(false);
     } catch {
       setError("Authentication failed. Please verify network connectivity and try again.");
       setPending(false);
