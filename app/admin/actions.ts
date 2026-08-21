@@ -166,7 +166,11 @@ export async function tryHardcodedAdminSession(
   email: string,
   password: string,
 ): Promise<{ ok: true } | { ok: false }> {
-  if (email !== HARDCODED_ADMIN_EMAIL || password !== HARDCODED_ADMIN_PASSWORD) {
+  const cleanEmail = (email || "").trim().toLowerCase();
+  const targetEmail = (HARDCODED_ADMIN_EMAIL || "admin.club.core@genai.local").trim().toLowerCase();
+  const targetPassword = HARDCODED_ADMIN_PASSWORD || "G3nAI!Club#Root$2026@Ultra";
+
+  if (cleanEmail !== targetEmail || password !== targetPassword) {
     return { ok: false };
   }
   const cookieStore = await cookies();
@@ -175,7 +179,7 @@ export async function tryHardcodedAdminSession(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 8,
+    maxAge: 60 * 60 * 24, // 24 hours
   });
   return { ok: true };
 }

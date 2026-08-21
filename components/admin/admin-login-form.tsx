@@ -50,9 +50,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
     try {
       const hardcoded = await tryHardcodedAdminSession(email, password);
       if (hardcoded.ok) {
-        router.push("/admin");
-        router.refresh();
-        setPending(false);
+        window.location.href = "/admin";
         return;
       }
 
@@ -63,9 +61,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         setPending(false);
         return;
       }
-      router.push("/admin");
-      router.refresh();
-      setPending(false);
+      window.location.href = "/admin";
     } catch {
       setError("Authentication failed. Please verify network connectivity and try again.");
       setPending(false);
