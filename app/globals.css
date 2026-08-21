@@ -17,6 +17,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
 html, body {
   background: var(--background);
   color: var(--foreground);
@@ -24,7 +29,25 @@ html, body {
   overflow-x: hidden !important;
   max-width: 100vw;
   scroll-behavior: smooth;
-  zoom: 1.25;
+}
+
+/* Dynamic Responsive Scaling: Fluid 100% on Smartphones, 115% on Tablets, 125% on Widescreen Desktops */
+@media (max-width: 767px) {
+  html, body {
+    zoom: 1 !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  html, body {
+    zoom: 1.15;
+  }
+}
+
+@media (min-width: 1024px) {
+  html, body {
+    zoom: 1.25;
+  }
 }
 
 /* ── Apple-style Scrollbar Stripping ──────────────────────── */

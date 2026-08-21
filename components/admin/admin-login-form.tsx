@@ -90,10 +90,10 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-4 space-y-3">
         {/* Email Field */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold tracking-wider text-zinc-300 uppercase flex items-center gap-1.5" htmlFor="admin-email">
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold tracking-wider text-zinc-300 uppercase flex items-center gap-1.5" htmlFor="admin-email">
             <Mail className="h-3.5 w-3.5 text-[#f5b642]" />
             Club Email / User ID
           </label>
@@ -105,15 +105,15 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               required
               autoComplete="email"
               placeholder="team.role@genai.community"
-              className="w-full rounded-2xl border border-[#2e2a20] bg-[#14120c] px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-2 focus:ring-[#f5b642]/20"
+              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-2 focus:ring-[#f5b642]/20"
             />
           </div>
         </div>
 
         {/* Password Field */}
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold tracking-wider text-zinc-300 uppercase flex items-center gap-1.5" htmlFor="admin-password">
+            <label className="text-[11px] font-semibold tracking-wider text-zinc-300 uppercase flex items-center gap-1.5" htmlFor="admin-password">
               <Lock className="h-3.5 w-3.5 text-[#f5b642]" />
               Password
             </label>
@@ -123,7 +123,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                 setResetStatus(null);
                 setShowForgotModal(true);
               }}
-              className="text-xs font-medium text-[#f5b642] hover:text-[#ffd06a] hover:underline"
+              className="text-[11px] font-medium text-[#f5b642] hover:text-[#ffd06a] hover:underline cursor-pointer"
             >
               Forgot password?
             </button>
@@ -136,12 +136,12 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="w-full rounded-2xl border border-[#2e2a20] bg-[#14120c] px-4 py-3 pr-11 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-2 focus:ring-[#f5b642]/20 font-mono"
+              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 pr-11 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-2 focus:ring-[#f5b642]/20 font-mono"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -151,7 +151,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         <button
           type="submit"
           disabled={pending}
-          className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f5b642] to-[#ffd06a] px-5 py-3 text-sm font-bold text-black shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#f5b642]/40 disabled:opacity-60 cursor-pointer"
+          className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f5b642] to-[#ffd06a] px-4 py-2.5 text-sm font-bold text-black shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#f5b642]/40 disabled:opacity-60 cursor-pointer"
         >
           {pending ? (
             <span>Authenticating...</span>
@@ -164,9 +164,9 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         </button>
       </form>
 
-      <div className="mt-5 pt-4 border-t border-[#1e1e1e] flex items-center justify-between text-xs text-zinc-400">
+      <div className="mt-3.5 pt-3 border-t border-[#1e1e1e] flex items-center justify-between text-[11px] text-zinc-400">
         <span className="flex items-center gap-1">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+          <ShieldCheck className="h-3 w-3 text-emerald-400" />
           Role-Based Access Control
         </span>
         <Link href="/" className="hover:text-white transition">
