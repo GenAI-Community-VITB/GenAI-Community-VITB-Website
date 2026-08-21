@@ -211,6 +211,16 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       return { ok: false, error: error?.message || "Invalid credentials. Please verify your email and password." };
     }
 
+    // Set admin session cookie for smooth middleware passage
+    const cookieStore = await cookies();
+    cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
     return { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message || "Authentication service temporarily unavailable." };

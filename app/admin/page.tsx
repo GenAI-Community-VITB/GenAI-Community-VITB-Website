@@ -17,11 +17,6 @@ export default async function AdminDashboardPage() {
     redirect("/admin/login");
   }
 
-  // Route staff directly based on role if they only have specific access
-  if (role === "volunteer") {
-    redirect("/admin/scanner");
-  }
-
   const supabase = createAdminSupabase();
   const [
     { data: teams },
