@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
+import { CursorGlow } from "@/components/site/cursor-glow";
+import { TopLeftLoadingBanner } from "@/components/site/top-left-loading-banner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,10 +17,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "GenAI",
-    template: "%s | GenAI",
+    default: "Generative AI Community | VIT Bhopal",
+    template: "%s | Generative AI Community",
   },
-  description: "Official website for the club - team, projects, events, and admin.",
+  description: "Official portal for Generative AI Community - team hierarchy, live events, registration passes, and research projects.",
 };
 
 export default function RootLayout({
@@ -31,7 +34,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-black text-white selection:bg-[#f5b642] selection:text-black">
+        <Suspense fallback={null}>
+          <TopLeftLoadingBanner />
+        </Suspense>
+        <CursorGlow />
+        {children}
+      </body>
     </html>
   );
 }

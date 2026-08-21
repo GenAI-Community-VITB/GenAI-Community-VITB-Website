@@ -1,85 +1,138 @@
 import Link from "next/link";
-import { BriefcaseBusiness, Globe, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 
 const quickLinks = [
-  { href: "/#home", label: "Home" },
-  { href: "/#about", label: "About Us" },
-  { href: "/#members", label: "Members" },
-  { href: "/projects", label: "Projects" },
-  { href: "/events", label: "Events" },
+  { href: "/", label: "Home" },
+  { href: "/team", label: "Team Members" },
+  { href: "/events", label: "Events & Passes" },
+  { href: "/winners", label: "Event Winners" },
+  { href: "/projects", label: "Research Projects" },
+  { href: "/achievements", label: "Awards & Accolades" },
+  { href: "/about", label: "About Us" },
 ];
+
+function InstagramIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
+function LinkedinIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+      <rect width="4" height="12" x="2" y="9" />
+      <circle cx="4" cy="4" r="2" />
+    </svg>
+  );
+}
 
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-[#2b2b2b] bg-black">
-      <div className="container-wrap py-10">
+    <footer className="border-t border-[#221c13] bg-[#070707] text-white">
+      <div className="container-wrap py-12 space-y-10">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <h3 className="text-lg font-semibold text-[#f8e8c5]">Generative AI Club</h3>
-            <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#a8a8a8]">
-              Learning, building, and innovating with AI through workshops, projects,
-              and community events.
+          {/* Brand Col */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-extrabold text-white">
+              Generative AI{" "}
+              <span className="bg-gradient-to-r from-[#f5b642] to-[#ffd06a] bg-clip-text text-transparent">
+                Community
+              </span>
+            </h3>
+            <p className="max-w-sm text-xs leading-relaxed text-zinc-400 font-normal">
+              Official student technical community at VIT Bhopal University researching neural architectures, autonomous agents, and production AI systems.
+            </p>
+            <p className="text-[11px] text-zinc-500 font-mono">
+              From Prompts to Production.
             </p>
           </div>
 
+          {/* Quick Links Col */}
           <div>
-            <h4 className="text-sm font-semibold tracking-[0.12em] text-[#f5b642] uppercase">
-              Quick Links
+            <h4 className="text-xs font-bold tracking-[0.14em] text-[#f5b642] uppercase font-mono">
+              Navigation Portals
             </h4>
-            <nav className="mt-3 flex flex-col gap-2">
+            <nav className="mt-4 grid grid-cols-2 gap-2 text-xs">
               {quickLinks.map((link) => (
-                <a
+                <Link
                   key={link.label}
                   href={link.href}
-                  className="w-fit text-sm text-[#c6c6c6] transition hover:text-[#f5b642]"
+                  className="w-fit text-zinc-400 transition hover:text-[#f5b642] py-0.5"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </nav>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold tracking-[0.12em] text-[#f5b642] uppercase">
-              Connect
+          {/* Connect / Socials Col */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold tracking-[0.14em] text-[#f5b642] uppercase font-mono">
+              Connect & Reach Out
             </h4>
-            <p className="mt-3 text-sm text-[#a8a8a8]">
-              Reach out for collaborations, workshops, and speaking opportunities.
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Reach out for hackathon collaborations, technical workshops, partnerships, and guest keynotes.
             </p>
-            <div className="mt-4 flex items-center gap-3">
-              <Link
+            <div className="flex items-center gap-3 pt-1">
+              <a
                 href="mailto:gen_ai@vitbhopal.ac.in"
                 aria-label="Email us"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#2f2f2f] bg-[#121212] text-[#d6d6d6] transition hover:border-[#f5b642]/60 hover:text-[#f5b642]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#2e2618] bg-[#14110b] text-zinc-300 transition hover:border-[#f5b642] hover:bg-[#1f190e] hover:text-[#f5b642]"
+                title="Send Email"
               >
                 <Mail className="h-4 w-4" aria-hidden />
-              </Link>
-              <Link
+              </a>
+              <a
                 href="https://www.instagram.com/gen.aivitbhopal?igsh=OWUzendvaTNzOGEz"
                 target="_blank"
-                rel="noreferrer"
-                aria-label="Instagram"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#2f2f2f] bg-[#121212] text-[#d6d6d6] transition hover:border-[#f5b642]/60 hover:text-[#f5b642]"
+                rel="noopener noreferrer"
+                aria-label="Follow us on Instagram"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#2e2618] bg-[#14110b] text-zinc-300 transition hover:border-[#f5b642] hover:bg-[#1f190e] hover:text-[#f5b642]"
+                title="Instagram Profile"
               >
-                <Globe className="h-4 w-4" aria-hidden />
-              </Link>
-              <Link
+                <InstagramIcon className="h-4 w-4 text-pink-400" />
+              </a>
+              <a
                 href="https://www.linkedin.com/company/generative-ai-community-vit-bhopal/"
                 target="_blank"
-                rel="noreferrer"
-                aria-label="LinkedIn"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#2f2f2f] bg-[#121212] text-[#d6d6d6] transition hover:border-[#f5b642]/60 hover:text-[#f5b642]"
+                rel="noopener noreferrer"
+                aria-label="Connect on LinkedIn"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#2e2618] bg-[#14110b] text-zinc-300 transition hover:border-[#f5b642] hover:bg-[#1f190e] hover:text-[#f5b642]"
+                title="LinkedIn Page"
               >
-                <BriefcaseBusiness className="h-4 w-4" aria-hidden />
-              </Link>
+                <LinkedinIcon className="h-4 w-4 text-sky-400" />
+              </a>
             </div>
           </div>
         </div>
 
-        <div className="mt-8 border-t border-[#1f1f1f] pt-4 text-xs text-[#7d7d7d]">
-          <p>© {year} Generative AI Club. All rights reserved.</p>
+        {/* Bottom copyright */}
+        <div className="border-t border-[#1e1a12] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500 font-mono">
+          <p>© {year} Generative AI Community · VIT Bhopal. All rights reserved.</p>
+          <p className="text-zinc-600 text-[11px]">Designed for next-generation AI innovators.</p>
         </div>
       </div>
     </footer>

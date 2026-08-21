@@ -2,49 +2,90 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import ClubIcon from "@/assets/ClubIcon.png";
+import { Trophy, Users, Calendar, FolderKanban, Info, Medal } from "lucide-react";
 
-const links = [
-  { href: "/#home", label: "Home" },
-  { href: "/#about", label: "About us" },
-  { href: "/#members", label: "Members" },
-  { href: "/projects", label: "Projects" },
-  { href: "/events", label: "Events" },
+const NAV_LINKS = [
+  { href: "/", label: "Home" },
+  { href: "/team", label: "Team Members", icon: Users },
+  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/winners", label: "Winners", icon: Medal },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/achievements", label: "Achievements", icon: Trophy },
+  { href: "/about", label: "About Us", icon: Info },
 ];
 
 export function Navbar() {
+  const pathname = usePathname();
+
   return (
-    <header className="sticky top-0 z-50 border-b border-[#2b2b2b] bg-black/60 backdrop-blur">
-      <div className="grid h-16 w-full grid-cols-[auto_1fr_auto] items-center gap-5 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="overflow-hidden rounded-sm border border-[#f5b642]/50 bg-[#14110a]">
-            <Image
-              src={ClubIcon}
-              alt="Club logo"
-              width={36}
-              height={36}
-              className="h-9 w-9 object-cover"
-              priority
-            />
+    <header className="sticky top-0 z-50 border-b border-[#221d14] bg-black/85 backdrop-blur-xl">
+      <div className="container-wrap flex h-16 items-center justify-between gap-4">
+        {/* Brand Logo with Glowing Ambient Animation on Hover */}
+        <Link href="/" className="flex items-center gap-3 group shrink-0 relative">
+          <div className="relative flex items-center justify-center">
+            {/* Ambient Background Aura on Hover */}
+            <div className="pointer-events-none absolute -inset-1.5 rounded-2xl bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] opacity-0 blur-md transition-all duration-500 group-hover:opacity-80 group-hover:blur-lg" />
+            
+            {/* Icon Container Box */}
+            <div className="relative overflow-hidden rounded-2xl border border-[#f5b642]/40 bg-[#16120b] p-1 transition-all duration-500 ease-out group-hover:scale-105 group-hover:border-[#f5b642] group-hover:shadow-[0_0_25px_rgba(245,182,66,0.65)]">
+              <Image
+                src={ClubIcon}
+                alt="Club logo"
+                width={34}
+                height={34}
+                className="h-8 w-8 object-cover rounded-xl transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110"
+                priority
+              />
+            </div>
           </div>
+
           <div className="leading-tight">
-            <p className="text-xl font-semibold text-[#f8e8c5]">Generative AI</p>
-            <p className="text-xs text-[#b8a98a]">From prompts to projects</p>
+            <p className="text-sm sm:text-base font-extrabold text-white transition-all duration-300 group-hover:text-[#ffd06a] group-hover:drop-shadow-[0_0_12px_rgba(245,182,66,0.5)]">
+              Generative AI Community
+            </p>
+            <p className="text-[10px] text-[#b8a98a] font-mono transition-colors duration-300 group-hover:text-amber-200/90">
+              From Prompts to Production
+            </p>
           </div>
         </Link>
-        <nav className="hidden justify-self-end pr-4 text-[17px] font-medium text-[#bdbdbd] md:flex md:gap-9">
-          {links.map((link) => (
-            <a key={link.label} href={link.href} className="transition hover:text-[#f5b642]">
-              {link.label}
-            </a>
-          ))}
+
+        {/* Unambiguous Dedicated Page Navigation Links with Sleek Bordered Container */}
+        <nav className="hidden items-center gap-1 rounded-2xl border border-[#2d2416] bg-[#110e09]/90 p-1.5 backdrop-blur-md shadow-inner md:flex">
+          {NAV_LINKS.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition duration-200 ${
+                  isActive
+                    ? "bg-[#1f190e] text-[#f5b642] border border-[#f5b642]/50 shadow-[0_0_12px_rgba(245,182,66,0.15)]"
+                    : "text-zinc-400 border border-transparent hover:border-zinc-800 hover:bg-white/[0.04] hover:text-white"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
-        <Link
-          href="/admin/login"
-          className="justify-self-end rounded-lg border border-[#a97820] px-4 py-2 text-sm font-medium text-[#f7e8c9] transition hover:border-[#f5b642] hover:text-[#f5b642]"
-        >
-          Admin Login
-        </Link>
+
+        {/* Mobile Quick Action Link */}
+        <div className="flex items-center gap-2 md:hidden">
+          <Link
+            href="/winners"
+            className="rounded-xl border border-[#3a301b] bg-[#16120b] px-3 py-1.5 text-xs font-bold text-[#f5b642]"
+          >
+            Winners
+          </Link>
+          <Link
+            href="/events"
+            className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black"
+          >
+            Events
+          </Link>
+        </div>
       </div>
     </header>
   );

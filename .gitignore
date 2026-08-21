@@ -1,7 +1,11 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ==============================================================================
+# GenAI Club Website - Production .gitignore
+# Ensures clean repository pushes without leaking secrets, local build artifacts,
+# temporary caches, or system files.
+# ==============================================================================
 
-# dependencies
-/node_modules
+# --- Dependencies ---
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,33 +14,72 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# --- Testing & Coverage ---
 /coverage
+*.lcov
 
-# next.js
+# --- Next.js Build Outputs ---
 /.next/
 /out/
+/build/
+dist/
 
-# production
-/build
+# --- Environment & Secret Files (CRITICAL: Never commit credentials) ---
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+.env.local
+!.env.example
 
-# misc
-.DS_Store
+# --- Certificates, Private Keys & Tokens ---
 *.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+id_rsa*
+*.pub
 
-# debug
+# --- Logs & Debug Dumps ---
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+logs/
 
-# env files (can opt-in for committing if needed)
-.env*
-!.env.example
+# --- Operating System Caches ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
 
-# vercel
-.vercel
+# --- IDE & Editor Settings ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
 
-# typescript
+# --- Vercel & Cloud Provider Local Artifacts ---
+.vercel/
+
+# --- TypeScript ---
 *.tsbuildinfo
 next-env.d.ts
+
+# --- System & Agent Artifacts ---
+.system_generated/
+.gemini/
+scratch/

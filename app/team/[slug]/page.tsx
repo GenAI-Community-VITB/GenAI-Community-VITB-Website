@@ -41,7 +41,7 @@ export default async function TeamMembersPage({ params }: TeamPageParams) {
     .eq("status", "active")
     .order("created_at", { ascending: true });
 
-  const memberList = members ?? [];
+  const memberList: MemberData[] = (members as MemberData[]) ?? [];
 
   return (
     <>

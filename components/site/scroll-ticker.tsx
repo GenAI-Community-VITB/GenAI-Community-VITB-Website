@@ -1,67 +1,49 @@
 "use client";
 
-import { useScroll, useTransform, motion } from "framer-motion";
-import type { MotionValue } from "framer-motion";
-
 const LINES = [
-  { text: "Generative", reverse: false },
-  { text: "Design",     reverse: true  },
-  { text: "Create",     reverse: false },
-  { text: "GenAI",      reverse: true  },
+  { text: "Generative", reverse: false, duration: "32s" },
+  { text: "Design",     reverse: true,  duration: "28s" },
+  { text: "Create",     reverse: false, duration: "34s" },
+  { text: "GenAI",      reverse: true,  duration: "30s" },
 ] as const;
 
 export function ScrollTickerSection() {
-  const { scrollY } = useScroll();
-  const invertScroll = useTransform(() => scrollY.get() * -1);
-
   return (
     <div
       aria-hidden
-      className="select-none overflow-hidden border-y border-[#1a1a1a] bg-black py-3"
+      className="select-none overflow-hidden border-y border-[#1a1a1a] bg-black py-3 space-y-1.5"
     >
       {LINES.map((line, index) => (
-        <Ticker
-          key={`${line.text}-${index}`}
-          items={[
-            <span key="solid" className="ticker-solid">{line.text}</span>,
-            <span key="outline" className="ticker-outline">{line.text}</span>,
-          ]}
-          offset={line.reverse ? invertScroll : scrollY}
-        />
+        <div key={`${line.text}-${index}`} className="overflow-hidden whitespace-nowrap flex py-0.5">
+          <div
+            className={`flex shrink-0 items-center will-change-transform ${
+              line.reverse ? "animate-marquee-reverse" : "animate-marquee"
+            }`}
+            style={{ animationDuration: line.duration }}
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center">
+                <span className="ticker-solid mx-4 sm:mx-8">{line.text}</span>
+                <span className="ticker-outline mx-4 sm:mx-8">{line.text}</span>
+              </div>
+            ))}
+          </div>
+          <div
+            className={`flex shrink-0 items-center will-change-transform ${
+              line.reverse ? "animate-marquee-reverse" : "animate-marquee"
+            }`}
+            style={{ animationDuration: line.duration }}
+            aria-hidden="true"
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={`dup-${i}`} className="flex items-center">
+                <span className="ticker-solid mx-4 sm:mx-8">{line.text}</span>
+                <span className="ticker-outline mx-4 sm:mx-8">{line.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
-    </div>
-  );
-}
-
-interface TickerProps {
-  items: React.ReactNode[];
-  offset: MotionValue<number>;
-}
-
-function Ticker({ items, offset }: TickerProps) {
-  // Scale raw scroll pixels → horizontal movement.
-  // 0.4 = 40px movement per 100px scrolled.
-  const x = useTransform(() => offset.get() * 0.4);
-
-  // 20 repeats × 2 items each = a ~16 000px wide strip.
-  // Pre-centering via marginLeft:"-250%" ensures the MIDDLE of the strip is
-  // visible at scrollY=0, leaving equal room for both left/right movement.
-  const repeated = Array.from({ length: 20 }, (_, i) =>
-    items.map((item, j) => (
-      <span key={`${i}-${j}`} className="mx-6 inline-flex shrink-0 items-center sm:mx-12">
-        {item}
-      </span>
-    ))
-  ).flat();
-
-  return (
-    <div className="overflow-hidden py-1">
-      <motion.div
-        style={{ x, marginLeft: "-250%" }}
-        className="flex items-center"
-      >
-        {repeated}
-      </motion.div>
     </div>
   );
 }

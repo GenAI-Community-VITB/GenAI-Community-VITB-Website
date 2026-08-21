@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, BookOpen, FolderGit2, Globe } from "lucide-react";
+import { ArrowUpRight, BookOpen, Code2, Globe, Sparkles } from "lucide-react";
 
 interface ProjectItem {
   id: string;
@@ -12,74 +12,90 @@ interface ProjectItem {
 }
 
 export function ProjectGrid({ projects }: { projects: ProjectItem[] }) {
+  if (projects.length === 0) {
+    return (
+      <div className="rounded-3xl border border-[#262015] bg-[#0c0a07] p-12 text-center text-zinc-500 text-xs">
+        No active projects published yet. Check back soon or contribute via the admin dashboard!
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (
         <article
           key={project.id}
-          className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#2c2c2c] bg-[#121212] shadow-[0_20px_50px_rgba(0,0,0,0.35)] transition hover:-translate-y-1 hover:border-[#f5b642]/45"
+          className="group flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-[#2e2517] bg-gradient-to-b from-[#14100b] to-[#0a0805] shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-[#f5b642]/70 hover:shadow-[0_15px_40px_rgba(245,182,66,0.18)]"
         >
-          <div className="relative h-44 overflow-hidden border-b border-[#262626] bg-[#181818]">
-            {project.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={project.image_url}
-                alt={`${project.title} preview`}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(245,182,66,0.18),_transparent_55%),_#181818]" />
-            )}
+          <div>
+            {/* Project Preview Image */}
+            <div className="relative h-48 overflow-hidden border-b border-[#221c13] bg-[#120f0a]">
+              {project.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={project.image_url}
+                  alt={`${project.title} preview`}
+                  className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(245,182,66,0.12),_transparent_65%),_#100d08]">
+                  <Sparkles className="h-10 w-10 text-[#f5b642]/40" />
+                </div>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-3">
+              <h3 className="text-xl font-extrabold text-white group-hover:text-[#ffd06a] transition-colors">
+                {project.title}
+              </h3>
+              <p className="line-clamp-4 text-xs leading-relaxed text-zinc-400">
+                {project.short_description}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-1 flex-col p-5">
-            <h3 className="text-xl font-semibold text-white">{project.title}</h3>
-            <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-zinc-400">
-              {project.short_description}
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2 text-sm">
+          {/* External Links */}
+          <div className="p-6 pt-0 flex flex-wrap items-center gap-2 border-t border-[#1e1910] mt-4">
             {project.github_url && (
-              <Link
+              <a
                 href={project.github_url}
                 target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#3a3528] bg-[#18150f] px-3 py-1.5 text-xs font-medium text-[#f6e7ca] transition hover:border-[#f5b642]/55"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#2e2618] bg-[#16120b] px-3 py-1.5 text-xs font-bold text-zinc-300 transition hover:border-[#f5b642] hover:text-white"
               >
-                  <FolderGit2 className="h-3.5 w-3.5" aria-hidden />
-                GitHub
-                <ArrowUpRight className="h-3 w-3" aria-hidden />
-              </Link>
+                <Code2 className="h-3.5 w-3.5" />
+                <span>Code</span>
+                <ArrowUpRight className="h-3 w-3 text-zinc-500" />
+              </a>
             )}
             {project.live_url && (
-              <Link
+              <a
                 href={project.live_url}
                 target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#2d3930] bg-[#111915] px-3 py-1.5 text-xs font-medium text-[#c8f6d5] transition hover:border-[#4ade80]/45"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-xs font-bold text-emerald-300 transition hover:border-emerald-400 hover:text-white"
               >
-                <Globe className="h-3.5 w-3.5" aria-hidden />
-                Live
-                <ArrowUpRight className="h-3 w-3" aria-hidden />
-              </Link>
+                <Globe className="h-3.5 w-3.5" />
+                <span>Live Demo</span>
+                <ArrowUpRight className="h-3 w-3 text-emerald-500" />
+              </a>
             )}
             {project.blog_url && (
-              <Link
+              <a
                 href={project.blog_url}
                 target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#323232] bg-[#171717] px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-zinc-500"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-950/30 px-3 py-1.5 text-xs font-bold text-purple-300 transition hover:border-purple-400 hover:text-white"
               >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden />
-                Blog
-                <ArrowUpRight className="h-3 w-3" aria-hidden />
-              </Link>
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Article</span>
+                <ArrowUpRight className="h-3 w-3 text-purple-500" />
+              </a>
             )}
-          </div>
-
-            {!project.github_url && !project.live_url && !project.blog_url ? (
-              <p className="mt-5 text-xs text-zinc-500">No external links added yet.</p>
-            ) : null}
+            {!project.github_url && !project.live_url && !project.blog_url && (
+              <span className="text-[11px] font-mono text-zinc-600">Internal Community Project</span>
+            )}
           </div>
         </article>
       ))}

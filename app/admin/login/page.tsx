@@ -1,4 +1,15 @@
 import { AdminLoginForm } from "@/components/admin/admin-login-form";
+import Image from "next/image";
+import ClubIcon from "@/assets/ClubIcon.png";
+import {
+  Shield,
+  QrCode,
+  Users,
+  Trophy,
+  Database,
+  Lock,
+  Sparkles,
+} from "lucide-react";
 
 interface AdminLoginPageProps {
   searchParams: Promise<{ error?: string }>;
@@ -9,35 +20,93 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
   const hasInvalidCredentials = params.error === "invalid_credentials";
 
   return (
-    <main className="min-h-screen bg-[#080808] px-4 py-10 sm:px-6">
-      <div className="mx-auto grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#272727] bg-[#0f0f0f] shadow-[0_32px_80px_rgba(0,0,0,0.45)] md:grid-cols-[1.05fr_1fr]">
-        <section className="relative hidden border-r border-[#242424] bg-[radial-gradient(circle_at_top_left,_rgba(245,182,66,0.2),_transparent_55%),_#121212] p-10 md:flex md:flex-col md:justify-between">
-          <div>
-            <span className="inline-flex rounded-full border border-[#f5b642]/30 bg-[#f5b642]/10 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-[#f5b642] uppercase">
-              GEN AI CLUB
-            </span>
-            <h1 className="mt-6 text-3xl font-semibold leading-tight text-white">
-              Admin Control Panel
-            </h1>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-zinc-400">
-              Manage members, events, and projects from a secure internal dashboard.
-            </p>
-          </div>
-          <div className="flex flex-1 items-center rounded-2xl border border-[#3a321f] bg-[#15120c] px-6 py-6">
-            <p className="text-2xl font-bold leading-snug text-zinc-200 italic" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-              &ldquo;I&apos;m a professional multi-tasker: I can procrastinate, check my email, and lose my pen all at the same time.&rdquo;
-            </p>
+    <main className="min-h-screen bg-[#070707] px-4 py-12 sm:px-6 flex items-center justify-center relative overflow-hidden">
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-[#f5b642]/[0.07] blur-[120px]" />
+      <div className="pointer-events-none absolute -bottom-40 right-1/4 h-[500px] w-[500px] rounded-full bg-[#38bdf8]/[0.05] blur-[120px]" />
+
+      <div className="relative mx-auto grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#262218] bg-[#0c0b09] shadow-[0_32px_90px_rgba(0,0,0,0.65)] md:grid-cols-[1.1fr_1fr] backdrop-blur-xl">
+        {/* Left Side: Club Info & Feature Highlights */}
+        <section className="relative hidden border-r border-[#221d14] bg-[radial-gradient(ellipse_at_top_left,_rgba(245,182,66,0.14),_transparent_65%),_#100e0a] p-10 md:flex md:flex-col md:justify-between">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3.5">
+              <div className="overflow-hidden rounded-2xl border border-[#f5b642]/40 bg-[#16120b] p-1.5 shadow-[0_0_20px_rgba(245,182,66,0.15)]">
+                <Image
+                  src={ClubIcon}
+                  alt="Club Icon"
+                  width={38}
+                  height={38}
+                  className="h-8 w-8 object-cover rounded-xl"
+                  priority
+                />
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#f5b642] flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
+                  Generative AI Community
+                </span>
+                <p className="text-[11px] text-zinc-400 font-medium">Official Admin & Executive Portal</p>
+              </div>
+            </div>
+
+            <div>
+              <h1 className="text-3xl font-black leading-tight text-white tracking-tight">
+                Command & Operations Center
+              </h1>
+              <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                Secure access gateway for Executive 6, Vertical Leads, Event Coordinators, and Finance Verifiers.
+              </p>
+            </div>
+
+            {/* Feature Highlights Grid */}
+            <div className="grid gap-3 pt-2">
+              <div className="flex items-start gap-3 rounded-2xl border border-[#2a2416] bg-[#14110b]/80 p-3.5 transition hover:border-[#f5b642]/40">
+                <QrCode className="h-5 w-5 text-[#f5b642] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-white">Event Ticket QR Scanner</h4>
+                  <p className="text-[11px] text-zinc-400">Real-time on-spot attendance check-ins & duplicate prevention</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-2xl border border-[#2a2416] bg-[#14110b]/80 p-3.5 transition hover:border-sky-500/40">
+                <Users className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-white">51-Member Multi-Team Hierarchy</h4>
+                  <p className="text-[11px] text-zinc-400">Drive avatar uploads, credentials dispatch & instant role management</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-2xl border border-[#2a2416] bg-[#14110b]/80 p-3.5 transition hover:border-amber-500/40">
+                <Trophy className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-white">Achievements & Project Publishing</h4>
+                  <p className="text-[11px] text-zinc-400">Direct curation and website showcase for Panel and Top-6 Execs</p>
+                </div>
+              </div>
+            </div>
           </div>
 
+          <div className="mt-8 flex items-center justify-between border-t border-[#221c12] pt-4 text-[11px] text-zinc-500">
+            <span className="flex items-center gap-1.5 font-mono">
+              <Lock className="h-3 w-3 text-emerald-400" />
+              AES-256 Auth Encryption
+            </span>
+            <span className="font-mono">v2026.2</span>
+          </div>
         </section>
 
-        <section className="p-6 sm:p-10">
-          <h2 className="text-2xl font-semibold text-white sm:text-3xl">Admin Login</h2>
-          <p className="mt-2 text-sm text-zinc-400">
-            Use your Supabase Auth credentials (e.g. <span className="text-zinc-300">admin@club.com</span>
-            ) so Row Level Security allows saves. An alternate login without Supabase does not grant database
-            writes.
-          </p>
+        {/* Right Side: Admin Authentication Form */}
+        <section className="p-8 sm:p-10 flex flex-col justify-center bg-[#0d0c0a]">
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#f5b642]/30 bg-[#1e180d] px-3 py-0.5 text-[10px] font-bold text-[#f5b642] uppercase tracking-wider mb-2">
+              <Shield className="h-3 w-3" />
+              Administrative Gateway
+            </div>
+            <h2 className="text-2xl font-bold text-white sm:text-3xl">Admin Authentication</h2>
+            <p className="mt-1.5 text-xs text-zinc-400 leading-relaxed">
+              Enter your official credentials (<span className="text-[#ffd06a] font-mono font-medium">user@genai.community</span>) to access your administrative control module.
+            </p>
+          </div>
 
           <AdminLoginForm showInitialError={hasInvalidCredentials} />
         </section>

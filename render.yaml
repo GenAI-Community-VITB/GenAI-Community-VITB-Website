@@ -1,0 +1,12 @@
+services:
+  - type: worker
+    name: genai-keepalive-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npx tsx scripts/keepalive-worker.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://genai-club.vercel.app

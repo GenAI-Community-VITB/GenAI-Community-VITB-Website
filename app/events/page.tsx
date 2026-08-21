@@ -2,30 +2,44 @@ import { EventGrid } from "@/components/site/event-grid";
 import { Footer } from "@/components/site/footer";
 import { Navbar } from "@/components/site/navbar";
 import { getEvents } from "@/lib/data/public";
+import { Calendar, Sparkles } from "lucide-react";
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function EventsPage() {
   const events = await getEvents();
 
   return (
-    <>
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
       <Navbar />
-      <main className="min-h-screen bg-[#080808] py-14">
-        <section className="container-wrap">
-          <h1 className="text-4xl font-bold text-[#f5b642] sm:text-5xl">Events</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
-            Discover upcoming and live sessions from our club. Events created or edited from
-            the admin dashboard appear here automatically.
+
+      {/* Ambient background lighting */}
+      <div className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2 h-[600px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_center,_rgba(245,182,66,0.08),_transparent_70%)] blur-3xl" />
+
+      <main className="py-8 relative space-y-8">
+        {/* Unified Page Header */}
+        <div className="container-wrap text-center max-w-3xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#f5b642]/30 bg-[#16120b] px-4 py-1 text-xs font-bold uppercase tracking-wider text-[#f5b642] shadow-[0_0_20px_rgba(245,182,66,0.15)]">
+            <Calendar className="h-3.5 w-3.5" />
+            Official Campus Calendar
+          </div>
+          <h1 className="text-4xl font-extrabold text-white sm:text-5xl lg:text-6xl tracking-tight">
+            Events &{" "}
+            <span className="bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] bg-clip-text text-transparent">
+              Workshops
+            </span>
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl mx-auto truncate font-medium">
+            Join upcoming hackathons, tech workshops, and hands-on AI sessions.
           </p>
-        </section>
-        <div className="mt-8">
-          <section className="container-wrap">
-            <EventGrid events={events} />
-          </section>
+        </div>
+
+        {/* Events Grid */}
+        <div className="container-wrap">
+          <EventGrid events={events} />
         </div>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }
