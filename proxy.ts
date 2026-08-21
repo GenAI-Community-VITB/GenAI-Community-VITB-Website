@@ -3,13 +3,14 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
+  const isAdminCookie = request.cookies.get("club_admin_session")?.value === "1";
 
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
-    // If env vars are missing, block admin access entirely rather than allowing through
     if (
+      !isAdminCookie &&
       request.nextUrl.pathname.startsWith("/admin") &&
       request.nextUrl.pathname !== "/admin/login"
     ) {
@@ -39,9 +40,10 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Only a valid Supabase authenticated session grants admin access — no bypasses
+  // If neither Supabase user nor root admin cookie is present, redirect to login
   if (
     !user &&
+    !isAdminCookie &&
     request.nextUrl.pathname.startsWith("/admin") &&
     request.nextUrl.pathname !== "/admin/login"
   ) {

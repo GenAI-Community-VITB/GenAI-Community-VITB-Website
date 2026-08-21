@@ -39,7 +39,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
     setPending(true);
     const form = e.currentTarget;
     const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim().toLowerCase();
-    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value.trim();
 
     if (!email || !password) {
       setError("Please provide both your official email and password.");
