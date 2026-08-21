@@ -29,6 +29,14 @@ export const metadata: Metadata = {
     template: "%s | Generative AI Community",
   },
   description: "Official portal for Generative AI Community - team hierarchy, live events, registration passes, and research projects.",
+  icons: {
+    icon: [
+      { url: "/ClubIcon.png", sizes: "any" },
+      { url: "/ClubIcon.png", type: "image/png" },
+    ],
+    shortcut: "/ClubIcon.png",
+    apple: "/ClubIcon.png",
+  },
 };
 
 export default function RootLayout({
