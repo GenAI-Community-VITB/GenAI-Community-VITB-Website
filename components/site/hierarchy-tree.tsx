@@ -861,12 +861,11 @@ export function MemberHierarchyTree({
                                     badgeText="Core"
                                     onSelectMember={setSelectedMember}
                                   />
-                                  onSelectMember={setSelectedMember}
-                                />
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
