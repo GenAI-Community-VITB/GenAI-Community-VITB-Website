@@ -211,9 +211,17 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       return { ok: false, error: error?.message || "Invalid credentials. Please verify your email and password." };
     }
 
-    // Set admin session cookie for smooth middleware passage
+    // Set admin session cookie and email cookie for seamless cross-subpage state
     const cookieStore = await cookies();
     cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    cookieStore.set("club_admin_email", email, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -230,6 +238,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
 export async function logoutAdmin() {
   const cookieStore = await cookies();
   cookieStore.delete(ADMIN_SESSION_COOKIE);
+  cookieStore.delete("club_admin_email");
   const supabase = await createServerSupabase();
   await supabase.auth.signOut();
   redirect("/admin/login");

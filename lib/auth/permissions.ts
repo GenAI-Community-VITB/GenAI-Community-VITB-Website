@@ -159,11 +159,69 @@ export async function getAuthenticatedStaff(): Promise<{
   isTop6: boolean;
 }> {
   try {
-    // 1. Check for Hardcoded/Dev Admin Session Cookie
     const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
     const isAdminCookieActive = cookieStore.get("club_admin_session")?.value === "1";
+    const loggedInEmailCookie = cookieStore.get("club_admin_email")?.value?.trim().toLowerCase();
 
+    // 1. Check for active Supabase Auth Session
+    const supabase = await createServerSupabase();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    const targetEmail = user?.email || loggedInEmailCookie;
+    const targetId = user?.id;
+
+    if (targetId || targetEmail) {
+      const adminClient = createAdminSupabase();
+      let query = adminClient
+        .from("user_profiles")
+        .select("*, roles:member_roles(*)")
+        .eq("is_active", true);
+
+      if (targetId) {
+        query = query.eq("id", targetId);
+      } else if (targetEmail) {
+        query = query.eq("email", targetEmail);
+      }
+
+      const { data: profile } = await query.maybeSingle();
+
+      if (profile) {
+        const isTop6 = isTop6Admin(profile.role, profile.roles);
+        return {
+          user: user || { id: profile.id, email: profile.email },
+          profile: profile as UserProfile,
+          role: profile.role as UserRole,
+          isTop6,
+        };
+      }
+
+      // If user exists in Auth/Cookie but profile row is missing, synthesize profile
+      if (targetEmail) {
+        const synthesizedProfile: UserProfile = {
+          id: targetId || "00000000-0000-0000-0000-000000000001",
+          email: targetEmail,
+          full_name: user?.user_metadata?.full_name || targetEmail.split("@")[0] || "Club Member",
+          role: (user?.user_metadata?.role as UserRole) || "president",
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          roles: [],
+        };
+
+        return {
+          user: user || { id: synthesizedProfile.id, email: synthesizedProfile.email },
+          profile: synthesizedProfile,
+          role: synthesizedProfile.role,
+          isTop6: true,
+        };
+      }
+    }
+
+    // 2. Fallback to Root Dev Admin if cookie is present
     if (isAdminCookieActive) {
       const rootAdminProfile: UserProfile = {
         id: "00000000-0000-0000-0000-000000000001",
@@ -195,54 +253,7 @@ export async function getAuthenticatedStaff(): Promise<{
       };
     }
 
-    // 2. Check for Supabase Auth Session
-    const supabase = await createServerSupabase();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return { user: null, profile: null, role: null, isTop6: false };
-    }
-
-    const adminClient = createAdminSupabase();
-    const { data: profile, error: profileError } = await adminClient
-      .from("user_profiles")
-      .select("*, roles:member_roles(*)")
-      .eq("id", user.id)
-      .eq("is_active", true)
-      .single();
-
-    if (profileError || !profile) {
-      // Fallback: If user exists in Auth but user_profiles record is missing, grant baseline executive access
-      const synthesizedProfile: UserProfile = {
-        id: user.id,
-        email: user.email || "staff@genai.community",
-        full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Club Staff",
-        role: (user.user_metadata?.role as UserRole) || "president",
-        is_active: true,
-        created_at: user.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        roles: [],
-      };
-
-      return {
-        user,
-        profile: synthesizedProfile,
-        role: synthesizedProfile.role,
-        isTop6: true,
-      };
-    }
-
-    const isTop6 = isTop6Admin(profile.role, profile.roles);
-
-    return {
-      user,
-      profile: profile as UserProfile,
-      role: profile.role as UserRole,
-      isTop6,
-    };
+    return { user: null, profile: null, role: null, isTop6: false };
   } catch (err) {
     console.error("Error retrieving authenticated staff:", err);
     return { user: null, profile: null, role: null, isTop6: false };
