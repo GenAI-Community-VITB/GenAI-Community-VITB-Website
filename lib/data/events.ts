@@ -16,6 +16,7 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
       .select("*")
       .order("event_date", { ascending: true });
 
+    let rawList: Event[] = [];
     if (error) {
       console.warn("Public client event fetch fallback to admin client:", error.message);
       const adminSupabase = createAdminSupabase();
@@ -23,10 +24,18 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
         .from("events")
         .select("*")
         .order("event_date", { ascending: true });
-      return (adminRes.data as Event[]) ?? [];
+      rawList = (adminRes.data as Event[]) ?? [];
+    } else {
+      rawList = (data as Event[]) ?? [];
     }
 
-    return (data as Event[]) ?? [];
+    // Filter out dummy/test events
+    return rawList.filter(
+      (e) =>
+        e.slug !== "test-event-2026" &&
+        !e.title?.toLowerCase().includes("test event") &&
+        !e.title?.toLowerCase().includes("dummy"),
+    );
   } catch (err) {
     console.error("Error fetching public events:", err);
     try {
@@ -35,7 +44,13 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
         .from("events")
         .select("*")
         .order("event_date", { ascending: true });
-      return (adminRes.data as Event[]) ?? [];
+      const rawList = (adminRes.data as Event[]) ?? [];
+      return rawList.filter(
+        (e) =>
+          e.slug !== "test-event-2026" &&
+          !e.title?.toLowerCase().includes("test event") &&
+          !e.title?.toLowerCase().includes("dummy"),
+      );
     } catch {
       return [];
     }

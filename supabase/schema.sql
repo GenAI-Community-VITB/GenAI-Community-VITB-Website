@@ -168,40 +168,8 @@ end $$;
 drop trigger if exists events_updated_at on public.events;
 create trigger events_updated_at before update on public.events for each row execute function public.set_updated_at();
 
-insert into public.events (
-  title,
-  slug,
-  description,
-  venue,
-  event_date,
-  registration_fee,
-  max_capacity,
-  registration_deadline,
-  event_start_time,
-  event_end_time,
-  is_registration_open,
-  status,
-  upi_id
-) values (
-  'Test Event',
-  'test-event-2026',
-  'Official flagship GenAI Community event at VIT Bhopal University. Explore generative AI workshops, developer keynotes, hands-on hack labs, and networking sessions.',
-  'VIT Bhopal University Campus (Auditorium)',
-  '2026-09-12 09:00:00+05:30',
-  200.00,
-  2000,
-  null,
-  null,
-  null,
-  true,
-  'live',
-  'genai.community@okaxis'
-) on conflict (slug) do update set
-  title = excluded.title,
-  registration_fee = excluded.registration_fee,
-  max_capacity = excluded.max_capacity,
-  status = excluded.status,
-  updated_at = now();
+-- Note: Events are created dynamically by administrators via the /admin panel.
+
 
 -- ----------------------------------------------------------------------------
 -- 5. REGISTRATIONS TABLE

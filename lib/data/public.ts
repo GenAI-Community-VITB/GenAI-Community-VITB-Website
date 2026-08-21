@@ -70,15 +70,25 @@ export const getEvents = cache(async () => {
       .from("events")
       .select("*")
       .order("event_date", { ascending: true });
+    
+    let list: any[] = [];
     if (error) {
       const admin = createAdminSupabase();
       const res = await admin
         .from("events")
         .select("*")
         .order("event_date", { ascending: true });
-      return res.data ?? [];
+      list = res.data ?? [];
+    } else {
+      list = data ?? [];
     }
-    return data ?? [];
+
+    return list.filter(
+      (e: any) =>
+        e.slug !== "test-event-2026" &&
+        !e.title?.toLowerCase().includes("test event") &&
+        !e.title?.toLowerCase().includes("dummy"),
+    );
   } catch {
     try {
       const admin = createAdminSupabase();
@@ -86,7 +96,13 @@ export const getEvents = cache(async () => {
         .from("events")
         .select("*")
         .order("event_date", { ascending: true });
-      return res.data ?? [];
+      const list = res.data ?? [];
+      return list.filter(
+        (e: any) =>
+          e.slug !== "test-event-2026" &&
+          !e.title?.toLowerCase().includes("test event") &&
+          !e.title?.toLowerCase().includes("dummy"),
+      );
     } catch {
       return [];
     }
