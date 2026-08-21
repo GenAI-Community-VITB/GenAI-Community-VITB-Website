@@ -715,10 +715,17 @@ export function MemberHierarchyTree({
               DEPARTMENTAL TEAMS GRID WITH CLICK/HOVER RETRACTING MENUS
           ══════════════════════════════════════════════════════════════════════ */}
           <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative z-10 overflow-visible pt-2">
-            {branches.map((branch) => {
+            {branches.map((branch, index) => {
               const Icon = branch.icon;
               const isOpen = activeTeamId === branch.id;
               const totalTeamMembers = branch.leads.length + branch.core.length;
+              const isFirst = index === 0 || index % 5 === 0;
+              const isLast = index === branches.length - 1 || index % 5 === 4;
+              const alignClass = isFirst
+                ? "left-0 translate-x-0"
+                : isLast
+                ? "right-0 left-auto translate-x-0"
+                : "left-1/2 -translate-x-1/2";
 
               return (
                 <div
@@ -789,7 +796,7 @@ export function MemberHierarchyTree({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.98 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
-                        className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[300px] sm:w-[340px] max-h-[460px] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-50 space-y-3"
+                        className={`absolute top-full mt-2 w-[290px] sm:w-[320px] max-w-[calc(100vw-2rem)] max-h-[460px] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-50 space-y-3 ${alignClass}`}
                       >
                         {/* Header of Pop-out with Close/Retract Button */}
                         <div className="flex items-center justify-between pb-2 border-b border-[#221c13]">
