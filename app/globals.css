@@ -24,6 +24,7 @@ html, body {
   overflow-x: hidden !important;
   max-width: 100vw;
   scroll-behavior: smooth;
+  zoom: 1.10;
 }
 
 /* ── Apple-style Scrollbar Stripping ──────────────────────── */
