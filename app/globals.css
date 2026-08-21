@@ -31,25 +31,6 @@ html, body {
   scroll-behavior: smooth;
 }
 
-/* Dynamic Responsive Scaling: Fluid 100% on Smartphones, 115% on Tablets, 125% on Widescreen Desktops */
-@media (max-width: 767px) {
-  html, body {
-    zoom: 1 !important;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  html, body {
-    zoom: 1.15;
-  }
-}
-
-@media (min-width: 1024px) {
-  html, body {
-    zoom: 1.20;
-  }
-}
-
 /* ── Apple-style Scrollbar Stripping ──────────────────────── */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;

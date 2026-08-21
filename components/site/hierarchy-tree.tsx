@@ -796,10 +796,10 @@ export function MemberHierarchyTree({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.98 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
-                        className={`absolute top-full mt-2 w-[290px] sm:w-[320px] max-w-[calc(100vw-2rem)] max-h-[460px] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-50 space-y-3 ${alignClass}`}
+                        className={`absolute top-full mt-2 w-[290px] sm:w-[320px] max-w-[calc(100vw-2rem)] rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-50 overflow-hidden flex flex-col ${alignClass}`}
                       >
                         {/* Header of Pop-out with Close/Retract Button */}
-                        <div className="flex items-center justify-between pb-2 border-b border-[#221c13]">
+                        <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#221c13] bg-[#120e09] shrink-0">
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4" style={{ color: branch.color }} />
                             <span className="font-bold text-white text-xs">{branch.name}</span>
@@ -816,47 +816,51 @@ export function MemberHierarchyTree({
                           </button>
                         </div>
 
-                        {/* Leads Sub-section */}
-                        {branch.leads.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 font-mono block">
-                              Leadership:
-                            </span>
+                        {/* Internal Scroll Area strictly contained within card boundary */}
+                        <div className="max-h-[380px] overflow-y-auto overscroll-contain p-3.5 space-y-3 [scrollbar-width:thin] [scrollbar-color:rgba(245,182,66,0.3)_transparent]">
+                          {/* Leads Sub-section */}
+                          {branch.leads.length > 0 && (
                             <div className="space-y-1.5">
-                              {branch.leads.map((m) => {
-                                const isCoLead =
-                                  m.roleTitle.toLowerCase().includes("co-lead") ||
-                                  m.roleTitle.toLowerCase().includes("joint") ||
-                                  m.roleTitle.toLowerCase().includes("assistant");
-                                const badge = isCoLead ? "Co-Lead" : "Lead";
-                                return (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 font-mono block">
+                                Leadership:
+                              </span>
+                              <div className="space-y-1.5">
+                                {branch.leads.map((m) => {
+                                  const isCoLead =
+                                    m.roleTitle.toLowerCase().includes("co-lead") ||
+                                    m.roleTitle.toLowerCase().includes("joint") ||
+                                    m.roleTitle.toLowerCase().includes("assistant");
+                                  const badge = isCoLead ? "Co-Lead" : "Lead";
+                                  return (
+                                    <TreeNodeCard
+                                      key={m.email}
+                                      member={m}
+                                      color={branch.color}
+                                      badgeText={badge}
+                                      onSelectMember={setSelectedMember}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Core Members Sub-section */}
+                          {branch.core.length > 0 && (
+                            <div className="space-y-1.5 pt-2 border-t border-[#1e1910]">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 font-mono block">
+                                Core Specialists:
+                              </span>
+                              <div className="space-y-1.5">
+                                {branch.core.map((m) => (
                                   <TreeNodeCard
                                     key={m.email}
                                     member={m}
                                     color={branch.color}
-                                    badgeText={badge}
+                                    isCore
+                                    badgeText="Core"
                                     onSelectMember={setSelectedMember}
                                   />
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Core Members Sub-section */}
-                        {branch.core.length > 0 && (
-                          <div className="space-y-1.5 pt-2 border-t border-[#1e1910]">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 font-mono block">
-                              Core Specialists:
-                            </span>
-                            <div className="space-y-1.5">
-                              {branch.core.map((m) => (
-                                <TreeNodeCard
-                                  key={m.email}
-                                  member={m}
-                                  color={branch.color}
-                                  isCore
-                                  badgeText="Core"
                                   onSelectMember={setSelectedMember}
                                 />
                               ))}

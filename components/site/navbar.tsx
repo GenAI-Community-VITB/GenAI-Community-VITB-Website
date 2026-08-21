@@ -74,18 +74,34 @@ export function Navbar() {
         {/* Mobile Quick Action Link */}
         <div className="flex items-center gap-2 md:hidden">
           <Link
-            href="/winners"
-            className="rounded-xl border border-[#3a301b] bg-[#16120b] px-3 py-1.5 text-xs font-bold text-[#f5b642]"
-          >
-            Winners
-          </Link>
-          <Link
             href="/events"
-            className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black"
+            className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black shadow-[0_0_12px_rgba(245,182,66,0.35)]"
           >
             Events
           </Link>
         </div>
+      </div>
+
+      {/* Mobile Horizontally Scrollable Navigation Ribbon */}
+      <div className="flex w-full items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-2 border-t border-[#221d14]/70 md:hidden bg-[#0a0805]/95">
+        {NAV_LINKS.map((link) => {
+          const isActive = pathname === link.href;
+          const Icon = link.icon;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`flex items-center gap-1.5 shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                isActive
+                  ? "bg-[#1f190e] text-[#f5b642] border border-[#f5b642]/60 shadow-[0_0_10px_rgba(245,182,66,0.25)]"
+                  : "text-zinc-400 border border-[#221d14] bg-[#120f0a] hover:text-white hover:border-[#382f1d]"
+              }`}
+            >
+              {Icon && <Icon className="h-3.5 w-3.5 text-[#f5b642]/85 shrink-0" />}
+              <span>{link.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </header>
   );
