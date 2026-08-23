@@ -18,6 +18,9 @@ import {
   VideoOff,
   UserCheck,
   Clock,
+  Upload,
+  ImageIcon,
+  SwitchCamera,
 } from "lucide-react";
 import { formatISTDate } from "@/lib/utils/format";
 
@@ -34,6 +37,10 @@ interface ParticipantData {
   registration_number: string;
   status: string;
   registration_source?: string;
+  college_email?: string;
+  personal_email?: string;
+  phone_number?: string;
+  event_title?: string;
 }
 
 interface ScanVerificationState {
@@ -63,6 +70,11 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
   const [overrideReason, setOverrideReason] = useState("");
   const [lastScannedToken, setLastScannedToken] = useState<string | null>(null);
 
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [fileScanning, setFileScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const qrRegionId = "html5-qr-reader-region";
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
@@ -75,6 +87,22 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
     currentUserRole === "technical_co_lead" ||
     currentUserRole === "aiml_lead" ||
     currentUserRole === "aiml_co_lead";
+
+  // Discover available cameras on mount
+  useEffect(() => {
+    Html5Qrcode.getCameras()
+      .then((devices) => {
+        if (devices && devices.length > 0) {
+          setCameras(devices);
+          // Prefer back camera if found
+          const backCam = devices.find((d) => d.label.toLowerCase().includes("back") || d.label.toLowerCase().includes("environment"));
+          setSelectedCameraId(backCam ? backCam.id : devices[0].id);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not enumerate camera devices:", err);
+      });
+  }, []);
 
   // Audio chimes
   const playBeep = useCallback((type: "success" | "error" | "ready") => {
@@ -160,7 +188,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
         } else {
           setScanState({
             stage: "rejected",
-            message: data.message || "Invalid QR code.",
+            message: data.message || "Invalid QR code or registration number.",
             errorCode: data.errorCode || "INVALID_QR",
           });
           setSessionCount((prev) => ({ ...prev, rejected: prev.rejected + 1 }));
@@ -178,6 +206,34 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
     },
     [playBeep],
   );
+
+  // Scan QR code from uploaded image
+  async function handleFileUploadScan(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileScanning(true);
+    setScannerError(null);
+
+    try {
+      // Create isolated scanner instance for file scanning
+      const tempScanner = new Html5Qrcode("html5-qr-file-region");
+      const decoded = await tempScanner.scanFile(file, true);
+      await tempScanner.clear();
+      if (decoded) {
+        handleVerifyToken(decoded);
+      }
+    } catch (err: any) {
+      console.warn("File QR decode failed:", err);
+      setScannerError("No valid QR code detected in the selected image. Please try another image or enter the registration number manually.");
+      playBeep("error");
+    } finally {
+      setFileScanning(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
 
   // STEP 2: Confirm Attendance Button Click
   async function handleConfirmAttendance(isOverride = false, reason?: string) {
@@ -259,34 +315,55 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
       const scanner = new Html5Qrcode(qrRegionId);
       scannerRef.current = scanner;
 
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 15,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const edgeSize = Math.floor(minEdge * 0.72);
-            return { width: edgeSize, height: edgeSize };
+      const cameraConfig = selectedCameraId
+        ? { deviceId: { exact: selectedCameraId } }
+        : { facingMode: "environment" };
+
+      const scanConfig = {
+        fps: 15,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const edgeSize = Math.floor(minEdge * 0.72);
+          return { width: edgeSize, height: edgeSize };
+        },
+        aspectRatio: 1.0,
+      };
+
+      try {
+        await scanner.start(
+          cameraConfig,
+          scanConfig,
+          (decodedText) => {
+            if (!isProcessingRef.current) {
+              handleVerifyToken(decodedText);
+            }
           },
-          aspectRatio: 1.0,
-        },
-        (decodedText) => {
-          if (!isProcessingRef.current) {
-            handleVerifyToken(decodedText);
-          }
-        },
-        () => {},
-      );
+          () => {},
+        );
+      } catch (primaryErr) {
+        console.warn("Primary camera start failed, retrying with fallback constraint:", primaryErr);
+        // Resilient fallback: Try any available camera
+        await scanner.start(
+          { facingMode: "user" },
+          scanConfig,
+          (decodedText) => {
+            if (!isProcessingRef.current) {
+              handleVerifyToken(decodedText);
+            }
+          },
+          () => {},
+        );
+      }
 
       setScanning(true);
     } catch (err: any) {
       console.error("Camera access error:", err);
       setScannerError(
-        "Camera permission denied or camera device busy. Enter the pass token manually below.",
+        "Camera permission denied or camera unavailable. You can upload a QR image or enter the pass ID manually.",
       );
       setScanning(false);
     }
-  }, [handleVerifyToken, stopCamera]);
+  }, [handleVerifyToken, selectedCameraId, stopCamera]);
 
   function resetToNextScan() {
     setScanState(null);
@@ -411,28 +488,71 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
               )}
             </div>
 
-            {/* Hardware Controls */}
-            <div className="mt-4 flex gap-3">
-              {!scanning ? (
-                <button
-                  type="button"
-                  onClick={startCamera}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] py-3.5 text-xs font-black uppercase tracking-wider text-black hover:opacity-95 transition shadow-[0_0_25px_rgba(245,182,66,0.25)] active:scale-[0.99] cursor-pointer"
-                >
-                  <Camera className="h-4 w-4" />
-                  Activate Camera Scanner
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-950/20 py-3.5 text-xs font-bold text-red-300 hover:bg-red-950/40 transition active:scale-[0.99] cursor-pointer"
-                >
-                  <VideoOff className="h-4 w-4 text-red-400" />
-                  Pause Camera Feed
-                </button>
+            {/* Hardware Controls & Camera Switcher */}
+            <div className="mt-4 space-y-3">
+              {cameras.length > 1 && (
+                <div className="flex items-center gap-2 rounded-2xl border border-[#2d2416] bg-[#14100b] px-3.5 py-2">
+                  <SwitchCamera className="h-4 w-4 text-[#f5b642] shrink-0" />
+                  <select
+                    value={selectedCameraId}
+                    onChange={(e) => setSelectedCameraId(e.target.value)}
+                    disabled={scanning}
+                    className="w-full bg-transparent text-xs text-zinc-200 outline-none cursor-pointer"
+                  >
+                    {cameras.map((c, i) => (
+                      <option key={c.id || i} value={c.id} className="bg-[#14100b] text-white">
+                        {c.label || `Camera ${i + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
+
+              <div className="flex gap-3">
+                {!scanning ? (
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] py-3.5 text-xs font-black uppercase tracking-wider text-black hover:opacity-95 transition shadow-[0_0_25px_rgba(245,182,66,0.25)] active:scale-[0.99] cursor-pointer"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Activate Camera Scanner
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-950/20 py-3.5 text-xs font-bold text-red-300 hover:bg-red-950/40 transition active:scale-[0.99] cursor-pointer"
+                  >
+                    <VideoOff className="h-4 w-4 text-red-400" />
+                    Pause Camera Feed
+                  </button>
+                )}
+
+                {/* File Upload Scanner */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUploadScan}
+                  className="hidden"
+                  id="qr-file-upload-input"
+                />
+                <button
+                  type="button"
+                  disabled={fileScanning || isProcessing}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#2d2416] bg-[#14100b] px-4 py-3.5 text-xs font-bold text-zinc-300 hover:border-[#f5b642] hover:text-white transition active:scale-[0.99] cursor-pointer disabled:opacity-50"
+                  title="Scan QR from Image File"
+                >
+                  <Upload className="h-4 w-4 text-[#f5b642]" />
+                  <span>{fileScanning ? "Decoding..." : "Scan Image"}</span>
+                </button>
+              </div>
             </div>
+
+            {/* Hidden container for file scanning */}
+            <div id="html5-qr-file-region" style={{ display: "none" }} />
 
             {scannerError && (
               <div className="mt-3 rounded-2xl border border-red-500/40 bg-red-950/40 p-3.5 text-xs text-red-300 flex items-start gap-2.5">
@@ -531,7 +651,12 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                   <div className="flex items-center justify-between border-b border-[#221c12] pb-2">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-[#f5b642]" />
-                      <strong className="text-sm font-black text-white">{scanState.participant.full_name}</strong>
+                      <div>
+                        <strong className="text-sm font-black text-white block">{scanState.participant.full_name}</strong>
+                        {scanState.participant.event_title && (
+                          <span className="text-[10px] text-zinc-400 font-medium">{scanState.participant.event_title}</span>
+                        )}
+                      </div>
                     </div>
                     <span className="font-mono text-[11px] text-[#f5b642] font-bold">
                       {scanState.participant.vit_registration_number}
@@ -549,6 +674,14 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                         {scanState.participant.registration_number}
                       </span>
                     </div>
+                    {scanState.participant.college_email && (
+                      <div className="col-span-2">
+                        <span className="block text-zinc-500 text-[10px] uppercase font-bold">College Email</span>
+                        <span className="text-zinc-300 font-mono text-[10px] truncate block">
+                          {scanState.participant.college_email}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

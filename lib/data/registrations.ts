@@ -227,7 +227,7 @@ export async function createRegistration(params: {
 
   const eventTitle = eventData?.title || "Test Event";
 
-  // Send Submission Received Email directly to College Email (Non-blocking)
+  // Send Submission Received Email to both Personal and College Email
   const submissionEmail = getSubmissionReceivedTemplate({
     fullName: params.fullName,
     vitRegNumber: params.vitRegistrationNumber.toUpperCase(),
@@ -237,16 +237,20 @@ export async function createRegistration(params: {
     transactionId: params.transactionId,
   });
 
-  const primaryContactEmail = params.collegeEmail || params.personalEmail;
+  const recipientEmails = Array.from(new Set([params.personalEmail, params.collegeEmail].filter(Boolean)));
 
-  sendEmail({
-    to: primaryContactEmail,
-    subject: submissionEmail.subject,
-    html: submissionEmail.html,
-    emailType: "submission_received",
-    registrationId,
-    eventId: params.eventId,
-  }).catch((err) => console.error("Error sending submission email to college email:", err));
+  try {
+    await sendEmail({
+      to: recipientEmails,
+      subject: submissionEmail.subject,
+      html: submissionEmail.html,
+      emailType: "submission_received",
+      registrationId,
+      eventId: params.eventId,
+    });
+  } catch (emailErr) {
+    console.error("Error sending submission email:", emailErr);
+  }
 
   // Mirror record to Google Sheets Registrations tab
   const istTime = formatISTDate(new Date(), true);
@@ -254,7 +258,7 @@ export async function createRegistration(params: {
     [
       registrationId,
       params.fullName,
-      primaryContactEmail,
+      recipientEmails.join(", "),
       params.phoneNumber,
       params.collegeEmail,
       params.personalEmail,
@@ -483,26 +487,30 @@ export async function reviewPayment(params: {
       qrContentId: qrCid,
     });
 
-    const destinationEmail = reg.college_email || reg.personal_email;
+    const destinationEmails = Array.from(new Set([reg.personal_email, reg.college_email].filter(Boolean)));
 
-    sendEmail({
-      to: destinationEmail,
-      subject: emailData.subject,
-      html: emailData.html,
-      emailType: "payment_approved_qr",
-      registrationId: reg.id,
-      eventId: reg.event_id,
-      senderId: params.reviewerId,
-      senderRole: params.reviewerRole,
-      attachments: [
-        {
-          filename: `QR_Pass_${reg.registration_number}.png`,
-          content: qrBuffer,
-          cid: qrCid,
-          contentType: "image/png",
-        },
-      ],
-    }).catch((err) => console.error("Error sending QR pass email to college email:", err));
+    try {
+      await sendEmail({
+        to: destinationEmails,
+        subject: emailData.subject,
+        html: emailData.html,
+        emailType: "payment_approved_qr",
+        registrationId: reg.id,
+        eventId: reg.event_id,
+        senderId: params.reviewerId,
+        senderRole: params.reviewerRole,
+        attachments: [
+          {
+            filename: `QR_Pass_${reg.registration_number}.png`,
+            content: qrBuffer,
+            cid: qrCid,
+            contentType: "image/png",
+          },
+        ],
+      });
+    } catch (sendErr) {
+      console.error("Error sending QR pass email:", sendErr);
+    }
 
     // 4. Audit Log
     await logAuditEvent({
@@ -542,7 +550,7 @@ export async function reviewPayment(params: {
 
     if (updateRegErr) throw new Error(updateRegErr.message);
 
-    // Send Rejection Email to Official College Email
+    // Send Rejection Email to both emails
     const emailData = getPaymentRejectedTemplate({
       fullName: reg.full_name,
       registrationNumber: reg.registration_number,
@@ -551,18 +559,22 @@ export async function reviewPayment(params: {
       rejectionExplanation: params.rejectionExplanation,
     });
 
-    const rejectionDestinationEmail = reg.college_email || reg.personal_email;
+    const rejectionDestinationEmails = Array.from(new Set([reg.personal_email, reg.college_email].filter(Boolean)));
 
-    sendEmail({
-      to: rejectionDestinationEmail,
-      subject: emailData.subject,
-      html: emailData.html,
-      emailType: "payment_rejected",
-      registrationId: reg.id,
-      eventId: reg.event_id,
-      senderId: params.reviewerId,
-      senderRole: params.reviewerRole,
-    }).catch((err) => console.error("Error sending rejection email to college email:", err));
+    try {
+      await sendEmail({
+        to: rejectionDestinationEmails,
+        subject: emailData.subject,
+        html: emailData.html,
+        emailType: "payment_rejected",
+        registrationId: reg.id,
+        eventId: reg.event_id,
+        senderId: params.reviewerId,
+        senderRole: params.reviewerRole,
+      });
+    } catch (rejEmailErr) {
+      console.error("Error sending rejection email:", rejEmailErr);
+    }
 
     // Audit Log
     await logAuditEvent({
@@ -592,6 +604,7 @@ export async function reviewPayment(params: {
 /**
  * Step 1 of 2-Step Attendance Verification:
  * Look up participant details from QR token without marking attendance.
+ * Supports raw opaque token, JSON payloads, URLs, Registration Number, and VIT Reg Number.
  */
 export async function verifyQRTokenDetails(qrToken: string): Promise<{
   success: boolean;
@@ -607,35 +620,192 @@ export async function verifyQRTokenDetails(qrToken: string): Promise<{
     registration_number: string;
     status: string;
     registration_source: string;
+    college_email?: string;
+    personal_email?: string;
+    phone_number?: string;
+    event_title?: string;
   };
   errorCode?: string;
 }> {
-  const cleanToken = qrToken.trim();
+  let cleanToken = (qrToken || "").trim();
   if (!cleanToken) {
-    return { success: false, message: "QR Token is required", errorCode: "EMPTY_TOKEN" };
+    return { success: false, message: "QR Token or Registration Number is required", errorCode: "EMPTY_TOKEN" };
+  }
+
+  // 1. Try parsing JSON if token is packed JSON (e.g. {"token": "...", "reg_no": "..."})
+  if (cleanToken.startsWith("{") && cleanToken.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(cleanToken);
+      cleanToken = (
+        parsed.qr_token ||
+        parsed.token ||
+        parsed.registration_number ||
+        parsed.reg_no ||
+        parsed.vit_registration_number ||
+        parsed.id ||
+        cleanToken
+      ).trim();
+    } catch {
+      // Keep original
+    }
+  }
+
+  // 2. Try parsing URL if token is a full URL
+  if (cleanToken.startsWith("http://") || cleanToken.startsWith("https://")) {
+    try {
+      const url = new URL(cleanToken);
+      const urlToken =
+        url.searchParams.get("token") ||
+        url.searchParams.get("qr_token") ||
+        url.searchParams.get("reg") ||
+        url.searchParams.get("id");
+      if (urlToken) {
+        cleanToken = urlToken.trim();
+      } else {
+        const segments = url.pathname.split("/").filter(Boolean);
+        if (segments.length > 0) {
+          cleanToken = segments[segments.length - 1].trim();
+        }
+      }
+    } catch {
+      // Keep original
+    }
+  }
+
+  // Strip surrounding quotes
+  if ((cleanToken.startsWith('"') && cleanToken.endsWith('"')) || (cleanToken.startsWith("'") && cleanToken.endsWith("'"))) {
+    cleanToken = cleanToken.slice(1, -1).trim();
   }
 
   const supabase = createAdminSupabase();
-  const { data, error } = await supabase.rpc("verify_qr_token_details", {
-    p_qr_token: cleanToken,
-  });
 
-  if (error || !data) {
+  // Multi-tier prioritized participant lookup
+  let reg: any = null;
+
+  // A. Check by exact qr_token
+  const { data: byQr } = await supabase
+    .from("registrations")
+    .select("*, event:events(title, venue, event_date)")
+    .eq("qr_token", cleanToken)
+    .limit(1)
+    .maybeSingle();
+
+  if (byQr) reg = byQr;
+
+  // B. Check by registration_number
+  if (!reg) {
+    const { data: byRegNo } = await supabase
+      .from("registrations")
+      .select("*, event:events(title, venue, event_date)")
+      .ilike("registration_number", cleanToken)
+      .limit(1)
+      .maybeSingle();
+    if (byRegNo) reg = byRegNo;
+  }
+
+  // C. Check by vit_registration_number
+  if (!reg) {
+    const { data: byVitReg } = await supabase
+      .from("registrations")
+      .select("*, event:events(title, venue, event_date)")
+      .ilike("vit_registration_number", cleanToken)
+      .limit(1)
+      .maybeSingle();
+    if (byVitReg) reg = byVitReg;
+  }
+
+  // D. Check by UUID id if cleanToken matches UUID format
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanToken);
+  if (!reg && isUuid) {
+    const { data: byId } = await supabase
+      .from("registrations")
+      .select("*, event:events(title, venue, event_date)")
+      .eq("id", cleanToken)
+      .limit(1)
+      .maybeSingle();
+    if (byId) reg = byId;
+  }
+
+  // E. Check by college_email or personal_email
+  if (!reg && cleanToken.includes("@")) {
+    const { data: byEmail } = await supabase
+      .from("registrations")
+      .select("*, event:events(title, venue, event_date)")
+      .or(`college_email.ilike.${cleanToken},personal_email.ilike.${cleanToken}`)
+      .limit(1)
+      .maybeSingle();
+    if (byEmail) reg = byEmail;
+  }
+
+  if (!reg) {
     return {
       success: false,
-      message: error?.message || "Verification lookup failed",
-      errorCode: "DB_ERROR",
+      message: `Invalid QR pass or registration ID ("${cleanToken.length > 25 ? cleanToken.slice(0, 25) + "..." : cleanToken}"). No matching record found.`,
+      errorCode: "INVALID_QR",
     };
   }
 
+  const participantData = {
+    id: reg.id,
+    full_name: reg.full_name,
+    vit_registration_number: reg.vit_registration_number,
+    branch: reg.branch_name || reg.branch || "N/A",
+    registration_number: reg.registration_number,
+    status: reg.registration_status,
+    registration_source: reg.registration_source || "online",
+    college_email: reg.college_email,
+    personal_email: reg.personal_email,
+    phone_number: reg.phone_number,
+    event_title: reg.event?.title || "GenAI Community Event",
+  };
+
+  // Check if payment is still pending
+  if (reg.registration_status === "pending") {
+    return {
+      success: false,
+      message: "Payment Pending: Attendee registration is awaiting finance verification before gate admission.",
+      errorCode: "PAYMENT_PENDING",
+      participant: participantData,
+    };
+  }
+
+  // Check if payment was rejected
+  if (reg.registration_status === "rejected") {
+    return {
+      success: false,
+      message: "Payment Rejected: Attendee registration was rejected during verification.",
+      errorCode: "PAYMENT_REJECTED",
+      participant: participantData,
+    };
+  }
+
+  // Check if already checked in
+  if (reg.registration_status === "checked_in") {
+    const { data: priorCheckin } = await supabase
+      .from("checkins")
+      .select("scan_timestamp, scanned_by_name")
+      .eq("registration_id", reg.id)
+      .in("status", ["approved", "overridden"])
+      .order("scan_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return {
+      success: true,
+      isAlreadyCheckedIn: true,
+      message: "Duplicate Scan: Participant has ALREADY checked in.",
+      priorCheckinTime: priorCheckin?.scan_timestamp ? formatISTDate(priorCheckin.scan_timestamp, true) : undefined,
+      priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
+      participant: participantData,
+    };
+  }
+
+  // Verified & Ready to Admit
   return {
-    success: data.success,
-    message: data.message,
-    isAlreadyCheckedIn: data.is_already_checked_in,
-    priorCheckinTime: data.prior_checkin_time,
-    priorScannedBy: data.prior_scanned_by,
-    participant: data.participant,
-    errorCode: data.error_code,
+    success: true,
+    isAlreadyCheckedIn: false,
+    message: "Pass Verified: Ready to admit participant.",
+    participant: participantData,
   };
 }
 
@@ -666,67 +836,168 @@ export async function confirmAttendance(params: {
 }> {
   const supabase = createAdminSupabase();
   const isOverride = Boolean(params.isOverride);
+  const istTime = formatISTDate(new Date(), true);
+  const nowIso = new Date().toISOString();
 
-  const { data, error } = await supabase.rpc("confirm_attendance_action", {
-    p_registration_id: params.registrationId,
-    p_scanner_user_id: params.scannerUserId,
-    p_scanner_name: params.scannerName,
-    p_scanner_role: params.scannerRole,
-    p_is_override: isOverride,
-    p_override_reason: params.overrideReason || null,
-  });
+  // Try RPC first if available
+  try {
+    const { data, error } = await supabase.rpc("confirm_attendance_action", {
+      p_registration_id: params.registrationId,
+      p_scanner_user_id: params.scannerUserId,
+      p_scanner_name: params.scannerName,
+      p_scanner_role: params.scannerRole,
+      p_is_override: isOverride,
+      p_override_reason: params.overrideReason || null,
+    });
 
-  if (error || !data) {
-    return {
-      success: false,
-      message: error?.message || "Attendance confirmation failed.",
-      errorCode: "DB_ERROR",
-    };
+    if (!error && data && data.success) {
+      const participant = data.participant;
+      const checkinId = `checkin-${Date.now()}`;
+
+      // Mirror to Google Sheets in background
+      appendToGoogleSheet("Attendance", [
+        [
+          participant.id,
+          participant.full_name,
+          participant.vit_registration_number,
+          participant.college_email || "",
+          istTime,
+          participant.event_title || "GenAI Community Event",
+          participant.registration_number,
+          participant.branch,
+          isOverride ? "overridden" : "approved",
+          isOverride ? "YES" : "NO",
+          params.overrideReason || "",
+          params.scannerName,
+        ],
+      ]).catch((err) => console.error("Error mirroring to Attendance Sheet:", err));
+
+      appendToGoogleSheet("Check-ins", [
+        [
+          checkinId,
+          participant.registration_number,
+          participant.full_name,
+          participant.vit_registration_number,
+          participant.college_email || "",
+          participant.branch,
+          isOverride ? "overridden" : "approved",
+          isOverride ? "YES" : "NO",
+          params.overrideReason || "",
+          params.scannerName,
+          params.scannerRole,
+          istTime,
+          participant.registration_source || "scanner",
+        ],
+      ]).catch((err) => console.error("Error mirroring to Check-ins Sheet:", err));
+
+      return {
+        success: true,
+        message: data.message || "Attendance Confirmed & Recorded.",
+        participant,
+      };
+    }
+  } catch (rpcErr) {
+    console.warn("RPC confirm_attendance_action failed, using direct DB transaction:", rpcErr);
   }
 
-  if (data.success && data.participant) {
-    const istTime = formatISTDate(new Date(), true);
-    const checkinId = `checkin-${Date.now()}`;
-    const participant = data.participant;
+  // Direct Table Database Fallback
+  try {
+    // 1. Fetch registration
+    const { data: reg, error: fetchErr } = await supabase
+      .from("registrations")
+      .select("*, event:events(title)")
+      .eq("id", params.registrationId)
+      .single();
 
-    // 1. Mirror to Dedicated "Attendance" Tab (Matches SHEET_HEADERS["Attendance"])
+    if (fetchErr || !reg) {
+      return { success: false, message: "Registration record not found.", errorCode: "NOT_FOUND" };
+    }
+
+    // 2. Update registration status to checked_in
+    await supabase
+      .from("registrations")
+      .update({
+        registration_status: "checked_in",
+        checked_in_at: nowIso,
+        checked_in_by: params.scannerUserId,
+      })
+      .eq("id", reg.id);
+
+    // 3. Insert into checkins table
+    const checkinId = `checkin-${Date.now()}`;
+    await supabase.from("checkins").insert({
+      id: checkinId,
+      registration_id: reg.id,
+      event_id: reg.event_id,
+      scanned_by: params.scannerUserId,
+      scanned_by_name: params.scannerName,
+      scanner_role: params.scannerRole,
+      status: isOverride ? "overridden" : "approved",
+      is_override: isOverride,
+      override_reason: params.overrideReason || null,
+      scan_timestamp: nowIso,
+    });
+
+    const participantData = {
+      id: reg.id,
+      full_name: reg.full_name,
+      vit_registration_number: reg.vit_registration_number,
+      branch: reg.branch_name || reg.branch || "N/A",
+      registration_number: reg.registration_number,
+      status: "checked_in",
+      registration_source: reg.registration_source || "online",
+      college_email: reg.college_email,
+      event_title: reg.event?.title || "GenAI Community Event",
+    };
+
+    // 4. Mirror to Google Sheets in background
     appendToGoogleSheet("Attendance", [
       [
-        participant.id,
-        participant.full_name,
-        (participant as any).qr_token || checkinId,
+        reg.id,
+        reg.full_name,
+        reg.vit_registration_number,
+        reg.college_email || "",
         istTime,
-        params.scannerName,
+        reg.event?.title || "GenAI Event",
+        reg.registration_number,
+        reg.branch_name || reg.branch || "N/A",
         isOverride ? "overridden" : "approved",
+        isOverride ? "YES" : "NO",
         params.overrideReason || "",
+        params.scannerName,
       ],
     ]).catch((err) => console.error("Error mirroring to Attendance Sheet:", err));
 
-    // 2. Mirror to Detailed "Check-ins" Tab
     appendToGoogleSheet("Check-ins", [
       [
         checkinId,
-        participant.registration_number,
-        participant.full_name,
-        participant.vit_registration_number,
-        (participant as any).college_email || "",
-        participant.branch,
+        reg.registration_number,
+        reg.full_name,
+        reg.vit_registration_number,
+        reg.college_email || "",
+        reg.branch_name || reg.branch || "N/A",
         isOverride ? "overridden" : "approved",
         isOverride ? "YES" : "NO",
         params.overrideReason || "",
         params.scannerName,
         params.scannerRole,
         istTime,
+        reg.registration_source || "scanner",
       ],
     ]).catch((err) => console.error("Error mirroring to Check-ins Sheet:", err));
-  }
 
-  return {
-    success: data.success,
-    message: data.message,
-    errorCode: data.error_code,
-    participant: data.participant,
-  };
+    return {
+      success: true,
+      message: "Attendance Confirmed & Synchronized.",
+      participant: participantData,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || "Failed to confirm attendance.",
+      errorCode: "DB_ERROR",
+    };
+  }
 }
 
 /**

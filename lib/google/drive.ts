@@ -2,7 +2,7 @@ import { google, drive_v3 } from "googleapis";
 import { Readable } from "stream";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 
-// In-memory / database fallback cache for screenshot previews when Google personal drive quota applies
+// In-memory cache for fast local screenshot previews
 const localScreenshotCache = new Map<string, { buffer: Buffer; mimeType: string }>();
 
 /**
@@ -10,11 +10,19 @@ const localScreenshotCache = new Map<string, { buffer: Buffer; mimeType: string 
  * Uses service account credentials from environment variables.
  */
 export function getGoogleDriveClient(): drive_v3.Drive | null {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY?.trim();
 
   if (!clientEmail || !privateKey) {
     return null;
+  }
+
+  // Strip surrounding quotes if accidentally present in .env
+  if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+    privateKey = privateKey.slice(1, -1);
+  }
+  if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
+    privateKey = privateKey.slice(1, -1);
   }
 
   // Handle escaped newlines in private key string if passed from .env
@@ -36,7 +44,7 @@ export function getGoogleDriveClient(): drive_v3.Drive | null {
 
 /**
  * Helper to find or create a subfolder in Google Drive under a parent folder.
- * Supports both Shared Drives and personal drives.
+ * Supports both Shared Drives and personal shared folders.
  */
 async function getOrCreateFolder(
   drive: drive_v3.Drive,
@@ -45,31 +53,40 @@ async function getOrCreateFolder(
   sharedDriveId?: string,
 ): Promise<string> {
   try {
-    let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
-    if (parentFolderId) {
+    let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "\\'")}' and trashed=false`;
+    if (parentFolderId && parentFolderId !== "root") {
       query += ` and '${parentFolderId}' in parents`;
     }
 
-    const res = await drive.files.list({
+    const listParams: drive_v3.Params$Resource$Files$List = {
       q: query,
       fields: "files(id, name)",
-      spaces: sharedDriveId ? "drive" : "drive",
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
-      driveId: sharedDriveId,
-      corpora: sharedDriveId ? "drive" : "user",
-    });
+    };
+
+    if (sharedDriveId) {
+      listParams.driveId = sharedDriveId;
+      listParams.corpora = "drive";
+    }
+
+    const res = await drive.files.list(listParams);
 
     if (res.data.files && res.data.files.length > 0 && res.data.files[0].id) {
       return res.data.files[0].id;
     }
 
+    const effectiveParent = parentFolderId && parentFolderId !== "root" ? parentFolderId : undefined;
+
     const fileMetadata: drive_v3.Schema$File = {
       name: folderName,
       mimeType: "application/vnd.google-apps.folder",
-      parents: parentFolderId ? [parentFolderId] : undefined,
-      driveId: sharedDriveId,
+      parents: effectiveParent ? [effectiveParent] : undefined,
     };
+
+    if (sharedDriveId) {
+      fileMetadata.driveId = sharedDriveId;
+    }
 
     const folder = await drive.files.create({
       requestBody: fileMetadata,
@@ -82,14 +99,15 @@ async function getOrCreateFolder(
     }
 
     return folder.data.id;
-  } catch {
+  } catch (err) {
+    console.warn(`Could not get or create subfolder '${folderName}', using parent '${parentFolderId}':`, err);
     return parentFolderId || "root";
   }
 }
 
 /**
- * Core upload function — uploads buffer to Google Drive Shared Drive or
- * falls back to base64 data-URL stored in Supabase (always works, no quota needed).
+ * Core upload function — uploads buffer to Google Drive Shared Drive/Folder or
+ * falls back to base64 data-URL stored in Supabase with persistent database backup.
  */
 async function uploadBufferToDrive(
   buffer: Buffer,
@@ -98,16 +116,51 @@ async function uploadBufferToDrive(
   folderPath: string[],
 ): Promise<{ fileId: string; viewUrl: string; isDataUrl: boolean }> {
   const drive = getGoogleDriveClient();
-  const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
-  const sharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ID;
+  const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const sharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ID?.trim();
 
-  // Attempt Google Drive upload only if we have a Shared Drive ID or explicit root folder
-  if (drive && (sharedDriveId || rootFolderId)) {
+  const relayUrl = process.env.GOOGLE_DRIVE_RELAY_URL?.trim() || process.env.GOOGLE_FORM_WEBHOOK_URL?.trim();
+
+  // 1. Try Google Apps Script Drive Relay (Uploads directly to personal 15GB Google Drive)
+  if (relayUrl) {
     try {
-      let targetFolderId = rootFolderId || sharedDriveId!;
+      const payload = {
+        action: "upload",
+        fileName,
+        mimeType,
+        base64: buffer.toString("base64"),
+        folderId: rootFolderId || "",
+        folderPath,
+      };
 
-      // Traverse/create folder hierarchy
-      if (targetFolderId) {
+      const res = await fetch(relayUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.fileId) {
+          return {
+            fileId: data.fileId,
+            viewUrl: data.directUrl || data.viewUrl || `/api/drive/asset/${data.fileId}`,
+            isDataUrl: false,
+          };
+        }
+      }
+    } catch (relayErr: any) {
+      console.warn("Google Apps Script Drive Relay error:", relayErr?.message || relayErr);
+    }
+  }
+
+  // 2. Attempt Google Drive direct upload via Service Account (Works with Shared Drives)
+  if (drive && (rootFolderId || sharedDriveId)) {
+    try {
+      let targetFolderId = rootFolderId || sharedDriveId || "";
+
+      // Traverse/create folder hierarchy if target folder is specified
+      if (targetFolderId && targetFolderId !== "root" && folderPath.length > 0) {
         for (const folderName of folderPath) {
           targetFolderId = await getOrCreateFolder(drive, folderName, targetFolderId, sharedDriveId);
         }
@@ -117,12 +170,24 @@ async function uploadBufferToDrive(
       stream.push(buffer);
       stream.push(null);
 
+      const effectiveParents =
+        targetFolderId && targetFolderId !== "root"
+          ? [targetFolderId]
+          : rootFolderId && rootFolderId !== "root"
+            ? [rootFolderId]
+            : undefined;
+
+      const requestBody: drive_v3.Schema$File = {
+        name: fileName,
+        parents: effectiveParents,
+      };
+
+      if (sharedDriveId) {
+        requestBody.driveId = sharedDriveId;
+      }
+
       const response = await drive.files.create({
-        requestBody: {
-          name: fileName,
-          parents: targetFolderId ? [targetFolderId] : undefined,
-          driveId: sharedDriveId,
-        },
+        requestBody,
         media: {
           mimeType,
           body: stream,
@@ -133,7 +198,7 @@ async function uploadBufferToDrive(
 
       const fileId = response.data.id;
       if (fileId) {
-        // Make publicly readable
+        // Attempt to make readable
         try {
           await drive.permissions.create({
             fileId,
@@ -141,7 +206,7 @@ async function uploadBufferToDrive(
             supportsAllDrives: true,
           });
         } catch {
-          // Permission setting can fail silently
+          // Ignore permission create failure on domain-restricted folders
         }
 
         return {
@@ -151,25 +216,33 @@ async function uploadBufferToDrive(
         };
       }
     } catch (driveErr: any) {
-      const msg = driveErr?.message || String(driveErr);
-      console.warn(`Google Drive upload failed (${msg}). Using inline data-URL fallback.`);
+      console.warn(`Google Drive upload encountered error (${driveErr?.message || driveErr}). Persisting in fallback storage.`);
     }
   }
 
-  // ─── Reliable Fallback: Base64 Data-URL stored in Supabase ───────────────
-  // This approach stores the image as a data-URL directly in the image_url column.
-  // It works 100% regardless of Drive quota, service account permissions, or network.
-  // Images render in <img src="data:..." /> the same as any URL.
+  // ─── Reliable Fallback: Base64 Data-URL stored in Supabase & Memory Cache ────
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  // Also cache in memory for streaming fallback
   const fallbackId = `storage_${Date.now()}_${Math.random().toString(36).slice(-6)}`;
   localScreenshotCache.set(fallbackId, { buffer, mimeType });
 
+  // Also persist in database sync_failures table so images survive process restarts
+  try {
+    const supabase = createAdminSupabase();
+    await supabase.from("sync_failures").insert({
+      operation: "screenshot_payload",
+      entity_id: fallbackId,
+      error_message: "Google Drive offline fallback storage",
+      payload: { fileId: fallbackId, base64, mimeType, fileName },
+    });
+  } catch {
+    // Non-fatal
+  }
+
   return {
     fileId: fallbackId,
-    viewUrl: dataUrl,   // Return actual data-URL — stored directly in DB image_url column
+    viewUrl: dataUrl,
     isDataUrl: true,
   };
 }
@@ -191,7 +264,7 @@ export async function uploadPaymentScreenshotToDrive(params: {
   viewUrl: string;
 }> {
   const { fileBuffer, fileName, mimeType, eventTitle, year = new Date().getFullYear().toString() } = params;
-  const rootParentId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+  const rootParentId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
 
   const result = await uploadBufferToDrive(
     fileBuffer,
@@ -215,7 +288,7 @@ export async function uploadPaymentScreenshotToDrive(params: {
 export async function getDriveFileStream(
   fileId: string,
 ): Promise<{ stream: Readable; mimeType: string } | null> {
-  // Check local/memory cache
+  // 1. Check local in-memory cache
   if (localScreenshotCache.has(fileId)) {
     const item = localScreenshotCache.get(fileId)!;
     const stream = new Readable();
@@ -224,7 +297,7 @@ export async function getDriveFileStream(
     return { stream, mimeType: item.mimeType };
   }
 
-  // Check Supabase fallback storage
+  // 2. Check Supabase fallback storage
   if (fileId.startsWith("storage_")) {
     try {
       const supabase = createAdminSupabase();
@@ -232,7 +305,7 @@ export async function getDriveFileStream(
         .from("sync_failures")
         .select("payload")
         .eq("operation", "screenshot_payload")
-        .contains("payload", { fileId })
+        .eq("entity_id", fileId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -249,7 +322,7 @@ export async function getDriveFileStream(
     }
   }
 
-  // Attempt Google Drive stream
+  // 3. Attempt Google Drive stream
   const drive = getGoogleDriveClient();
   if (!drive) return null;
 
@@ -281,9 +354,6 @@ export async function getDriveFileStream(
 
 /**
  * Uploads a club asset image (avatar, event banner, team banner, project cover).
- * Returns a viewUrl that is either:
- *   - A real Google Drive streaming URL (/api/drive/asset/<fileId>) if Drive upload succeeded
- *   - A base64 data-URL stored directly in the DB (data:image/...) as reliable fallback
  */
 export async function uploadMemberAvatarToDrive({
   buffer,
@@ -309,6 +379,6 @@ export async function uploadMemberAvatarToDrive({
 
   return {
     fileId: result.fileId,
-    viewUrl: result.viewUrl,  // Could be data-URL or /api/drive/asset/<id>
+    viewUrl: result.viewUrl,
   };
 }

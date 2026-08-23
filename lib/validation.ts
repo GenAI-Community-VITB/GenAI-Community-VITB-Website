@@ -113,7 +113,7 @@ export const studentRegistrationSchema = z.object({
     .trim()
     .transform((val) => val.toUpperCase())
     .refine((val) => VIT_REG_NUMBER_REGEX.test(val), {
-      message: "Please enter a valid VIT registration number such as 24BCE10549",
+      message: "Please enter a valid VIT registration number such as 24XXX11111",
     }),
   branch_name: z
     .string()

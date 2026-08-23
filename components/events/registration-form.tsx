@@ -86,7 +86,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
     // Client-side quick checks
     const cleanVit = vitReg.trim().toUpperCase();
     if (!/^[0-9]{2}[A-Za-z]{3}[0-9]{5}$/.test(cleanVit)) {
-      setError("Please enter a valid VIT registration number such as 24BCE10549.");
+      setError("Please enter a valid VIT registration number such as 24XXX11111.");
       return;
     }
 
@@ -267,13 +267,13 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
               id="vit_reg"
               type="text"
               required
-              placeholder="e.g. 24BCE10549"
+              placeholder="e.g. 24XXX11111"
               value={vitReg}
               onChange={(e) => setVitReg(e.target.value.toUpperCase())}
               maxLength={10}
               className="w-full rounded-xl border border-[#323232] bg-[#141414] px-4 py-3 text-sm uppercase text-white placeholder-zinc-500 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642] outline-none transition"
             />
-            <p className="text-[11px] text-zinc-500">Format: 2 digits + 3 letters + 5 digits (e.g. 24BCE10549)</p>
+            <p className="text-[11px] text-zinc-500">Format: 2 digits + 3 letters + 5 digits (e.g. 24XXX11111)</p>
           </div>
 
           <div className="space-y-2 relative" ref={dropdownRef}>

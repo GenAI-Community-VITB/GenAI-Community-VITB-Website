@@ -21,8 +21,19 @@ export async function GET(
     if (fileId.startsWith("mock-") || fileId.startsWith("storage_avatar_mock")) {
       const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-          <rect width="200" height="200" fill="#18140c"/>
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#f5b642" font-family="sans-serif" font-size="28" font-weight="bold">GA</text>
+          <defs>
+            <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2a2012"/>
+              <stop offset="100%" stop-color="#0c0a07"/>
+            </linearGradient>
+            <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f5b642"/>
+              <stop offset="100%" stop-color="#ffd06a"/>
+            </linearGradient>
+          </defs>
+          <rect width="200" height="200" rx="24" fill="url(#g1)" stroke="#382c16" stroke-width="2"/>
+          <circle cx="100" cy="100" r="54" fill="#141009" stroke="#f5b642" stroke-width="1.5" stroke-dasharray="4 2"/>
+          <text x="100" y="106" dominant-baseline="middle" text-anchor="middle" fill="url(#g2)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" letter-spacing="1">AI</text>
         </svg>
       `;
       return new NextResponse(svg, {

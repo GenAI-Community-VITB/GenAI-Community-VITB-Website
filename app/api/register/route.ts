@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       success: true,
       registrationNumber: result.registrationNumber,
       registrationId: result.registrationId,
-      message: "Registration submitted successfully! Please check your official college email for confirmation.",
+      message: "Registration submitted successfully! Please check your email (both personal and college inbox) for confirmation.",
     });
   } catch (err: any) {
     console.error("Unhandled error in /api/register:", err);

@@ -194,7 +194,7 @@ export function OnSpotRegistrationModal({
                   required
                   value={vitRegNumber}
                   onChange={(e) => setVitRegNumber(e.target.value)}
-                  placeholder="e.g. 24BCE10549"
+                  placeholder="e.g. 24XXX11111"
                   className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none uppercase font-mono"
                 />
               </div>

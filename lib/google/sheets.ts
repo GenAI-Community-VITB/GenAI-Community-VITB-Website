@@ -788,38 +788,64 @@ export async function initializeAndSyncGoogleSheet(params?: {
   }
 }
 
+const TAB_ALIASES: Record<string, string[]> = {
+  "System Failure Logs": ["System Failure Logs", "Failures"],
+  "Failures": ["System Failure Logs", "Failures"],
+  "System Audit Logs": ["System Audit Logs", "Audit Logs"],
+  "Audit Logs": ["System Audit Logs", "Audit Logs"],
+  "User Management Log": ["Community User Management Logs", "User Management Log"],
+  "Community User Management Logs": ["Community User Management Logs", "User Management Log"],
+  "Members Database": ["Members Database", "Members"],
+  "Members": ["Members Database", "Members"],
+  "Branch Database": ["Branch Database", "Branches"],
+  "Branches": ["Branch Database", "Branches"],
+  "Events Database": ["Events Database", "Events"],
+  "Events": ["Events Database", "Events"],
+  "Payments": ["Payments", "Payment Management"],
+  "Payment Management": ["Payment Management", "Payments"],
+};
+
 /**
  * Ensures the target sheet tab exists and has the correct header row.
+ * Resolves existing tab aliases if present.
  */
 async function ensureSheetHeaders(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   tabName: SheetTabName,
-) {
+): Promise<string> {
   try {
     const meta = await sheets.spreadsheets.get({
       spreadsheetId,
       fields: "sheets.properties.title",
     });
 
-    const existingTabs = (meta.data.sheets || []).map((s) => s.properties?.title);
+    const existingTabs = (meta.data.sheets || []).map((s) => s.properties?.title || "");
 
-    if (!existingTabs.includes(tabName)) {
-      // Add sheet tab
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [
-            {
-              addSheet: {
-                properties: { title: tabName },
-              },
+    // Check if tab or any alias exists
+    const aliases = TAB_ALIASES[tabName] || [tabName];
+    const foundTab = aliases.find((alias) => existingTabs.includes(alias));
+
+    if (foundTab) {
+      return foundTab;
+    }
+
+    // Add sheet tab if not present
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: { title: tabName },
             },
-          ],
-        },
-      });
+          },
+        ],
+      },
+    });
 
-      // Insert headers
+    // Insert headers
+    if (SHEET_HEADERS[tabName]) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `${tabName}!A1`,
@@ -829,8 +855,11 @@ async function ensureSheetHeaders(
         },
       });
     }
+
+    return tabName;
   } catch (err) {
     console.error(`Error ensuring sheet headers for ${tabName}:`, err);
+    return tabName;
   }
 }
 
@@ -850,7 +879,7 @@ export async function appendToGoogleSheet(
   }
 
   try {
-    await ensureSheetHeaders(sheets, spreadsheetId, tabName);
+    const effectiveTabName = await ensureSheetHeaders(sheets, spreadsheetId, tabName);
 
     const sanitizedRows = rows.map((row) =>
       row.map((val) => (val === null || val === undefined ? "" : String(val))),
@@ -858,7 +887,7 @@ export async function appendToGoogleSheet(
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${tabName}!A:A`,
+      range: `'${effectiveTabName}'!A:A`,
       valueInputOption: "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: {

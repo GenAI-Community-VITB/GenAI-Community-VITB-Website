@@ -1,45 +1,63 @@
-const CLUB_NAME = "GenAI Community VIT Bhopal";
+const CLUB_NAME = "Generative AI Community";
+const INSTITUTION = "VIT Bhopal University";
 const GOLD_COLOR = "#f5b642";
-const DARK_BG = "#0c0c0c";
+const DARK_BG = "#0c0a07";
 
-function baseEmailLayout(content: string): string {
+function baseEmailLayout(content: string, preheader: string = ""): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${CLUB_NAME}</title>
+  <title>${CLUB_NAME} · ${INSTITUTION}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #050505; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #e5e5e5;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #050505; padding: 30px 15px;">
+<body style="margin: 0; padding: 0; background-color: #050403; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #e5e5e5; -webkit-font-smoothing: antialiased;">
+  <!-- Preheader preview text -->
+  <div style="display: none; max-height: 0px; overflow: hidden; opacity: 0; font-size: 1px; color: #050403;">
+    ${preheader || "Official communications from Generative AI Community - VIT Bhopal"}
+  </div>
+
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #050403; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: ${DARK_BG}; border: 1px solid #222222; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
-          <!-- Header -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: ${DARK_BG}; border: 1px solid #2a2215; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.85);">
+          
+          <!-- Header Banner -->
           <tr>
-            <td style="padding: 30px 30px 20px 30px; border-bottom: 1px solid #1a1a1a; text-align: center;">
-              <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: ${GOLD_COLOR};">VIT Bhopal University</p>
-              <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff;">${CLUB_NAME}</h1>
+            <td style="padding: 32px 32px 24px 32px; border-bottom: 1px solid #1f1a10; text-align: center; background: radial-gradient(ellipse at top, #241c0e 0%, #0c0a07 100%);">
+              <div style="display: inline-block; padding: 4px 14px; border-radius: 9999px; border: 1px solid rgba(245, 182, 66, 0.4); background-color: rgba(245, 182, 66, 0.1); margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: ${GOLD_COLOR}; font-family: monospace;">
+                  ${INSTITUTION}
+                </p>
+              </div>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
+                ${CLUB_NAME}
+              </h1>
+              <p style="margin: 6px 0 0 0; font-size: 12px; color: #a1a1aa;">Official Technical & Event Portal</p>
             </td>
           </tr>
-          <!-- Body Content -->
+
+          <!-- Main Content Body -->
           <tr>
-            <td style="padding: 32px 30px;">
+            <td style="padding: 36px 32px;">
               ${content}
             </td>
           </tr>
-          <!-- Footer -->
+
+          <!-- Footer Information -->
           <tr>
-            <td style="padding: 24px 30px; background-color: #080808; border-top: 1px solid #1a1a1a; text-align: center;">
-              <p style="margin: 0 0 8px 0; font-size: 12px; color: #a3a3a3; background-color: #1a1600; border: 1px solid #423000; border-radius: 8px; padding: 10px; font-weight: 500;">
-                🔔 <strong>Notice:</strong> If you cannot find your QR code email, please check your Spam/Junk folder.
-              </p>
-              <p style="margin: 8px 0 6px 0; font-size: 12px; color: #737373;">
+            <td style="padding: 24px 32px; background-color: #080604; border-top: 1px solid #1f1a10; text-align: center;">
+              <div style="background-color: #1a1408; border: 1px solid #4a3814; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;">
+                <p style="margin: 0; font-size: 12px; color: #ffd06a; line-height: 1.5; font-weight: 500;">
+                  🔔 <strong>Delivery Notice:</strong> If this email appears in your Promotions or Spam/Junk tab, please mark as <em>"Not Spam / Move to Inbox"</em> to receive instant event reminders.
+                </p>
+              </div>
+              <p style="margin: 8px 0 6px 0; font-size: 12px; color: #71717a;">
                 Generative AI Community · VIT Bhopal University, Kotri Kalan, Ashta, MP - 466114
               </p>
-              <p style="margin: 0; font-size: 11px; color: #525252;">
-                This is an automated notification. For queries, please contact the GenAI Community Tech/Finance team.
+              <p style="margin: 0; font-size: 11px; color: #52525b; font-family: monospace;">
+                Automated System Message · GenAI Ops Matrix v2026.2
               </p>
             </td>
           </tr>
@@ -63,47 +81,58 @@ export function getSubmissionReceivedTemplate(params: {
   const { fullName, vitRegNumber, registrationNumber, eventTitle, amount, transactionId } = params;
 
   const content = `
-    <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #ffffff;">Registration Submitted</h2>
-    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background-color: rgba(245, 182, 66, 0.15); border: 1px solid rgba(245, 182, 66, 0.4); color: ${GOLD_COLOR}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+        Submission Received
+      </span>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Registration Under Review</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle}</p>
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
       Hi <strong>${fullName}</strong>,
     </p>
-    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
-      Thank you for registering for <strong>${eventTitle}</strong>. We have received your registration details and payment submission.
+    <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      Thank you for registering for <strong>${eventTitle}</strong>. Your registration details and payment screenshot have been safely received by our systems.
     </p>
-    <div style="background-color: #141414; border: 1px solid #282828; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="6">
+
+    <!-- Details Card -->
+    <div style="background-color: #120e09; border: 1px solid #2a2215; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="8">
         <tr>
-          <td style="font-size: 13px; color: #888888; width: 40%;">Registration ID:</td>
-          <td style="font-size: 14px; font-weight: 600; color: ${GOLD_COLOR};">${registrationNumber}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace; width: 42%;">Pass Reference ID:</td>
+          <td style="font-size: 15px; font-weight: 800; color: ${GOLD_COLOR}; font-family: monospace;">${registrationNumber}</td>
         </tr>
         <tr>
-          <td style="font-size: 13px; color: #888888;">VIT Reg Number:</td>
-          <td style="font-size: 14px; color: #ffffff;">${vitRegNumber}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">VIT Reg Number:</td>
+          <td style="font-size: 14px; font-weight: 600; color: #ffffff; font-family: monospace;">${vitRegNumber}</td>
         </tr>
         <tr>
-          <td style="font-size: 13px; color: #888888;">Transaction ID:</td>
-          <td style="font-size: 14px; color: #ffffff;">${transactionId}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Transaction / UTR:</td>
+          <td style="font-size: 14px; color: #ffffff; font-family: monospace;">${transactionId}</td>
         </tr>
         <tr>
-          <td style="font-size: 13px; color: #888888;">Amount Paid:</td>
-          <td style="font-size: 14px; color: #ffffff;">₹${amount}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Amount Paid:</td>
+          <td style="font-size: 14px; font-weight: 700; color: #ffffff;">₹${amount}</td>
         </tr>
         <tr>
-          <td style="font-size: 13px; color: #888888;">Verification Status:</td>
-          <td style="font-size: 14px; font-weight: 600; color: #fbbf24;">Pending Payment Verification</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Verification Status:</td>
+          <td style="font-size: 13px; font-weight: 700; color: #f59e0b;">⏳ Awaiting Finance Approval</td>
         </tr>
       </table>
     </div>
-    <div style="background-color: #1a1600; border: 1px solid #664d00; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
-      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #fde047;">
-        <strong>Important Notice:</strong> Your registration is currently under review by our Finance team. You will receive an official confirmation email along with your entry QR code once the payment screenshot is verified (typically within 24 hours).
+
+    <!-- Notice Box -->
+    <div style="background-color: #1a1408; border: 1px solid #4a3814; border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #ffd06a;">
+        <strong>What's Next:</strong> Our Finance team will inspect your payment proof within 24 hours. Upon successful verification, your official entry pass containing your unique cryptographic QR code will be dispatched to your email.
       </p>
     </div>
   `;
 
   return {
-    subject: `Registration Submitted: ${eventTitle} (Pending Verification)`,
-    html: baseEmailLayout(content),
+    subject: `Registration Received: ${eventTitle} (${registrationNumber})`,
+    html: baseEmailLayout(content, `Registration details received for ${eventTitle}. Reference ID: ${registrationNumber}`),
   };
 }
 
@@ -119,56 +148,67 @@ export function getRegistrationConfirmedTemplate(params: {
   const { fullName, vitRegNumber, registrationNumber, eventTitle, eventDate, venue, qrContentId } = params;
 
   const content = `
-    <div style="text-align: center; margin-bottom: 24px;">
-      <span style="display: inline-block; background-color: #064e3b; border: 1px solid #059669; color: #6ee7b7; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px;">
-        Confirmed & Verified
+    <div style="text-align: center; margin-bottom: 28px;">
+      <span style="display: inline-block; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; font-size: 11px; font-weight: 800; padding: 4px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1.5px; font-family: monospace;">
+        Verified & Confirmed
       </span>
-      <h2 style="margin: 12px 0 6px 0; font-size: 24px; color: #ffffff;">Registration Confirmed!</h2>
-      <p style="margin: 0; font-size: 15px; color: #a3a3a3;">You are all set for ${eventTitle}</p>
+      <h2 style="margin: 14px 0 6px 0; font-size: 26px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
+        Official Entrance QR Pass
+      </h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle}</p>
     </div>
 
-    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
       Hi <strong>${fullName}</strong> (${vitRegNumber}),
     </p>
-    <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
-      Your payment has been successfully verified! Below is your official event access pass and entry QR code.
+    <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      Your payment verification is complete! Here is your official admission pass. Please save or screenshot this QR code to present at the venue check-in desk.
     </p>
 
-    <!-- QR Pass Card -->
-    <div style="background-color: #111111; border: 2px solid ${GOLD_COLOR}; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
-      <p style="margin: 0 0 4px 0; font-size: 12px; color: #a3a3a3; text-transform: uppercase; letter-spacing: 1px;">Registration ID</p>
-      <p style="margin: 0 0 16px 0; font-size: 22px; font-weight: 800; color: ${GOLD_COLOR};">${registrationNumber}</p>
+    <!-- Master QR Pass Ticket Container -->
+    <div style="background-color: #120e09; border: 2px solid ${GOLD_COLOR}; border-radius: 20px; padding: 28px 20px; text-align: center; margin-bottom: 24px; box-shadow: 0 0 35px rgba(245, 182, 66, 0.15);">
+      <p style="margin: 0 0 4px 0; font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; font-family: monospace;">
+        Admit Pass Identifier
+      </p>
+      <p style="margin: 0 0 20px 0; font-size: 24px; font-weight: 900; color: ${GOLD_COLOR}; font-family: monospace; letter-spacing: 1px;">
+        ${registrationNumber}
+      </p>
       
-      <div style="background-color: #ffffff; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 16px;">
-        <img src="cid:${qrContentId}" alt="Event Entry QR Code" width="220" height="220" style="display: block; border: 0;" />
+      <!-- QR Image Frame -->
+      <div style="background-color: #ffffff; padding: 14px; border-radius: 16px; display: inline-block; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
+        <img src="cid:${qrContentId}" alt="Event Entry QR Code Pass" width="220" height="220" style="display: block; border: 0;" />
       </div>
 
-      <p style="margin: 0; font-size: 13px; font-weight: 600; color: #ffffff;">
-        Please present this QR code at the entrance for verification.
+      <p style="margin: 0; font-size: 13px; font-weight: 700; color: #ffffff;">
+        Scan at Gate for Instant Check-In
+      </p>
+      <p style="margin: 4px 0 0 0; font-size: 11px; color: #71717a; font-family: monospace;">
+        Cryptographically Verified Entry Pass
       </p>
     </div>
 
-    <div style="background-color: #141414; border: 1px solid #282828; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="6">
+    <!-- Event Logistics Table -->
+    <div style="background-color: #120e09; border: 1px solid #2a2215; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="8">
         <tr>
-          <td style="font-size: 13px; color: #888888; width: 35%;">Event:</td>
-          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${eventTitle}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace; width: 32%;">Event:</td>
+          <td style="font-size: 14px; font-weight: 700; color: #ffffff;">${eventTitle}</td>
         </tr>
         <tr>
-          <td style="font-size: 13px; color: #888888;">Date & Time:</td>
-          <td style="font-size: 14px; color: #ffffff;">${eventDate}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Date & Time:</td>
+          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${eventDate}</td>
         </tr>
         <tr>
-          <td style="font-size: 13px; color: #888888;">Venue:</td>
-          <td style="font-size: 14px; color: #ffffff;">${venue}</td>
+          <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Venue:</td>
+          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${venue}</td>
         </tr>
       </table>
     </div>
   `;
 
   return {
-    subject: `Registration Confirmed! ${eventTitle} (Your Entry Pass: ${registrationNumber})`,
-    html: baseEmailLayout(content),
+    subject: `Entry Pass Confirmed: ${eventTitle} (Pass ID: ${registrationNumber})`,
+    html: baseEmailLayout(content, `Your entry QR pass for ${eventTitle} is ready. Pass ID: ${registrationNumber}`),
   };
 }
 
@@ -183,38 +223,38 @@ export function getPaymentRejectedTemplate(params: {
 
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
-      <span style="display: inline-block; background-color: #4c0519; border: 1px solid #be123c; color: #fda4af; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px;">
-        Payment Verification Issue
+      <span style="display: inline-block; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+        Verification Notice
       </span>
-      <h2 style="margin: 12px 0 6px 0; font-size: 22px; color: #ffffff;">Registration Update Required</h2>
-      <p style="margin: 0; font-size: 14px; color: #a3a3a3;">${eventTitle} (ID: ${registrationNumber})</p>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Payment Update Required</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle} · Ref: ${registrationNumber}</p>
     </div>
 
-    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
       Hi <strong>${fullName}</strong>,
     </p>
-    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
-      Our Finance team reviewed your payment submission for <strong>${eventTitle}</strong>, but was unable to verify the transaction.
+    <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      Our Finance team reviewed your payment submission for <strong>${eventTitle}</strong>, but was unable to verify the transaction proof provided.
     </p>
 
-    <div style="background-color: #171111; border: 1px solid #4a1d1d; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-      <p style="margin: 0 0 8px 0; font-size: 13px; color: #a8a29e; text-transform: uppercase; letter-spacing: 0.5px;">Reason for Rejection:</p>
-      <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #f87171;">${rejectionReason}</p>
+    <div style="background-color: #1a0f0f; border: 1px solid #4a1d1d; border-radius: 14px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin: 0 0 6px 0; font-size: 12px; color: #f87171; text-transform: uppercase; font-family: monospace; font-weight: 700;">Reason Identified:</p>
+      <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color: #ffffff;">${rejectionReason}</p>
       ${
         rejectionExplanation
-          ? `<p style="margin: 0 0 4px 0; font-size: 13px; color: #a8a29e;">Additional Notes:</p><p style="margin: 0; font-size: 14px; color: #e5e5e5; line-height: 1.5;">${rejectionExplanation}</p>`
+          ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #a1a1aa; font-family: monospace;">Staff Notes:</p><p style="margin: 0; font-size: 13px; color: #d4d4d8; line-height: 1.5;">${rejectionExplanation}</p>`
           : ""
       }
     </div>
 
-    <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #d4d4d4;">
-      If you believe this is an error or have an updated transaction proof, please reply directly to this email or reach out to the GenAI Community Finance Lead.
+    <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      If you have the valid payment receipt or believe this is an error, please reply directly to this email or contact the GenAI Community Finance Lead.
     </p>
   `;
 
   return {
-    subject: `Action Required: Payment Verification for ${eventTitle}`,
-    html: baseEmailLayout(content),
+    subject: `Payment Verification Update: ${eventTitle} (${registrationNumber})`,
+    html: baseEmailLayout(content, `Action required regarding payment verification for ${eventTitle}`),
   };
 }
 
@@ -226,18 +266,18 @@ export function getCustomEmailTemplate(params: {
   const { subject, message, senderRole = "GenAI Community Staff" } = params;
 
   const content = `
-    <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #ffffff;">${subject}</h2>
-    <div style="font-size: 15px; line-height: 1.7; color: #d4d4d4; white-space: pre-wrap; margin-bottom: 24px;">
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 800; color: #ffffff;">${subject}</h2>
+    <div style="font-size: 15px; line-height: 1.7; color: #d4d4d8; white-space: pre-wrap; margin-bottom: 24px;">
       ${message}
     </div>
-    <p style="margin: 24px 0 0 0; font-size: 13px; color: #888888;">
-      Sent by <strong>${senderRole}</strong> · GenAI Community VIT Bhopal
+    <p style="margin: 24px 0 0 0; font-size: 13px; color: #71717a; font-family: monospace;">
+      Dispatched by <strong>${senderRole}</strong> · GenAI Community VIT Bhopal
     </p>
   `;
 
   return {
     subject,
-    html: baseEmailLayout(content),
+    html: baseEmailLayout(content, subject),
   };
 }
 
@@ -248,22 +288,22 @@ export function getFinanceReminderTemplate(params: {
   const { pendingCount, oldestPendingHours } = params;
 
   const content = `
-    <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #ffffff;">Finance Pending Queue Reminder</h2>
-    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">
-      There are currently <strong>${pendingCount}</strong> registrations awaiting payment verification in the Finance queue.
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 800; color: #ffffff;">Finance Pending Queue Reminder</h2>
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
+      There are currently <strong>${pendingCount}</strong> event registrations awaiting payment verification in the Finance Operations matrix.
     </p>
-    <div style="background-color: #1a1600; border: 1px solid #664d00; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-      <p style="margin: 0; font-size: 13px; color: #fde047;">
+    <div style="background-color: #1a1408; border: 1px solid #4a3814; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 13px; color: #ffd06a;">
         Oldest pending submission has been waiting for approximately <strong>${oldestPendingHours} hours</strong>.
       </p>
     </div>
-    <p style="margin: 0; font-size: 14px; color: #a3a3a3;">
-      Please log in to the admin dashboard and navigate to the Finance Pending Queue to review these transactions.
+    <p style="margin: 0; font-size: 14px; color: #a1a1aa;">
+      Please log in to the admin portal and navigate to the Finance Queue to review and verify these transactions.
     </p>
   `;
 
   return {
-    subject: `Reminder: ${pendingCount} Event Registrations Awaiting Finance Verification`,
-    html: baseEmailLayout(content),
+    subject: `Action Reminder: ${pendingCount} Event Registrations Awaiting Finance Verification`,
+    html: baseEmailLayout(content, `${pendingCount} event registrations awaiting finance verification`),
   };
 }

@@ -84,8 +84,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
   return (
     <>
       {error && (
-        <div className="mt-5 flex items-center gap-2.5 rounded-2xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-xs text-red-200 animate-shake">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/30 px-3.5 py-2.5 text-[11px] text-red-200 animate-shake">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
           <span>{error}</span>
         </div>
       )}
@@ -93,8 +93,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
         {/* Email Field */}
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold tracking-wider text-zinc-300 uppercase flex items-center gap-1.5" htmlFor="admin-email">
-            <Mail className="h-3.5 w-3.5 text-[#f5b642]" />
+          <label className="text-[10px] font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-1" htmlFor="admin-email">
+            <Mail className="h-3 w-3 text-[#f5b642]" />
             Club Email / User ID
           </label>
           <div className="relative">
@@ -105,7 +105,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               required
               autoComplete="email"
               placeholder="team.role@genai.community"
-              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-2 focus:ring-[#f5b642]/20"
+              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30"
             />
           </div>
         </div>
@@ -113,8 +113,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         {/* Password Field */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-semibold tracking-wider text-zinc-300 uppercase flex items-center gap-1.5" htmlFor="admin-password">
-              <Lock className="h-3.5 w-3.5 text-[#f5b642]" />
+            <label className="text-[10px] font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-1" htmlFor="admin-password">
+              <Lock className="h-3 w-3 text-[#f5b642]" />
               Password
             </label>
             <button
@@ -123,7 +123,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                 setResetStatus(null);
                 setShowForgotModal(true);
               }}
-              className="text-[11px] font-medium text-[#f5b642] hover:text-[#ffd06a] hover:underline cursor-pointer"
+              className="text-[10px] font-medium text-[#f5b642] hover:text-[#ffd06a] hover:underline"
             >
               Forgot password?
             </button>
@@ -136,14 +136,14 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 pr-11 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-2 focus:ring-[#f5b642]/20 font-mono"
+              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 pr-10 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30 font-mono"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
           </div>
         </div>
@@ -151,123 +151,114 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         <button
           type="submit"
           disabled={pending}
-          className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f5b642] to-[#ffd06a] px-4 py-2.5 text-sm font-bold text-black shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#f5b642]/40 disabled:opacity-60 cursor-pointer"
+          className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f5b642] to-[#ffd06a] px-4 py-2.5 text-xs font-black text-black shadow-md transition hover:brightness-110 focus:outline-none focus:ring-1 focus:ring-[#f5b642]/40 disabled:opacity-60 cursor-pointer"
         >
           {pending ? (
             <span>Authenticating...</span>
           ) : (
             <>
               <span>Sign In to Portal</span>
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3.5 w-3.5" />
             </>
           )}
         </button>
       </form>
 
-      <div className="mt-3.5 pt-3 border-t border-[#1e1e1e] flex items-center justify-between text-[11px] text-zinc-400">
-        <span className="flex items-center gap-1">
-          <ShieldCheck className="h-3 w-3 text-emerald-400" />
-          Role-Based Access Control
-        </span>
-        <Link href="/" className="hover:text-white transition">
-          ← Back to Website
-        </Link>
-      </div>
-
-      {/* FORGOT PASSWORD QUERY MODAL */}
+      {/* Forgot Password Reset Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="w-full max-w-md rounded-3xl border border-[#332b1a] bg-[#12100b] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#242016] pb-3">
-              <div className="flex items-center gap-2.5 text-[#f5b642]">
-                <KeyRound className="h-5 w-5" />
-                <h3 className="font-bold text-white text-base">Raise Password Reset Query</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-[#332714] bg-[#120f0a] p-5 shadow-2xl space-y-3.5">
+            <div className="flex items-center justify-between border-b border-[#221c12] pb-2.5">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-[#f5b642]" />
+                <h3 className="font-bold text-white text-sm">Staff Password Reset Query</h3>
               </div>
               <button
                 onClick={() => setShowForgotModal(false)}
-                className="text-zinc-400 hover:text-white text-xs"
+                className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Submit your official club email and registered student name. Your reset request will be immediately dispatched to the <strong className="text-amber-300">Executive 6 Panel</strong> for identity verification and credential re-issuance.
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              If you have lost your credentials, submit an administrative reset query. An Executive Lead will verify and re-issue your credentials.
             </p>
 
             {resetStatus && (
               <div
-                className={`flex items-center gap-2 rounded-2xl border p-3.5 text-xs ${
+                className={`flex items-center gap-2 rounded-xl border p-3 text-[11px] ${
                   resetStatus.type === "success"
                     ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-300"
                     : "border-red-500/30 bg-red-950/20 text-red-300"
                 }`}
               >
                 {resetStatus.type === "success" ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
                 ) : (
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
                 )}
                 <span>{resetStatus.text}</span>
               </div>
             )}
 
-            <form onSubmit={handleResetSubmit} className="space-y-3">
+            <form onSubmit={handleResetSubmit} className="space-y-2.5 text-left">
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Student Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={resetName}
-                  onChange={(e) => setResetName(e.target.value)}
-                  placeholder="e.g. Harshvardhan Om / Lakshya Kant"
-                  className="w-full rounded-xl border border-[#2e2a20] bg-[#18150e] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Official Club Email / User ID *
+                <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                  Official Club Email *
                 </label>
                 <input
                   type="email"
                   required
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="team.role@genai.community"
-                  className="w-full rounded-xl border border-[#2e2a20] bg-[#18150e] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
+                  placeholder="your.role@genai.community"
+                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Note / Reason for Query (Optional)
+                <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                  Your Full Name *
                 </label>
                 <input
                   type="text"
-                  value={resetReason}
-                  onChange={(e) => setResetReason(e.target.value)}
-                  placeholder="Forgot credentials / device reset..."
-                  className="w-full rounded-xl border border-[#2e2a20] bg-[#18150e] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
+                  required
+                  value={resetName}
+                  onChange={(e) => setResetName(e.target.value)}
+                  placeholder="e.g. Lakshya Kant"
+                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
                 />
               </div>
 
-              <div className="flex gap-2.5 pt-2">
+              <div>
+                <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                  Reason for Password Reset *
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={resetReason}
+                  onChange={(e) => setResetReason(e.target.value)}
+                  placeholder="e.g. Forgot default password / Device change"
+                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowForgotModal(false)}
-                  className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
+                  className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition cursor-pointer"
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isResetPending}
-                  className="flex-1 rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] disabled:opacity-50 transition cursor-pointer"
+                  className="flex-1 rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] transition disabled:opacity-50 cursor-pointer"
                 >
-                  {isResetPending ? "Submitting..." : "Send a Request"}
+                  {isResetPending ? "Submitting..." : "Submit Query"}
                 </button>
               </div>
             </form>

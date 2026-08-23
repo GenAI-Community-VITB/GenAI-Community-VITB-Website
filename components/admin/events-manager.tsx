@@ -278,17 +278,23 @@ export function EventsManager({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-[#f5b642] px-3.5 py-2 text-xs font-bold text-black hover:bg-[#ffd06a] transition cursor-pointer self-start sm:self-auto shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          Add Event
-        </button>
+        {isAllowed ? (
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#f5b642] px-3.5 py-2 text-xs font-bold text-black hover:bg-[#ffd06a] transition cursor-pointer self-start sm:self-auto shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Add Event
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-[11px] font-medium text-zinc-400">
+            Read-Only Workspace
+          </span>
+        )}
       </div>
 
       {message && (
@@ -446,24 +452,26 @@ export function EventsManager({
                 Event Page <ExternalLink className="h-3 w-3" />
               </a>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleOpenEdit(event)}
-                  className="p-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-[#f5b642] transition cursor-pointer"
-                  title="Edit Event"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(event.id, event.title)}
-                  className="p-1.5 rounded-lg border border-red-900/50 text-red-400 hover:bg-red-950/40 transition cursor-pointer"
-                  title="Delete Event"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              {isAllowed ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(event)}
+                    className="p-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-[#f5b642] transition cursor-pointer"
+                    title="Edit Event"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(event.id, event.title)}
+                    className="p-1.5 rounded-lg border border-red-900/50 text-red-400 hover:bg-red-950/40 transition cursor-pointer"
+                    title="Delete Event"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ))}

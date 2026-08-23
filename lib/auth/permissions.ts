@@ -1,41 +1,47 @@
 import { UserRole, UserProfile, MemberRoleAssignment } from "@/lib/types";
-import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { TOP_6_ROLES, formatISTDate, isTop6Admin } from "@/lib/utils/format";
+import { createServerSupabase } from "@/lib/supabase/server";
 
-export { TOP_6_ROLES, formatISTDate, isTop6Admin };
+export const TOP_6_ROLES: UserRole[] = [
+  "president",
+  "vice_president",
+  "technical_lead",
+  "technical_co_lead",
+  "aiml_lead",
+  "aiml_co_lead",
+];
 
 /**
- * Explicit Executive Leadership roles who can create, update, or reassign Top Executives:
- * - President
- * - Technical Lead / Co-Lead
- * - AI/ML Lead / Co-Lead
+ * Checks whether a given user holds one of the top 6 super-admin roles.
  */
-export function isExecutiveLeader(
-  userRole: UserRole | string | null | undefined,
+export function isTop6Admin(
+  role?: UserRole | string | null,
   roles?: MemberRoleAssignment[],
 ): boolean {
-  if (!userRole) return false;
-  const r = userRole.toLowerCase();
-  if (
-    r === "president" ||
-    r === "technical_lead" ||
-    r === "technical_co_lead" ||
-    r === "aiml_lead" ||
-    r === "aiml_co_lead" ||
-    r === "tech"
-  ) {
-    return true;
-  }
+  if (!role) return false;
+  const normalized = role.toLowerCase().trim();
 
+  // 1. Direct role match
+  if (TOP_6_ROLES.some((r) => r.toLowerCase() === normalized)) return true;
+  if (normalized === "superadmin" || normalized === "lead_executive") return true;
+
+  // 2. Relational role match
   if (roles && Array.isArray(roles)) {
-    return roles.some((assignment) => {
-      const pos = (assignment.position || "").toLowerCase();
-      const tm = (assignment.team || "").toLowerCase();
+    return roles.some((r) => {
+      const pos = (r.position || "").toLowerCase();
+      const tm = (r.team || "").toLowerCase();
       return (
-        pos === "president" ||
-        pos === "lead" ||
-        pos === "co_lead" ||
+        pos.includes("president") ||
+        pos.includes("tech lead") ||
+        pos.includes("technical lead") ||
+        pos.includes("aiml lead") ||
+        pos.includes("ai/ml lead") ||
+        pos.includes("co-lead") ||
+        pos.includes("co_lead") ||
+        tm.includes("top 6") ||
+        tm.includes("top-6") ||
+        tm.includes("lead") ||
+        tm.includes("panel") ||
         tm.includes("tech") ||
         tm.includes("aiml")
       );
@@ -46,10 +52,17 @@ export function isExecutiveLeader(
 }
 
 export const ROLE_HIERARCHY: Record<string, number> = {
+  member: 5,
   volunteer: 10,
+  core: 10,
+  core_member: 10,
+  event_volunteer: 10,
+  coordinator: 15,
   finance: 20,
   finance_lead: 25,
   event_management_lead: 25,
+  event_head: 25,
+  events: 25,
   tech: 30,
   aiml_co_lead: 35,
   aiml_lead: 35,
@@ -57,6 +70,7 @@ export const ROLE_HIERARCHY: Record<string, number> = {
   technical_lead: 35,
   vice_president: 40,
   president: 50,
+  superadmin: 50,
 };
 
 /**
@@ -75,74 +89,90 @@ export function hasRole(
   return userLevel >= requiredLevel;
 }
 
+export type PermissionAction =
+  | "view_audit_logs"
+  | "approve_payments"
+  | "export_data"
+  | "manage_members"
+  | "assign_roles"
+  | "manage_events"
+  | "archive_events"
+  | "manage_attendance"
+  | "manage_registrations";
+
 /**
- * Granular Permission Checker
+ * Checks if the user has a specific granular permission based on their profile and team.
  */
-export function checkPermission(
-  profile: UserProfile | null,
-  permission:
-    | "manage_members"
-    | "assign_roles"
-    | "manage_events"
-    | "manage_projects"
-    | "manage_registrations"
-    | "approve_payments"
-    | "manage_attendance"
-    | "export_data"
-    | "archive_events"
-    | "clear_event_data"
-    | "view_audit_logs",
-): boolean {
-  if (!profile) return false;
-  const isSuper = isTop6Admin(profile.role, profile.roles);
-  if (isSuper) return true;
+export function checkPermission(profile: UserProfile | null | undefined, action: PermissionAction): boolean {
+  if (!profile || !profile.is_active) return false;
 
+  const isTop6 = isTop6Admin(profile.role, profile.roles);
   const role = (profile.role || "").toLowerCase();
-  const subRoles = profile.roles || [];
 
-  switch (permission) {
-    case "manage_members":
-    case "assign_roles":
-    case "archive_events":
-    case "clear_event_data":
-    case "manage_projects":
-      return isSuper;
+  // Top 6 Super Admins have unrestricted access
+  if (isTop6) return true;
+
+  // Extract team names and positions
+  const teams = (profile.roles || []).map((r) => (r.team || "").toLowerCase());
+  const positions = (profile.roles || []).map((r) => (r.position || "").toLowerCase());
+
+  switch (action) {
+    case "view_audit_logs":
+      return isTop6 || role === "tech";
 
     case "approve_payments":
       return (
+        isTop6 ||
         role === "finance" ||
-        role.includes("finance") ||
-        subRoles.some((r) => r.team === "finance_team")
+        role === "finance_lead" ||
+        teams.some((t) => t.includes("finance")) ||
+        positions.some((p) => p.includes("finance"))
       );
 
-    case "manage_attendance":
-      return (
-        role === "volunteer" ||
-        role.includes("event") ||
-        subRoles.some((r) => r.team.startsWith("event_management"))
-      );
-
-    case "manage_registrations":
     case "export_data":
       return (
+        isTop6 ||
         role === "finance" ||
-        role.includes("finance") ||
-        role.includes("event") ||
-        subRoles.some((r) => r.team.startsWith("finance") || r.team.startsWith("event_management"))
+        role === "finance_lead" ||
+        teams.some((t) => t.includes("finance") || t.includes("event")) ||
+        positions.some((p) => p.includes("finance") || p.includes("lead"))
       );
+
+    case "manage_members":
+      return isTop6;
+
+    case "assign_roles":
+      return isTop6;
 
     case "manage_events":
       return (
-        role.includes("event") ||
-        subRoles.some(
-          (r) =>
-            r.team.startsWith("event_management") &&
-            (r.position === "lead" || r.position === "co_lead"),
-        )
+        isTop6 ||
+        role === "tech" ||
+        role === "event_management_lead" ||
+        role === "event_head" ||
+        teams.some((t) => t.includes("event") || t.includes("tech")) ||
+        positions.some((p) => p.includes("event") || p.includes("tech"))
       );
 
-    case "view_audit_logs":
-      return isSuper;
+    case "archive_events":
+      return isTop6;
+
+    case "manage_attendance":
+      return (
+        isTop6 ||
+        hasRole(role, "volunteer", profile.roles) ||
+        teams.some((t) => t.includes("event") || t.includes("volunteer") || t.includes("core")) ||
+        positions.some((p) => p.includes("lead") || p.includes("head") || p.includes("volunteer") || p.includes("coordinator") || p.includes("member"))
+      );
+
+    case "manage_registrations":
+      return (
+        isTop6 ||
+        role === "finance" ||
+        role === "finance_lead" ||
+        role === "event_management_lead" ||
+        teams.some((t) => t.includes("finance") || t.includes("event"))
+      );
 
     default:
       return false;
@@ -150,10 +180,10 @@ export function checkPermission(
 }
 
 /**
- * Retrieves the currently authenticated staff profile and multi-role assignments.
+ * Retrieves the currently authenticated staff user, profile, and role.
  */
 export async function getAuthenticatedStaff(): Promise<{
-  user: any | null;
+  user: any;
   profile: UserProfile | null;
   role: UserRole | null;
   isTop6: boolean;
@@ -168,7 +198,6 @@ export async function getAuthenticatedStaff(): Promise<{
     const supabase = await createServerSupabase();
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser();
 
     const targetEmail = user?.email || loggedInEmailCookie;
@@ -258,44 +287,4 @@ export async function getAuthenticatedStaff(): Promise<{
     console.error("Error retrieving authenticated staff:", err);
     return { user: null, profile: null, role: null, isTop6: false };
   }
-}
-
-import { redirect } from "next/navigation";
-
-/**
- * Enforces that caller belongs to the Top 6 Admin Group.
- * If unauthorized, redirects back to the previous admin dashboard instead of showing an error page.
- */
-export async function requireTop6Admin() {
-  const { user, profile, isTop6 } = await getAuthenticatedStaff();
-  if (!user || !profile) {
-    redirect("/admin/login");
-  }
-  if (!isTop6) {
-    redirect("/admin");
-  }
-  return { user, profile };
-}
-
-/**
- * Ensures the caller is authenticated and has at least the required role.
- * If the user lacks access, gracefully redirects them back to their authorized admin dashboard.
- */
-export async function requireStaffRole(requiredRole: string) {
-  const { user, profile, role, isTop6 } = await getAuthenticatedStaff();
-
-  if (!user || !profile || !role) {
-    redirect("/admin/login");
-  }
-
-  if (!hasRole(role, requiredRole, profile.roles)) {
-    // If they have volunteer access only, send them to the scanner
-    if (role === "volunteer") {
-      redirect("/admin/scanner");
-    }
-    // Otherwise redirect back to main admin operations matrix
-    redirect("/admin");
-  }
-
-  return { user, profile, role, isTop6 };
 }

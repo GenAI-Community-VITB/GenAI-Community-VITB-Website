@@ -451,27 +451,42 @@ export function AdminDashboardClient(props: {
 
               {/* ── 1. Teams Management ── */}
               <div className={tab === "teams" ? "block space-y-8" : "hidden"}>
-                <TeamsManager initialTeams={teams} isAllowed={true} />
+                <TeamsManager
+                  initialTeams={teams}
+                  isAllowed={isTop6 || userRole === "tech"}
+                />
               </div>
 
               {/* ── 2. Events Management ── */}
               <div className={tab === "events" ? "block space-y-8" : "hidden"}>
-                <EventsManager initialEvents={events} isAllowed={true} />
+                <EventsManager
+                  initialEvents={events}
+                  isAllowed={isTop6 || userRole === "tech" || userRole.toLowerCase().includes("event")}
+                />
               </div>
 
               {/* ── 3. Projects Management ── */}
               <div className={tab === "projects" ? "block space-y-8" : "hidden"}>
-                <ProjectsManager initialProjects={projects} isAllowed={true} />
+                <ProjectsManager
+                  initialProjects={projects}
+                  isAllowed={isTop6 || userRole === "tech"}
+                />
               </div>
 
               {/* ── 4. Achievements Management ── */}
               <div className={tab === "achievements" ? "block space-y-8" : "hidden"}>
-                <AchievementsManager initialAchievements={achievements} isAllowed={true} />
+                <AchievementsManager
+                  initialAchievements={achievements}
+                  isAllowed={isTop6 || userRole === "tech"}
+                />
               </div>
 
               {/* ── 5. Event Winners & Podium Management ── */}
               <div className={tab === "winners" ? "block space-y-8" : "hidden"}>
-                <WinnersManager initialWinners={winners} isAllowed={true} />
+                <WinnersManager
+                  initialWinners={winners}
+                  isAllowed={isTop6 || userRole === "tech" || userRole.toLowerCase().includes("event")}
+                />
               </div>
 
               {/* Bottom Close Workspace Footer */}

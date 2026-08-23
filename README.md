@@ -125,14 +125,18 @@ An enterprise-grade, high-performance web platform and event management engine e
 ## 📊 Google Cloud Integrations
 
 ### 1. Resilient Image Upload Pipeline (`lib/google/drive.ts`)
-- Automatically routes image uploads (avatars, event posters, payment proofs) to Google Shared Drive.
+- Automatically routes image uploads (avatars, event posters, payment proofs) to Google Shared Drive or personal Google Drive via Google Apps Script Web App Relay (`GOOGLE_DRIVE_RELAY_URL`).
 - If storage quota or permission constraints arise, uploads automatically fall back to high-fidelity Base64 data-URLs stored directly in Supabase Postgres. Images **never** fail to display.
 
 ### 2. 3-Workbook Split Architecture (`lib/google/sheets.ts`)
-Operational data and logs are synced to three separate Google Spreadsheets:
-1. **Event Operations Sheet**: Registrations, Payment Management, Attendance, Deleted Registrations.
-2. **Website Logs Sheet**: System Audit Logs, User Management Log, Internal Management Log, Email Logs, System Failures.
+Operational data and logs are synced to three separate Google Spreadsheets with intelligent tab-alias resolution:
+1. **Event Operations Sheet**: Registrations, Payment Management, Attendance, Check-ins, Deleted Registrations.
+2. **Website Logs Sheet**: System Audit Logs, User Management Log, Internal Management Log, Email Logs, System Failure Logs.
 3. **Internal Management Sheet**: Members Database, Branch Database, Events Database, Event Lifecycle Log, Event Winners.
+
+### 3. 100-Checkpoint System Diagnostics (`lib/utils/diagnostics.ts`)
+- Comprehensive startup and on-demand verification suite covering 10 distinct operational categories (Environment, Supabase DB & Tables, Auth & RBAC, Google Sheets Multi-Workbook Sync, Drive Storage & Relay, Email & SMTP, QR Generator & Check-in Verification, Next.js Server Actions, Asset Proxies, Security & Rate Limiting).
+- Accessible via `/api/admin/system-status` and `npm run test:diagnostics`.
 
 ---
 

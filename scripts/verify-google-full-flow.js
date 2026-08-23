@@ -22,6 +22,8 @@ let privateKey = (env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 const spreadsheetId = env.GOOGLE_SPREADSHEET_ID;
 const folderId = env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
 
+const relayUrl = env.GOOGLE_DRIVE_RELAY_URL || env.GOOGLE_FORM_WEBHOOK_URL;
+
 async function testFullFlow() {
   const auth = new google.auth.JWT({
     email: clientEmail,
@@ -39,26 +41,47 @@ async function testFullFlow() {
   console.log("   Tabs in Sheet:", meta.data.sheets.map(s => s.properties.title).join(", "));
 
   console.log("\n2. Testing Drive file creation in root folder...");
-  const drive = google.drive({ version: "v3", auth });
-  const testFile = await drive.files.create({
-    requestBody: {
-      name: `integration_test_${Date.now()}.txt`,
-      parents: [folderId],
-      description: "Automated test file verifying drive upload permissions"
-    },
-    media: {
+  if (relayUrl) {
+    console.log("   Testing upload via Google Apps Script Relay (Personal 15GB Drive)...");
+    const testPayload = {
+      action: "upload",
+      fileName: `integration_test_${Date.now()}.txt`,
       mimeType: "text/plain",
-      body: "Google Drive and Sheets integration is 100% operational."
-    },
-    fields: "id, name, webViewLink",
-    supportsAllDrives: true
-  });
-  console.log("   Uploaded Test File ID:", testFile.data.id);
-  console.log("   File Link:", testFile.data.webViewLink);
-
-  // Clean up test file
-  await drive.files.delete({ fileId: testFile.data.id, supportsAllDrives: true });
-  console.log("   Cleaned up test file.");
+      base64: Buffer.from("Google Drive personal 15GB upload is 100% operational.").toString("base64"),
+      folderId: folderId || ""
+    };
+    const res = await fetch(relayUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(testPayload)
+    });
+    const data = await res.json();
+    if (!data.success || !data.fileId) {
+      throw new Error(`Apps Script upload failed: ${data.error || JSON.stringify(data)}`);
+    }
+    console.log("   ✅ Uploaded via Apps Script Relay! File ID:", data.fileId);
+    console.log("   File Link:", data.viewUrl || data.directUrl);
+  } else {
+    console.log("   Testing direct Service Account upload...");
+    const drive = google.drive({ version: "v3", auth });
+    const testFile = await drive.files.create({
+      requestBody: {
+        name: `integration_test_${Date.now()}.txt`,
+        parents: folderId ? [folderId] : undefined,
+        description: "Automated test file verifying drive upload permissions"
+      },
+      media: {
+        mimeType: "text/plain",
+        body: "Google Drive integration operational."
+      },
+      fields: "id, name, webViewLink",
+      supportsAllDrives: true
+    });
+    console.log("   Uploaded Test File ID:", testFile.data.id);
+    console.log("   File Link:", testFile.data.webViewLink);
+    await drive.files.delete({ fileId: testFile.data.id, supportsAllDrives: true });
+    console.log("   Cleaned up test file.");
+  }
 
   console.log("\n3. Testing append to 'Registrations' tab...");
   await sheets.spreadsheets.values.append({

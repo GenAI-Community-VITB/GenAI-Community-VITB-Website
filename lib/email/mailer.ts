@@ -6,21 +6,32 @@ import { formatISTDate } from "@/lib/utils/format";
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
-function getEmailTransporter(): nodemailer.Transporter | null {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
+export function getEmailTransporter(): nodemailer.Transporter | null {
+  const user = process.env.GMAIL_USER?.trim();
+  let pass = process.env.GMAIL_APP_PASSWORD?.trim();
 
   if (!user || !pass) {
     return null;
   }
 
+  // Strip spaces if user pasted 16-char app password with spaces
+  pass = pass.replace(/\s+/g, "");
+
   if (!cachedTransporter) {
     cachedTransporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user,
         pass,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 50,
     });
   }
 
@@ -28,7 +39,7 @@ function getEmailTransporter(): nodemailer.Transporter | null {
 }
 
 export interface SendEmailOptions {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   emailType: EmailType;
@@ -45,7 +56,7 @@ export interface SendEmailOptions {
 }
 
 /**
- * Sends an email via Gmail and records the operation into Supabase `email_logs`.
+ * Sends an email via Gmail SMTP and records the operation into Supabase `email_logs`.
  * Non-fatal: if email fails, logs the error and returns { success: false, error },
  * preserving the caller's transaction.
  */
@@ -66,9 +77,10 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
     attachments = [],
   } = options;
 
+  const recipients = Array.isArray(to) ? to.filter(Boolean).join(", ") : to;
   const transporter = getEmailTransporter();
   const fromAddress = process.env.GMAIL_USER
-    ? `"GenAI Community VIT Bhopal" <${process.env.GMAIL_USER}>`
+    ? `"GenAI Community VIT Bhopal" <${process.env.GMAIL_USER.trim()}>`
     : '"GenAI Community VIT Bhopal" <noreply@genai.local>';
 
   let success = false;
@@ -76,14 +88,14 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
   let errorMessage: string | undefined;
 
   if (!transporter) {
-    console.log(`[Email Mock/Dev Mode] To: ${to} | Type: ${emailType} | Subject: ${subject}`);
+    console.log(`[Email Mock/Dev Mode] To: ${recipients} | Type: ${emailType} | Subject: ${subject}`);
     success = true;
     messageId = `mock-email-${Date.now()}`;
   } else {
     try {
       const info = await transporter.sendMail({
         from: fromAddress,
-        to,
+        to: recipients,
         subject,
         html,
         attachments,
@@ -91,7 +103,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
       success = true;
       messageId = info.messageId;
     } catch (err: any) {
-      console.error(`Failed to send email to ${to}:`, err);
+      console.error(`Failed to send email to ${recipients}:`, err);
       success = false;
       errorMessage = err.message || "Failed to send email via SMTP";
     }
@@ -103,7 +115,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
     await supabase.from("email_logs").insert({
       registration_id: registrationId || null,
       event_id: eventId || null,
-      recipient_email: to,
+      recipient_email: recipients,
       email_type: emailType,
       subject,
       sender_id: senderId || null,
@@ -116,14 +128,14 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
     console.error("Failed to log email to database:", dbErr);
   }
 
-  // Mirror directly to Google Sheets Email Logs tab non-blockingly
+  // Mirror directly to Google Sheets Email Logs tab
   const emailLogId = messageId || `EML-${Date.now()}`;
   const istTime = formatISTDate(new Date(), true);
   appendToGoogleSheet("Email Logs", [
     [
       emailLogId,
       istTime,
-      to,
+      recipients,
       emailType,
       eventId || "General",
       senderRole || "system",
