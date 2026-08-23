@@ -44,9 +44,24 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) {
+      user = data.user;
+    } else if (error) {
+      // Clear invalid / expired auth cookies so they don't trigger repeated 400s
+      const allCookies = request.cookies.getAll();
+      allCookies.forEach((c) => {
+        if (c.name.startsWith("sb-") || c.name.includes("auth-token")) {
+          response.cookies.delete(c.name);
+        }
+      });
+    }
+  } catch {
+    // Treat invalid or missing refresh token as unauthenticated
+    user = null;
+  }
 
   // If user is already logged in and navigates to /admin/login, redirect to /admin
   if ((user || isAdminCookie) && isLoginPage) {

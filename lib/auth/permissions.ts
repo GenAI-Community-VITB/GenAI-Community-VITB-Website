@@ -51,6 +51,11 @@ export function isTop6Admin(
   return false;
 }
 
+/** Alias for isTop6Admin */
+export const isExecutiveLeader = isTop6Admin;
+
+export { formatISTDate } from "@/lib/utils/format";
+
 export const ROLE_HIERARCHY: Record<string, number> = {
   member: 5,
   volunteer: 10,
@@ -195,10 +200,16 @@ export async function getAuthenticatedStaff(): Promise<{
     const loggedInEmailCookie = cookieStore.get("club_admin_email")?.value?.trim().toLowerCase();
 
     // 1. Check for active Supabase Auth Session
-    const supabase = await createServerSupabase();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const supabase = await createServerSupabase();
+      const { data, error: authError } = await supabase.auth.getUser();
+      if (!authError && data?.user) {
+        user = data.user;
+      }
+    } catch {
+      user = null;
+    }
 
     const targetEmail = user?.email || loggedInEmailCookie;
     const targetId = user?.id;
@@ -287,4 +298,34 @@ export async function getAuthenticatedStaff(): Promise<{
     console.error("Error retrieving authenticated staff:", err);
     return { user: null, profile: null, role: null, isTop6: false };
   }
+}
+
+/**
+ * Enforces minimum staff role on server pages, redirecting if unauthenticated or unauthorized.
+ */
+export async function requireStaffRole(minimumRole: string = "volunteer"): Promise<{
+  user: any;
+  profile: UserProfile;
+  role: UserRole;
+  isTop6: boolean;
+}> {
+  const { redirect } = await import("next/navigation");
+  const staff = await getAuthenticatedStaff();
+  if (!staff.user || !staff.profile || !staff.role) {
+    redirect("/admin/login");
+  }
+
+  const profile = staff.profile!;
+  const role = staff.role!;
+
+  if (!hasRole(role, minimumRole, profile.roles)) {
+    redirect("/admin");
+  }
+
+  return {
+    user: staff.user,
+    profile,
+    role,
+    isTop6: staff.isTop6,
+  };
 }

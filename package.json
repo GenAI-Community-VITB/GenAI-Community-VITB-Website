@@ -6,7 +6,9 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "preflight": "node scripts/verify-100-checkpoints.js",
+    "test:diagnostics": "node scripts/verify-100-checkpoints.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

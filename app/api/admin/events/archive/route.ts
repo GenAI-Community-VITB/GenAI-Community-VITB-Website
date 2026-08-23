@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedStaff, isTop6Admin, formatISTDate } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, isTop6Admin } from "@/lib/auth/permissions";
+import { formatISTDate } from "@/lib/utils/format";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { completeAndArchiveEvent, getLiveEventStatistics } from "@/lib/data/registrations";
 import { exportEventToNewSpreadsheet } from "@/lib/google/sheets";
