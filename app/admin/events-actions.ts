@@ -384,8 +384,25 @@ export async function upsertStaffUserAction(formData: FormData) {
     });
   }
 
+  // Sync avatar and name to public members table if matching record exists
+  try {
+    const effectiveAvatar = avatarUrl;
+    const matchName = assignedToName || fullName;
+    if (effectiveAvatar) {
+      await supabase
+        .from("members")
+        .update({ image_url: effectiveAvatar })
+        .or(`email.ilike.${email},name.ilike.${matchName}`);
+    }
+  } catch (syncErr) {
+    console.warn("Public member record avatar sync skipped:", syncErr);
+  }
+
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  revalidatePath("/team");
+  revalidatePath("/about");
+  revalidatePath("/");
   return { success: true, generatedPassword: generatedPassword || undefined, email };
 }
 

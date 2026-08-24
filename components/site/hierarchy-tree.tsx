@@ -1009,23 +1009,49 @@ function TreeNodeCard({
       {/* Top subtle glow line on hover */}
       <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#f5b642] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-      {/* ── CARD CONTENT: NAME + FULL UNABBREVIATED DESIGNATION ── */}
+      {/* ── CARD CONTENT: AVATAR + NAME + FULL UNABBREVIATED DESIGNATION ── */}
       <div className="flex items-center justify-between gap-2.5">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="flex items-center gap-1.5">
-            <h4 className="font-black text-white text-xs tracking-tight truncate group-hover:text-[#ffd06a] transition-colors">
-              {member.name}
-            </h4>
-            {badgeText === "President" && (
-              <Crown className="h-3.5 w-3.5 text-[#f5b642] shrink-0" />
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Avatar Thumbnail */}
+          <div
+            className={`shrink-0 overflow-hidden rounded-xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
+              badgeText === "President"
+                ? "h-11 w-11 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_12px_rgba(245,182,66,0.25)] text-sm"
+                : badgeText === "Vice President"
+                ? "h-11 w-11 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.25)] text-sm"
+                : badgeText === "Lead" || badgeText === "Co-Lead"
+                ? "h-9 w-9 border-[#382c16] bg-[#1a140c] text-[#f5b642] text-xs"
+                : "h-8 w-8 border-[#262015] bg-[#120f0a] text-zinc-400 text-[10px]"
+            }`}
+          >
+            {member.avatarUrl ? (
+              <img
+                src={member.avatarUrl}
+                alt={member.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span>{member.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}</span>
             )}
           </div>
-          <p
-            className="font-bold text-[10.5px] truncate"
-            style={{ color }}
-          >
-            {member.roleTitle}
-          </p>
+
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-black text-white text-xs tracking-tight truncate group-hover:text-[#ffd06a] transition-colors">
+                {member.name}
+              </h4>
+              {badgeText === "President" && (
+                <Crown className="h-3.5 w-3.5 text-[#f5b642] shrink-0" />
+              )}
+            </div>
+            <p
+              className="font-bold text-[10.5px] truncate"
+              style={{ color }}
+            >
+              {member.roleTitle}
+            </p>
+          </div>
         </div>
 
         {/* Proper Designation Tag */}

@@ -299,13 +299,17 @@ export async function uploadPaymentScreenshotToDrive(params: {
   viewUrl: string;
 }> {
   const { fileBuffer, fileName, mimeType, eventTitle, year = new Date().getFullYear().toString() } = params;
-  const paymentsFolderId = process.env.GOOGLE_DRIVE_PAYMENTS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const explicitPaymentsFolder = process.env.GOOGLE_DRIVE_PAYMENTS_FOLDER_ID?.trim();
+  const paymentsFolderId = explicitPaymentsFolder || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const folderPath = explicitPaymentsFolder
+    ? [eventTitle, year]
+    : ["GenAI Community", "Payment Proofs", eventTitle, year];
 
   const result = await uploadBufferToDrive(
     fileBuffer,
     fileName,
     mimeType,
-    ["GenAI Community", "Payment Proofs", eventTitle, year],
+    folderPath,
     paymentsFolderId,
   );
 
@@ -319,7 +323,7 @@ export async function uploadPaymentScreenshotToDrive(params: {
 }
 
 /**
- * 2. Uploads member profile avatar to isolated Member Avatars folder.
+ * 2. Uploads member profile avatar directly into isolated Member Avatars folder.
  */
 export async function uploadMemberAvatarToDrive({
   buffer,
@@ -337,13 +341,15 @@ export async function uploadMemberAvatarToDrive({
 }> {
   const safeName = memberName.toLowerCase().replace(/[^a-z0-9]/g, "_");
   const cleanFileName = `avatar_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
-  const avatarsFolderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const explicitAvatarsFolder = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID?.trim();
+  const avatarsFolderId = explicitAvatarsFolder || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const folderPath = explicitAvatarsFolder ? [] : ["GenAI Community", "Member Avatars"];
 
   const result = await uploadBufferToDrive(
     buffer,
     cleanFileName,
     mimeType,
-    ["GenAI Community", "Member Avatars"],
+    folderPath,
     avatarsFolderId,
   );
 
@@ -368,13 +374,15 @@ export async function uploadEventBackupToDrive({
   fileId: string;
   viewUrl: string;
 }> {
-  const backupsFolderId = process.env.GOOGLE_DRIVE_BACKUPS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const explicitBackupsFolder = process.env.GOOGLE_DRIVE_BACKUPS_FOLDER_ID?.trim();
+  const backupsFolderId = explicitBackupsFolder || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const folderPath = explicitBackupsFolder ? [eventTitle] : ["GenAI Community", "Event Backups", eventTitle];
 
   const result = await uploadBufferToDrive(
     buffer,
     fileName,
     "application/json",
-    ["GenAI Community", "Event Backups", eventTitle],
+    folderPath,
     backupsFolderId,
   );
 
@@ -401,7 +409,9 @@ export async function uploadAchievementMediaToDrive({
   fileId: string;
   viewUrl: string;
 }> {
-  const achievementsFolderId = process.env.GOOGLE_DRIVE_ACHIEVEMENTS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const explicitAchievementsFolder = process.env.GOOGLE_DRIVE_ACHIEVEMENTS_FOLDER_ID?.trim();
+  const achievementsFolderId = explicitAchievementsFolder || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const folderPath = explicitAchievementsFolder ? [] : ["GenAI Community", "Achievements"];
   const safeName = achievementTitle.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30);
   const cleanFileName = `achievement_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
 
@@ -409,7 +419,7 @@ export async function uploadAchievementMediaToDrive({
     buffer,
     cleanFileName,
     mimeType,
-    ["GenAI Community", "Achievements"],
+    folderPath,
     achievementsFolderId,
   );
 
@@ -436,7 +446,9 @@ export async function uploadProjectMediaToDrive({
   fileId: string;
   viewUrl: string;
 }> {
-  const projectsFolderId = process.env.GOOGLE_DRIVE_PROJECTS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const explicitProjectsFolder = process.env.GOOGLE_DRIVE_PROJECTS_FOLDER_ID?.trim();
+  const projectsFolderId = explicitProjectsFolder || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const folderPath = explicitProjectsFolder ? [] : ["GenAI Community", "Projects"];
   const safeName = projectTitle.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30);
   const cleanFileName = `project_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
 
@@ -444,7 +456,7 @@ export async function uploadProjectMediaToDrive({
     buffer,
     cleanFileName,
     mimeType,
-    ["GenAI Community", "Projects"],
+    folderPath,
     projectsFolderId,
   );
 
@@ -492,31 +504,52 @@ export async function getDriveFileStream(
     }
   }
 
+  // 1. Try Google Drive API Client if service account credentials exist
   const drive = getGoogleDriveClient();
-  if (!drive) return null;
-
-  try {
-    const meta = await drive.files.get({
-      fileId,
-      fields: "id, name, mimeType",
-      supportsAllDrives: true,
-    });
-
-    const res = await drive.files.get(
-      {
+  if (drive) {
+    try {
+      const meta = await drive.files.get({
         fileId,
-        alt: "media",
+        fields: "id, name, mimeType",
         supportsAllDrives: true,
-      },
-      { responseType: "stream" },
-    );
+      });
 
-    return {
-      stream: res.data as Readable,
-      mimeType: meta.data.mimeType || "image/png",
-    };
-  } catch (error) {
-    console.error("Error retrieving file stream from Google Drive:", error);
-    return null;
+      const res = await drive.files.get(
+        {
+          fileId,
+          alt: "media",
+          supportsAllDrives: true,
+        },
+        { responseType: "stream" },
+      );
+
+      return {
+        stream: res.data as Readable,
+        mimeType: meta.data.mimeType || "image/png",
+      };
+    } catch (error) {
+      console.warn("Drive API stream failed, attempting public CDN fetch fallback:", error);
+    }
   }
+
+  // 2. High-reliability CDN fallback for Google Drive files
+  try {
+    const cdnUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+    const cdnRes = await fetch(cdnUrl);
+    if (cdnRes.ok) {
+      const arrayBuf = await cdnRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuf);
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
+      return {
+        stream,
+        mimeType: cdnRes.headers.get("content-type") || "image/jpeg",
+      };
+    }
+  } catch (cdnErr) {
+    console.error("CDN fetch fallback failed:", cdnErr);
+  }
+
+  return null;
 }
