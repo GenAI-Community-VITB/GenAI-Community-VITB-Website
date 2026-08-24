@@ -89,15 +89,20 @@ export function AchievementsManager({
         if (linkUrl) fd.append("link_url", linkUrl);
         if (imageFile) fd.append("image_file", imageFile);
 
-        await upsertAchievementAction(fd);
+        const res = await upsertAchievementAction(fd);
 
         setMessage({
           type: "success",
           text: editingItem ? "Achievement updated successfully." : "Achievement published successfully.",
         });
 
-        // Optimistic refresh
-        if (editingItem) {
+        if (res?.achievement) {
+          if (editingItem) {
+            setAchievements((prev) => prev.map((a) => (a.id === res.achievement.id ? res.achievement : a)));
+          } else {
+            setAchievements((prev) => [res.achievement, ...prev.filter((a) => a.id !== res.achievement.id)]);
+          }
+        } else if (editingItem) {
           setAchievements((prev) =>
             prev.map((a) =>
               a.id === editingItem.id
@@ -113,21 +118,6 @@ export function AchievementsManager({
                 : a,
             ),
           );
-        } else {
-          setAchievements((prev) => [
-            {
-              id: `ach-${Date.now()}`,
-              title,
-              caption,
-              category,
-              achievement_date: achievementDate,
-              link_url: linkUrl || null,
-              image_url: imagePreview,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
         }
 
         resetForm();

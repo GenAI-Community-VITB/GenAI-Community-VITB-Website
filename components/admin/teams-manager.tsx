@@ -93,14 +93,20 @@ export function TeamsManager({ initialTeams, isAllowed = true }: TeamsManagerPro
         if (imageUrl) fd.append("image_url", imageUrl.trim());
         if (imageFile) fd.append("image_file", imageFile);
 
-        await upsertTeam(fd);
+        const res = await upsertTeam(fd);
 
         setMessage({
           type: "success",
           text: editingItem ? "Team vertical updated successfully." : "Team vertical created successfully.",
         });
 
-        if (editingItem) {
+        if (res?.team) {
+          if (editingItem) {
+            setTeams((prev) => prev.map((t) => (t.id === res.team.id ? res.team : t)));
+          } else {
+            setTeams((prev) => [res.team, ...prev.filter((t) => t.id !== res.team.id)]);
+          }
+        } else if (editingItem) {
           setTeams((prev) =>
             prev.map((t) =>
               t.id === editingItem.id
@@ -115,19 +121,6 @@ export function TeamsManager({ initialTeams, isAllowed = true }: TeamsManagerPro
                 : t,
             ),
           );
-        } else {
-          setTeams((prev) => [
-            {
-              id: `team-${Date.now()}`,
-              name: name.trim(),
-              slug: slug.trim().toLowerCase(),
-              description: description.trim() || null,
-              image_url: imagePreview || imageUrl || null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
         }
 
         resetForm();

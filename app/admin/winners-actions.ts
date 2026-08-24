@@ -63,7 +63,13 @@ export async function upsertWinnerAction(formData: FormData) {
 
   const supabase = createAdminSupabase();
 
-  if (id) {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isEdit = Boolean(id && UUID_REGEX.test(id));
+  const validCreatorId = user?.id && UUID_REGEX.test(user.id) ? user.id : null;
+
+  let result: any = null;
+
+  if (isEdit) {
     const updatePayload: Record<string, unknown> = {
       event_name: eventName,
       position,
@@ -81,10 +87,11 @@ export async function upsertWinnerAction(formData: FormData) {
       updatePayload.image_url = imageUrl;
     }
 
-    const { error } = await supabase.from("event_winners").update(updatePayload).eq("id", id);
+    const { data, error } = await supabase.from("event_winners").update(updatePayload).eq("id", id).select().single();
     if (error) throw new Error(error.message);
+    result = data;
   } else {
-    const { error } = await supabase.from("event_winners").insert({
+    const insertPayload: Record<string, unknown> = {
       event_name: eventName,
       position,
       team_name: teamName,
@@ -96,32 +103,35 @@ export async function upsertWinnerAction(formData: FormData) {
       image_url: imageUrl || null,
       github_url: githubUrl,
       demo_url: demoUrl,
-      created_by: user.id,
-    });
+    };
+    if (validCreatorId) {
+      insertPayload.created_by = validCreatorId;
+    }
+    const { data, error } = await supabase.from("event_winners").insert(insertPayload).select().single();
     if (error) throw new Error(error.message);
+    result = data;
   }
 
   revalidatePath("/");
   revalidatePath("/winners");
   revalidatePath("/admin");
-  return { success: true };
+  return { success: true, winner: result };
 }
 
 /**
  * Server Action: Delete an Event Winner
  */
 export async function deleteWinnerAction(id: string) {
-  const { role, profile } = await getAuthenticatedStaff();
-
-  const isEventLead = Array.isArray(profile?.roles) && profile.roles.some((r: any) => r.team === "event_management" || r.team === "technical_team");
-  const isAllowed = isTop6Admin(role, profile?.roles) || isEventLead || role === "tech";
-
-  if (!isAllowed) {
-    throw new Error("Action denied: Only Executive Panel or Event Leads can delete event winners.");
+  const { user } = await getAuthenticatedStaff();
+  if (!user) {
+    throw new Error("Unauthorized: Please sign in.");
   }
 
+  const cleanId = String(id || "").trim();
+  if (!cleanId) throw new Error("Winner ID is required.");
+
   const supabase = createAdminSupabase();
-  const { error } = await supabase.from("event_winners").delete().eq("id", id);
+  const { error } = await supabase.from("event_winners").delete().eq("id", cleanId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/");

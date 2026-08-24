@@ -107,7 +107,7 @@ export function WinnersManager({
         if (demoUrl) fd.append("demo_url", demoUrl);
         if (imageFile) fd.append("image_file", imageFile);
 
-        await upsertWinnerAction(fd);
+        const res = await upsertWinnerAction(fd);
 
         setMessage({
           type: "success",
@@ -116,7 +116,27 @@ export function WinnersManager({
 
         const membersArray = members.split(",").map((s) => s.trim()).filter(Boolean);
 
-        if (editingItem) {
+        if (res?.winner) {
+          const mappedWinner: EventWinner = {
+            id: res.winner.id,
+            eventName: res.winner.event_name,
+            position: res.winner.position,
+            teamName: res.winner.team_name,
+            members: Array.isArray(res.winner.members) ? res.winner.members : membersArray,
+            projectTitle: res.winner.project_title,
+            projectDescription: res.winner.project_description,
+            prizeAward: res.winner.prize_award,
+            eventDate: res.winner.event_date,
+            imageUrl: res.winner.image_url || undefined,
+            githubUrl: res.winner.github_url || undefined,
+            demoUrl: res.winner.demo_url || undefined,
+          };
+          if (editingItem) {
+            setWinners((prev) => prev.map((w) => (w.id === mappedWinner.id ? mappedWinner : w)));
+          } else {
+            setWinners((prev) => [mappedWinner, ...prev.filter((w) => w.id !== mappedWinner.id)]);
+          }
+        } else if (editingItem) {
           setWinners((prev) =>
             prev.map((w) =>
               w.id === editingItem.id
@@ -137,24 +157,6 @@ export function WinnersManager({
                 : w,
             ),
           );
-        } else {
-          setWinners((prev) => [
-            {
-              id: `win-${Date.now()}`,
-              eventName,
-              position,
-              teamName,
-              members: membersArray,
-              projectTitle,
-              projectDescription,
-              prizeAward,
-              eventDate,
-              githubUrl: githubUrl || undefined,
-              demoUrl: demoUrl || undefined,
-              imageUrl: imagePreview,
-            },
-            ...prev,
-          ]);
         }
 
         resetForm();

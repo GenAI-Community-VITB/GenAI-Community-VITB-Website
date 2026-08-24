@@ -205,14 +205,20 @@ export function EventsManager({
         if (imageUrl) fd.append("image_url", imageUrl.trim());
         if (imageFile) fd.append("image_file", imageFile);
 
-        await upsertEvent(fd);
+        const res = await upsertEvent(fd);
 
         setMessage({
           type: "success",
           text: editingItem ? "Event details updated successfully." : "Event published successfully.",
         });
 
-        if (editingItem) {
+        if (res?.event) {
+          if (editingItem) {
+            setEvents((prev) => prev.map((ev) => (ev.id === res.event.id ? res.event : ev)));
+          } else {
+            setEvents((prev) => [res.event, ...prev.filter((ev) => ev.id !== res.event.id)]);
+          }
+        } else if (editingItem) {
           setEvents((prev) =>
             prev.map((ev) =>
               ev.id === editingItem.id
@@ -239,31 +245,6 @@ export function EventsManager({
                 : ev,
             ),
           );
-        } else {
-          setEvents((prev) => [
-            {
-              id: `ev-${Date.now()}`,
-              title: title.trim(),
-              slug: slug.trim().toLowerCase() || null,
-              description: description.trim(),
-              venue: venue.trim(),
-              event_date: eventDate,
-              status,
-              registration_fee: registrationFee,
-              max_capacity: maxCapacity,
-              registration_deadline: registrationDeadline || null,
-              event_start_time: eventStartTime || null,
-              event_end_time: eventEndTime || null,
-              is_registration_open: isRegistrationOpen,
-              upi_id: upiId || null,
-              register_url: registerUrl || null,
-              guidelines: guidelines ? guidelines.split("\n").filter(Boolean) : null,
-              image_url: imagePreview || imageUrl || null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
         }
 
         resetForm();

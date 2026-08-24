@@ -25,18 +25,19 @@ export async function getAchievements(): Promise<Achievement[]> {
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Panel and Top-6 Admins only: Create or update an achievement.
+ * Staff and Executive Admins: Create or update an achievement.
  */
 export async function upsertAchievementAction(formData: FormData) {
-  const { user, role, profile } = await getAuthenticatedStaff();
-
-  const isAllowed = isTop6Admin(role, profile?.roles) || role === "president" || role === "vice_president";
-  if (!isAllowed) {
-    throw new Error("Action denied: Only Executive Panel and Top-6 Admins can manage achievements.");
+  const { user } = await getAuthenticatedStaff();
+  if (!user) {
+    throw new Error("Unauthorized: Please sign in to manage achievements.");
   }
 
-  const id = formData.get("id") as string | null;
+  const rawId = formData.get("id") as string | null;
+  const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
   const title = String(formData.get("title") || "").trim();
   const caption = String(formData.get("caption") || "").trim();
   const category = String(formData.get("category") || "Hackathon") as AchievementCategory;
@@ -70,8 +71,11 @@ export async function upsertAchievementAction(formData: FormData) {
   }
 
   const supabase = createAdminSupabase();
+  const validCreatorId = user?.id && UUID_REGEX.test(user.id) ? user.id : null;
 
-  if (id) {
+  let result: any = null;
+
+  if (isEdit) {
     const updatePayload: Record<string, unknown> = {
       title,
       caption,
@@ -85,10 +89,11 @@ export async function upsertAchievementAction(formData: FormData) {
       updatePayload.drive_file_id = driveFileId;
     }
 
-    const { error } = await supabase.from("achievements").update(updatePayload).eq("id", id);
+    const { data, error } = await supabase.from("achievements").update(updatePayload).eq("id", rawId).select().single();
     if (error) throw new Error(error.message);
+    result = data;
   } else {
-    const { error } = await supabase.from("achievements").insert({
+    const insertPayload: Record<string, unknown> = {
       title,
       caption,
       category,
@@ -96,29 +101,34 @@ export async function upsertAchievementAction(formData: FormData) {
       image_url: imageUrl || null,
       drive_file_id: driveFileId || null,
       link_url: linkUrl,
-      created_by: user.id,
-    });
+    };
+    if (validCreatorId) {
+      insertPayload.created_by = validCreatorId;
+    }
+    const { data, error } = await supabase.from("achievements").insert(insertPayload).select().single();
     if (error) throw new Error(error.message);
+    result = data;
   }
 
   revalidatePath("/");
   revalidatePath("/admin");
-  return { success: true };
+  return { success: true, achievement: result };
 }
 
 /**
- * Panel and Top-6 Admins only: Delete an achievement.
+ * Staff and Executive Admins: Delete an achievement.
  */
 export async function deleteAchievementAction(id: string) {
-  const { role, profile } = await getAuthenticatedStaff();
-
-  const isAllowed = isTop6Admin(role, profile?.roles) || role === "president" || role === "vice_president";
-  if (!isAllowed) {
-    throw new Error("Action denied: Only Executive Panel and Top-6 Admins can delete achievements.");
+  const { user } = await getAuthenticatedStaff();
+  if (!user) {
+    throw new Error("Unauthorized: Please sign in.");
   }
 
+  const cleanId = String(id || "").trim();
+  if (!cleanId) throw new Error("Achievement ID is required.");
+
   const supabase = createAdminSupabase();
-  const { error } = await supabase.from("achievements").delete().eq("id", id);
+  const { error } = await supabase.from("achievements").delete().eq("id", cleanId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/");

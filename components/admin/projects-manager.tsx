@@ -103,14 +103,20 @@ export function ProjectsManager({
         if (imageUrl) fd.append("image_url", imageUrl.trim());
         if (imageFile) fd.append("image_file", imageFile);
 
-        await upsertProject(fd);
+        const res = await upsertProject(fd);
 
         setMessage({
           type: "success",
           text: editingItem ? "Project updated successfully." : "Project published successfully.",
         });
 
-        if (editingItem) {
+        if (res?.project) {
+          if (editingItem) {
+            setProjects((prev) => prev.map((p) => (p.id === res.project.id ? res.project : p)));
+          } else {
+            setProjects((prev) => [res.project, ...prev.filter((p) => p.id !== res.project.id)]);
+          }
+        } else if (editingItem) {
           setProjects((prev) =>
             prev.map((p) =>
               p.id === editingItem.id
@@ -127,21 +133,6 @@ export function ProjectsManager({
                 : p,
             ),
           );
-        } else {
-          setProjects((prev) => [
-            {
-              id: `proj-${Date.now()}`,
-              title: title.trim(),
-              short_description: shortDescription.trim(),
-              github_url: githubUrl.trim() || null,
-              live_url: liveUrl.trim() || null,
-              blog_url: blogUrl.trim() || null,
-              image_url: imagePreview || imageUrl || null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
         }
 
         resetForm();
