@@ -186,7 +186,7 @@ async function uploadBufferToDrive(
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.fileId) {
-          const viewUrl = data.directUrl || data.viewUrl || `/api/drive/asset/${data.fileId}`;
+          const viewUrl = `/api/drive/asset/${data.fileId}`;
           uploadedImageHashCache.set(hash, { fileId: data.fileId, viewUrl, folderPath: pathLabel });
           return { fileId: data.fileId, viewUrl, isDataUrl: false };
         }
@@ -343,7 +343,7 @@ export async function uploadMemberAvatarToDrive({
   const cleanFileName = `avatar_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
   const explicitAvatarsFolder = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID?.trim();
   const avatarsFolderId = explicitAvatarsFolder || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
-  const folderPath = explicitAvatarsFolder ? [] : ["GenAI Community", "Member Avatars"];
+  const folderPath = explicitAvatarsFolder ? [] : ["Member Avatars"];
 
   const result = await uploadBufferToDrive(
     buffer,

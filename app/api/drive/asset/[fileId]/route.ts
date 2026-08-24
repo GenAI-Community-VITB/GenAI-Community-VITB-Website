@@ -46,6 +46,9 @@ export async function GET(
 
     const fileStreamData = await getDriveFileStream(fileId);
     if (!fileStreamData) {
+      if (!fileId.startsWith("storage_") && !fileId.startsWith("mock-")) {
+        return NextResponse.redirect(`https://lh3.googleusercontent.com/d/${fileId}`, 307);
+      }
       return new NextResponse("Asset file not found.", { status: 404 });
     }
 

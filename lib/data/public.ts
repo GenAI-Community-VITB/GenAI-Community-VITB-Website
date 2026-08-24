@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { normalizeDriveImageUrl } from "@/lib/utils/format";
 
 export const getTeamsWithMembers = cache(async () => {
   try {
@@ -114,7 +115,7 @@ export const getHierarchyMembers = cache(async () => {
     const admin = createAdminSupabase();
     const { data: profiles } = await admin
       .from("user_profiles")
-      .select("id, email, full_name, assigned_to_name, avatar_url, role, is_voided, roles:member_roles(team, position)")
+      .select("id, email, full_name, assigned_to_name, avatar_url, drive_file_id, role, is_voided, roles:member_roles(team, position)")
       .eq("is_active", true)
       .eq("is_voided", false);
 
@@ -144,6 +145,9 @@ export const getHierarchyMembers = cache(async () => {
 
       const hasVolunteer = sortedRoles.some((r) => r.position === "volunteer" || r.team === "volunteer_crew") || p.role === "volunteer";
 
+      const rawAvatar = p.avatar_url || (p.drive_file_id ? `/api/drive/asset/${p.drive_file_id}` : null);
+      const normalizedAvatar = normalizeDriveImageUrl(rawAvatar);
+
       return {
         name: p.assigned_to_name || p.full_name,
         roleTitle: p.full_name,
@@ -152,7 +156,7 @@ export const getHierarchyMembers = cache(async () => {
         email: p.email,
         tier: tier as "president" | "panel" | "lead" | "core",
         caption: `Contributing to ${teamFormatted} operations and community technical innovation.`,
-        avatarUrl: p.avatar_url || null,
+        avatarUrl: normalizedAvatar || null,
       };
     });
   } catch {

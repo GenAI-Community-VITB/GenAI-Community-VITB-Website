@@ -46,7 +46,7 @@ import {
   KeyRound,
   Clock,
 } from "lucide-react";
-import { isTop6Admin, isSupremeExecutive, isExecutiveAccount } from "@/lib/utils/format";
+import { isTop6Admin, isSupremeExecutive, isExecutiveAccount, normalizeDriveImageUrl } from "@/lib/utils/format";
 import {
   getPasswordResetQueries,
   resolvePasswordResetQueryAction,
@@ -70,6 +70,8 @@ export function MemberAvatar({
   avatarUrl?: string | null;
   size?: "sm" | "md" | "lg";
 }) {
+  const [hasError, setHasError] = useState(false);
+  const normalized = normalizeDriveImageUrl(avatarUrl);
   const initials =
     name
       .split(" ")
@@ -85,11 +87,12 @@ export function MemberAvatar({
     lg: "h-14 w-14 text-sm",
   }[size];
 
-  if (avatarUrl) {
+  if (normalized && !hasError) {
     return (
       <img
-        src={avatarUrl}
+        src={normalized}
         alt={name}
+        onError={() => setHasError(true)}
         className={`${sizeClasses} rounded-xl object-cover border border-[#f5b642]/30 shadow-md shrink-0`}
       />
     );
@@ -97,7 +100,7 @@ export function MemberAvatar({
 
   return (
     <div
-      className={`${sizeClasses} flex items-center justify-center rounded-xl bg-gradient-to-br from-[#2a2212] via-[#1a150c] to-[#0d0b06] border border-[#f5b642]/40 font-bold text-[#f5b642] shadow-md shrink-0`}
+      className={`${sizeClasses} flex items-center justify-center rounded-xl bg-gradient-to-br from-[#2a2212] via-[#1a140c] to-[#0d0b06] border border-[#f5b642]/40 font-bold text-[#f5b642] shadow-md shrink-0`}
     >
       {initials}
     </div>

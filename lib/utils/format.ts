@@ -334,3 +334,40 @@ export function getMemberAssignedName(
   return "Member";
 }
 
+/**
+ * Normalizes any avatar, banner, or drive image URL into a working proxy/direct CDN URL.
+ * Automatically resolves raw Google Drive links (uc?export=view, /file/d/..., open?id=...)
+ * into the internal streaming proxy route /api/drive/asset/[fileId].
+ */
+export function normalizeDriveImageUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // Already a local proxy route, data URL, or preview route
+  if (
+    trimmed.startsWith("/api/drive/asset/") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("/api/admin/drive/preview/") ||
+    trimmed.startsWith("/")
+  ) {
+    return trimmed;
+  }
+
+  // Extract file ID from google drive URLs:
+  // 1. https://drive.google.com/uc?export=view&id=FILE_ID
+  // 2. https://drive.google.com/file/d/FILE_ID/view...
+  // 3. https://drive.google.com/open?id=FILE_ID
+  // 4. https://lh3.googleusercontent.com/d/FILE_ID
+  const fileIdMatch =
+    trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+    trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+    trimmed.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+
+  if (fileIdMatch && fileIdMatch[1]) {
+    return `/api/drive/asset/${fileIdMatch[1]}`;
+  }
+
+  return trimmed;
+}
+

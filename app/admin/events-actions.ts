@@ -622,6 +622,140 @@ export async function changeMyPasswordAction(newPassword: string) {
 }
 
 /**
+ * Sends a 6-digit OTP to the currently authenticated staff member's registered email.
+ */
+export async function requestMyPasswordOTPAction() {
+  const { user, profile } = await getAuthenticatedStaff();
+  const email = (profile?.email || user.email || "").trim().toLowerCase();
+
+  if (!email) {
+    throw new Error("Unable to determine your registered account email address.");
+  }
+
+  const { requestPasswordResetOTP } = await import("@/lib/data/password-resets");
+  const res = await requestPasswordResetOTP(email);
+
+  if (!res.success) {
+    throw new Error(res.message || "Failed to dispatch verification code.");
+  }
+
+  return {
+    success: true,
+    email,
+    message: `A 6-digit verification code has been dispatched to ${email}.`,
+  };
+}
+
+/**
+ * Verifies OTP code and updates the authenticated staff member's password.
+ */
+export async function verifyMyOTPAndChangePasswordAction(otp: string, newPassword: string) {
+  const { user, profile } = await getAuthenticatedStaff();
+  const email = (profile?.email || user.email || "").trim().toLowerCase();
+
+  if (!email) {
+    throw new Error("Unable to determine your registered account email address.");
+  }
+
+  const { verifyOTPAndResetPassword } = await import("@/lib/data/password-resets");
+  const res = await verifyOTPAndResetPassword({
+    email,
+    otp,
+    newPassword,
+  });
+
+  if (!res.success) {
+    throw new Error(res.message || "Invalid or expired verification code.");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/users");
+  return { success: true, message: "Password updated successfully!" };
+}
+
+/**
+ * Self-service: Allows any logged-in staff member to update their own avatar image.
+ */
+export async function updateMyAvatarAction(formData: FormData) {
+  const { user, profile } = await getAuthenticatedStaff();
+  const file = formData.get("avatar_file") as File | null;
+
+  if (!file || file.size === 0) {
+    throw new Error("Please select an avatar image to upload.");
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("Avatar image must be smaller than 8MB.");
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const memberName = profile?.assigned_to_name || profile?.full_name || user.email || `user_${user.id}`;
+
+  const driveRes = await uploadMemberAvatarToDrive({
+    buffer,
+    fileName: file.name,
+    mimeType: file.type || "image/jpeg",
+    memberName,
+  });
+
+  const supabase = createAdminSupabase();
+
+  // 1. Update user_profiles
+  const { error: profileErr } = await supabase
+    .from("user_profiles")
+    .update({
+      avatar_url: driveRes.viewUrl,
+      drive_file_id: driveRes.fileId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  if (profileErr) throw new Error(profileErr.message);
+
+  // 2. Sync to members table for public hierarchy and team cards
+  try {
+    const matchEmail = profile?.email || user.email;
+    const matchName = profile?.assigned_to_name || profile?.full_name;
+    if (matchEmail) {
+      await supabase
+        .from("members")
+        .update({ image_url: driveRes.viewUrl })
+        .or(`email.ilike.${matchEmail},name.ilike.${matchName}`);
+    }
+  } catch {}
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/users");
+  revalidatePath("/team");
+  revalidatePath("/about");
+
+  return {
+    success: true,
+    avatarUrl: driveRes.viewUrl,
+    fileId: driveRes.fileId,
+    message: "Profile photo updated successfully!",
+  };
+}
+
+/**
+ * Self-service: Retrieves account profile info for the currently authenticated staff member.
+ */
+export async function getMyAccountInfoAction() {
+  const { user, profile, role, isTop6 } = await getAuthenticatedStaff();
+  return {
+    id: user.id,
+    email: profile?.email || user.email || "",
+    fullName: profile?.full_name || "",
+    assignedToName: profile?.assigned_to_name || profile?.full_name || "",
+    role: role || "volunteer",
+    avatarUrl: profile?.avatar_url || null,
+    roles: profile?.roles || [],
+    isTop6,
+  };
+}
+
+/**
  * Top-6 only: Resets a staff member's password and stores the new password.
  */
 export async function resetStaffPasswordAction(userId: string, customPassword?: string) {

@@ -24,6 +24,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { normalizeDriveImageUrl } from "@/lib/utils/format";
 
 export interface HierarchyMember {
   name: string;
@@ -33,6 +34,49 @@ export interface HierarchyMember {
   email: string;
   caption: string;
   avatarUrl?: string | null;
+}
+
+export function HierarchyAvatar({
+  name,
+  avatarUrl,
+  className,
+  fallbackClassName,
+  initialsClassName,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  className?: string;
+  fallbackClassName?: string;
+  initialsClassName?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const normalized = normalizeDriveImageUrl(avatarUrl);
+  const initials =
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "GA";
+
+  if (normalized && !hasError) {
+    return (
+      <img
+        src={normalized}
+        alt={name}
+        className={className || "h-full w-full object-cover"}
+        onError={() => setHasError(true)}
+        loading="lazy"
+      />
+    );
+  }
+
+  return (
+    <div className={fallbackClassName || "flex h-full w-full items-center justify-center font-bold"}>
+      <span className={initialsClassName}>{initials}</span>
+    </div>
+  );
 }
 
 // ── PRESIDENT (ROOT NODE) ──
@@ -900,22 +944,13 @@ export function MemberHierarchyTree({
             >
               {/* Header Profile Summary */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-                {selectedMember.avatarUrl ? (
-                  <img
-                    src={selectedMember.avatarUrl}
-                    alt={selectedMember.name}
-                    className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_30px_rgba(245,182,66,0.4)] shrink-0"
-                  />
-                ) : (
-                  <div className="flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] font-black text-3xl text-[#f5b642] shadow-inner shrink-0">
-                    {selectedMember.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase() || "GA"}
-                  </div>
-                )}
+                <HierarchyAvatar
+                  name={selectedMember.name}
+                  avatarUrl={selectedMember.avatarUrl}
+                  className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_30px_rgba(245,182,66,0.4)] shrink-0"
+                  fallbackClassName="flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
+                  initialsClassName="font-black text-3xl text-[#f5b642]"
+                />
 
                 <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-0.5 text-xs font-bold text-amber-300 font-mono uppercase">
@@ -1024,16 +1059,13 @@ function TreeNodeCard({
                 : "h-8 w-8 border-[#262015] bg-[#120f0a] text-zinc-400 text-[10px]"
             }`}
           >
-            {member.avatarUrl ? (
-              <img
-                src={member.avatarUrl}
-                alt={member.name}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <span>{member.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}</span>
-            )}
+            <HierarchyAvatar
+              name={member.name}
+              avatarUrl={member.avatarUrl}
+              className="h-full w-full object-cover"
+              fallbackClassName="flex h-full w-full items-center justify-center font-bold"
+              initialsClassName="font-mono text-inherit"
+            />
           </div>
 
           <div className="min-w-0 flex-1 space-y-0.5">
