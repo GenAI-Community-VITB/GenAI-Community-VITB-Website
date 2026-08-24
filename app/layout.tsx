@@ -31,11 +31,16 @@ export const metadata: Metadata = {
   description: "Official portal for Generative AI Community - team hierarchy, live events, registration passes, and research projects.",
   icons: {
     icon: [
-      { url: "/ClubIcon.png", sizes: "any" },
-      { url: "/ClubIcon.png", type: "image/png" },
+      { url: "/ClubIcon.png", sizes: "32x32", type: "image/png" },
+      { url: "/ClubIcon.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.png", sizes: "any", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
     ],
     shortcut: "/ClubIcon.png",
-    apple: "/ClubIcon.png",
+    apple: [
+      { url: "/ClubIcon.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-icon.png" },
+    ],
   },
 };
 
