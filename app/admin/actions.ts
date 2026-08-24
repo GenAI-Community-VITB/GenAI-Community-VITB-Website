@@ -188,6 +188,46 @@ export async function tryHardcodedAdminSession(
  * Unified Server-Side Staff & Admin Login Handler
  * Sets session cookies atomically on the response headers.
  */
+async function dispatchLoginSecurityEmail(email: string) {
+  try {
+    const { sendEmail } = await import("@/lib/email/mailer");
+    const { getLoginSecurityAlertTemplate } = await import("@/lib/email/templates");
+    const { formatISTDate, getHumanReadableRole, getMemberAssignedName } = await import("@/lib/utils/format");
+
+    const adminSupabase = createAdminSupabase();
+    const { data: profile } = await adminSupabase
+      .from("user_profiles")
+      .select("id, email, full_name, assigned_to_name, role, roles:member_roles(*)")
+      .ilike("email", email)
+      .maybeSingle();
+
+    const fullName = getMemberAssignedName(
+      email,
+      profile?.assigned_to_name,
+      profile?.full_name,
+    );
+    const roleTitle = getHumanReadableRole(profile?.role || "member", profile?.roles);
+    const nowIST = formatISTDate(new Date(), true);
+
+    const template = getLoginSecurityAlertTemplate({
+      fullName,
+      email,
+      loginTime: nowIST,
+      roleTitle,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: template.subject,
+      html: template.html,
+      emailType: "system_alert",
+      senderRole: "security_daemon",
+    });
+  } catch (err: any) {
+    console.warn("Failed to dispatch login security alert email:", err?.message || err);
+  }
+}
+
 export async function loginStaff(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const email = (formData.get("email") as string || "").trim().toLowerCase();
   const password = (formData.get("password") as string || "").trim();
@@ -199,6 +239,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
   // 1. Try Root / Dev Admin credentials
   const hardcoded = await tryHardcodedAdminSession(email, password);
   if (hardcoded.ok) {
+    dispatchLoginSecurityEmail(email).catch(() => {});
     return { ok: true };
   }
 
@@ -225,6 +266,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
         maxAge: 60 * 60 * 24, // 24 hours
       });
 
+      dispatchLoginSecurityEmail(email).catch(() => {});
       return { ok: true };
     }
   } catch {}
@@ -269,6 +311,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
         maxAge: 60 * 60 * 24,
       });
 
+      dispatchLoginSecurityEmail(profile.email || email).catch(() => {});
       return { ok: true };
     }
   } catch (fallbackErr: any) {

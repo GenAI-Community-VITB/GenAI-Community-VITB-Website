@@ -1165,7 +1165,7 @@ export function UserManagement({
                     required
                     value={assignedToName}
                     onChange={(e) => setAssignedToName(e.target.value)}
-                    placeholder="e.g. Lakshya Kant"
+                    placeholder="e.g. Member Full Name"
                     className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
                   />
                 </div>
@@ -1182,7 +1182,7 @@ export function UserManagement({
                     disabled={Boolean(editingUser)}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="aiml.lead@genai.community"
+                    placeholder="name.24bce10000@vitbhopal.ac.in"
                     className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none disabled:opacity-50"
                   />
                 </div>

@@ -508,11 +508,18 @@ export const ROSTER_2026: MemberRosterItem[] = [
   },
 ];
 
+function generateUniquePassword(item: MemberRosterItem, index: number): string {
+  const emailPrefix = item.email.split("@")[0];
+  const rollMatch = emailPrefix.match(/\d+[a-z]+\d+/i);
+  const rollTag = rollMatch ? rollMatch[0].toUpperCase() : `M${String(index + 1).padStart(2, "0")}`;
+  const firstName = (item.assignedToName.split(" ")[0] || "Member").replace(/[^a-zA-Z]/g, "");
+  return `GAI26!${firstName}#${rollTag}$`;
+}
+
 export async function seedLogins() {
   console.log("============================================================");
-  console.log("Seeding Generative AI Community 2026-27 Logins & RBAC");
+  console.log("Seeding Generative AI Community 2026-27 Logins & Unique Passwords");
   console.log(`Domain: @vitbhopal.ac.in`);
-  console.log(`Default password for all accounts: ${DEFAULT_PASSWORD}`);
   console.log(`Total accounts to process: ${ROSTER_2026.length}`);
   console.log("============================================================\n");
 
@@ -520,11 +527,16 @@ export async function seedLogins() {
   let updatedCount = 0;
   let errorCount = 0;
 
-  // Fetch all existing users once
-  const { data: existingUsersRes } = await supabase.auth.admin.listUsers();
+  // Fetch all existing users with large perPage to cover entire roster
+  const { data: existingUsersRes } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const existingUsers = existingUsersRes?.users || [];
 
-  for (const item of ROSTER_2026) {
+  const credentialsLog: Array<{ name: string; email: string; role: string; pass: string }> = [];
+
+  for (let i = 0; i < ROSTER_2026.length; i++) {
+    const item = ROSTER_2026[i];
+    const uniquePassword = generateUniquePassword(item, i);
+
     try {
       // Look up existing user strictly by new email, then legacy email, then assignedToName
       let existingUser = existingUsers.find((u) => u.email?.toLowerCase() === item.email.toLowerCase());
@@ -543,9 +555,10 @@ export async function seedLogins() {
 
       if (existingUser) {
         userId = existingUser.id;
-        // In-place edit of existing user email and metadata
+        // In-place edit of existing user email, unique password, and metadata
         await supabase.auth.admin.updateUserById(userId, {
           email: item.email,
+          password: uniquePassword,
           user_metadata: {
             full_name: item.fullName,
             assigned_to_name: item.assignedToName,
@@ -558,7 +571,7 @@ export async function seedLogins() {
         try {
           const { data: newUser, error: createAuthError } = await supabase.auth.admin.createUser({
             email: item.email,
-            password: DEFAULT_PASSWORD,
+            password: uniquePassword,
             email_confirm: true,
             user_metadata: {
               full_name: item.fullName,
@@ -574,11 +587,12 @@ export async function seedLogins() {
           createdCount++;
         } catch (createErr: any) {
           // If already exists in Auth, fetch by email directly
-          const { data: listRes } = await supabase.auth.admin.listUsers();
+          const { data: listRes } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const found = listRes?.users?.find((u) => u.email?.toLowerCase() === item.email.toLowerCase());
           if (found) {
             userId = found.id;
             await supabase.auth.admin.updateUserById(userId, {
+              password: uniquePassword,
               user_metadata: {
                 full_name: item.fullName,
                 assigned_to_name: item.assignedToName,
@@ -593,11 +607,12 @@ export async function seedLogins() {
         }
       }
 
-      // Upsert user_profiles in-place
+      // Upsert user_profiles in-place with password for database fallback
       const { error: profileError } = await supabase.from("user_profiles").upsert(
         {
           id: userId,
           email: item.email,
+          password: uniquePassword,
           full_name: item.fullName,
           assigned_to_name: item.assignedToName,
           role: item.primaryRole,
@@ -622,7 +637,14 @@ export async function seedLogins() {
         // Non-fatal if table doesn't exist yet
       }
 
-      console.log(`✅ [OK] ${item.email.padEnd(42)} -> ${item.assignedToName.padEnd(22)} (${item.fullName})`);
+      credentialsLog.push({
+        name: item.assignedToName,
+        email: item.email,
+        role: item.primaryRole,
+        pass: uniquePassword,
+      });
+
+      console.log(`✅ [OK] ${item.email.padEnd(42)} -> ${item.assignedToName.padEnd(20)} | Pass: ${uniquePassword}`);
     } catch (err: any) {
       console.error(`❌ [ERROR] ${item.email}:`, err.message || err);
       errorCount++;

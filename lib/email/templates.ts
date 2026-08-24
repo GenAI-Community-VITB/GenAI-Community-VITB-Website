@@ -362,3 +362,64 @@ export function getOTPEmailTemplate(params: {
   };
 }
 
+export function getLoginSecurityAlertTemplate(params: {
+  fullName: string;
+  email: string;
+  loginTime: string;
+  roleTitle?: string;
+  ipAddress?: string;
+}): { subject: string; html: string } {
+  const { fullName, email, loginTime, roleTitle = "Team Member", ipAddress = "Verified Network" } = params;
+
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background-color: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+        Security Notice · Account Activity
+      </span>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">New Account Sign-in</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">Operations Control Portal</p>
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
+      Hi <strong>${fullName || "Club Member"}</strong>,
+    </p>
+    <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      Your official account (<strong>${email}</strong>) has just logged into the GenAI Community Admin Portal.
+    </p>
+
+    <!-- Sign-in Details Table -->
+    <div style="background-color: #120e09; border: 1px solid #2a2215; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a; width: 40%;">Timestamp (IST):</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600; font-family: monospace;">${loginTime}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Staff Role:</td>
+          <td style="padding: 6px 0; font-size: 13px; color: ${GOLD_COLOR}; font-weight: 700;">${roleTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Client Target:</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-family: monospace;">Web Operations Console</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background-color: #1a1408; border: 1px solid #4a3814; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 12px; color: #ffd06a; line-height: 1.5;">
+        🔒 <strong>Security Warning:</strong> If you did not perform this login, someone else may have gained access to your account. Please use the <strong>Forgot / Reset Password</strong> option on the login portal to immediately reset your password with email OTP.
+      </p>
+    </div>
+
+    <p style="margin: 0; font-size: 12px; color: #71717a;">
+      Generative AI Community VIT Bhopal · Security Operations System
+    </p>
+  `;
+
+  return {
+    subject: `Security Alert: New Sign-in to GenAI Community Portal (${email})`,
+    html: baseEmailLayout(content, `New sign-in detected on your account at ${loginTime}`),
+  };
+}
+
+

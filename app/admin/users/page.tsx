@@ -15,7 +15,7 @@ export default async function UsersPage() {
 
   const { data: users, error } = await supabase
     .from("user_profiles")
-    .select("*")
+    .select("*, roles:member_roles(*)")
     .order("created_at", { ascending: false });
 
   const isSupreme = isSupremeExecutive(role, profile.roles, profile.email || user.email);

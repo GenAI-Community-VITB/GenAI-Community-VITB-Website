@@ -60,6 +60,8 @@ export type EmailType =
   | "custom_email"
   | "finance_reminder"
   | "password_reset_otp"
+  | "login_security_alert"
+  | "system_alert"
   | "test_email";
 
 export interface EventVolunteer {

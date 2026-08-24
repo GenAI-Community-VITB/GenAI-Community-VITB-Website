@@ -154,7 +154,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               autoComplete="email"
               value={loginEmail}
               onChange={(e) => setLoginEmail(e.target.value)}
-              placeholder="e.g. lakshya.24bce10549@vitbhopal.ac.in"
+              placeholder="name.24bce10000@vitbhopal.ac.in"
               className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30 font-mono"
             />
           </div>
@@ -260,19 +260,19 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
             {otpStep === "email" && (
               <form onSubmit={handleSendOTP} className="space-y-3 text-left">
                 <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Enter your official registered <strong className="text-white">@vitbhopal.ac.in</strong> email ID (e.g. <span className="text-[#f5b642] font-mono">xyz.24bceXXXX@vitbhopal.ac.in</span>). A secure 6-digit single-use OTP will be delivered to your official mailbox.
+                  Enter your official registered <strong className="text-white">@vitbhopal.ac.in</strong> email ID (e.g. <span className="text-[#f5b642] font-mono">firstname.rollnumber@vitbhopal.ac.in</span>). A secure 6-digit single-use OTP will be delivered to your official mailbox.
                 </p>
 
                 <div>
                   <label className="text-[10px] font-bold text-zinc-300 block mb-1">
-                    Official VIT Bhopal Email *
+                    Official Email *
                   </label>
                   <input
                     type="email"
                     required
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="e.g. lakshya.24bce10549@vitbhopal.ac.in"
+                    placeholder="name.24bce10000@vitbhopal.ac.in"
                     className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
                   />
                 </div>

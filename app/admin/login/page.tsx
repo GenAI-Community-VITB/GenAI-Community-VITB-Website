@@ -106,7 +106,7 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
             </div>
             <h2 className="text-xl font-bold text-white sm:text-2xl">Admin Authentication</h2>
             <p className="mt-1 text-[11px] text-zinc-400 leading-snug">
-              Enter your official VIT Bhopal credentials (<span className="text-[#ffd06a] font-mono">xyz.24bceXXXX@vitbhopal.ac.in</span>) to access control modules.
+              Enter your official VIT Bhopal credentials (<span className="text-[#ffd06a] font-mono">firstname.rollnumber@vitbhopal.ac.in</span>) to access control modules.
             </p>
           </div>
 

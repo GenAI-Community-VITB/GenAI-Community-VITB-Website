@@ -181,15 +181,19 @@ async function uploadBufferToDrive(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        redirect: "follow",
       });
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.fileId) {
-          const viewUrl = `/api/drive/asset/${data.fileId}`;
-          uploadedImageHashCache.set(hash, { fileId: data.fileId, viewUrl, folderPath: pathLabel });
-          return { fileId: data.fileId, viewUrl, isDataUrl: false };
-        }
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          if (data.success && data.fileId) {
+            const viewUrl = `/api/drive/asset/${data.fileId}`;
+            uploadedImageHashCache.set(hash, { fileId: data.fileId, viewUrl, folderPath: pathLabel });
+            return { fileId: data.fileId, viewUrl, isDataUrl: false };
+          }
+        } catch {}
       }
     } catch (relayErr: any) {
       console.warn("Google Apps Script Drive Relay error:", relayErr?.message || relayErr);
