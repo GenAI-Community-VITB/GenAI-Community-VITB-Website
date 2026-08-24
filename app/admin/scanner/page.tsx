@@ -10,7 +10,7 @@ export default async function ScannerPage() {
   const { user, profile, role } = await requireStaffRole("volunteer");
 
   return (
-    <div className="min-h-screen bg-[#070707] text-white">
+    <div style={{ zoom: "115%" }} className="min-h-screen bg-[#070707] text-white">
       {/* Top Command Center Header */}
       <div className="border-b border-[#221c12] bg-[#0c0a08]/90 backdrop-blur-xl sticky top-0 z-40">
         <div className="container-wrap flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">

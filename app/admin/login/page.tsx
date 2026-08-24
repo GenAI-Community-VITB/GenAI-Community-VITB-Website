@@ -19,7 +19,10 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
   const hasInvalidCredentials = params.error === "invalid_credentials";
 
   return (
-    <main className="min-h-screen bg-[#070707] px-4 pt-2 sm:pt-4 pb-4 flex items-center justify-center relative overflow-hidden">
+    <main
+      style={{ zoom: "125%" }}
+      className="min-h-screen bg-[#070707] px-4 pt-2 sm:pt-4 pb-4 flex items-center justify-center relative overflow-hidden"
+    >
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute -top-40 left-1/4 h-[400px] w-[400px] rounded-full bg-[#f5b642]/[0.07] blur-[120px]" />
       <div className="pointer-events-none absolute -bottom-40 right-1/4 h-[400px] w-[400px] rounded-full bg-[#38bdf8]/[0.05] blur-[120px]" />
