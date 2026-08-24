@@ -45,7 +45,15 @@ export async function upsertWinnerAction(formData: FormData) {
   const imageFile = formData.get("image_file") as File | null;
   let imageUrl: string | undefined = undefined;
 
-  if (imageFile && typeof imageFile === "object" && "size" in imageFile && imageFile.size > 0) {
+  if (
+    imageFile &&
+    typeof imageFile === "object" &&
+    "size" in imageFile &&
+    typeof (imageFile as any).size === "number" &&
+    (imageFile as any).size > 0 &&
+    (imageFile as any).name &&
+    typeof (imageFile as any).arrayBuffer === "function"
+  ) {
     try {
       const arrayBuffer = await imageFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);

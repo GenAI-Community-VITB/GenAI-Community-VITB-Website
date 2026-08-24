@@ -1,6 +1,9 @@
 export type EventStatus = "draft" | "active" | "upcoming" | "live" | "completed" | "past" | "archived";
 
+export type TopExecutiveRole = "system_council" | "top_executive";
+
 export type Top6Role =
+  | TopExecutiveRole
   | "president"
   | "vice_president"
   | "technical_lead"
@@ -21,6 +24,8 @@ export type ClubTeam =
   | "finance_team";
 
 export type PanelPosition =
+  | "system_council"
+  | "top_executive"
   | "president"
   | "vice_president"
   | "general_secretary_provisional"
@@ -323,13 +328,8 @@ export const CLUB_TEAMS: { id: ClubTeam; name: string; description: string }[] =
 
 export const TEAM_POSITIONS: Record<ClubTeam, { id: ClubPosition; title: string }[]> = {
   panel: [
-    { id: "president", title: "President" },
-    { id: "vice_president", title: "Vice President" },
-    { id: "general_secretary_provisional", title: "General Secretary (Provisional)" },
-    { id: "general_secretary", title: "General Secretary" },
-    { id: "joint_secretary", title: "Joint Secretary" },
-    { id: "assistant_secretary", title: "Assistant Secretary" },
-    { id: "student_coordinator", title: "Student Coordinator" },
+    { id: "system_council", title: "System Council" },
+    { id: "top_executive", title: "Top Executive" },
   ],
   technical_team: [
     { id: "lead", title: "Technical Lead" },

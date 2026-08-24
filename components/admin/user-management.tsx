@@ -1228,16 +1228,8 @@ export function UserManagement({
                   options={
                     isSupremeLeader
                       ? [
-                          { value: "president", label: "👑 President (Supreme Council)" },
-                          { value: "aiml_lead", label: "⚡ AI/ML Lead (Supreme Council)" },
-                          { value: "technical_lead", label: "🛠️ Technical Lead (Supreme Council)" },
-                          { value: "vice_president", label: "⭐ Vice President (Executive Council)" },
-                          { value: "technical_co_lead", label: "🛠️ Technical Co-Lead (Executive Council)" },
-                          { value: "aiml_co_lead", label: "⚡ AI/ML Co-Lead (Executive Council)" },
-                          { value: "general_secretary", label: "📜 General Secretary (Panel Executive)" },
-                          { value: "joint_secretary", label: "📜 Joint Secretary (Panel Executive)" },
-                          { value: "assistant_secretary", label: "📜 Assistant Secretary (Panel Executive)" },
-                          { value: "student_coordinator", label: "🎓 Student Coordinator (Panel Executive)" },
+                          { value: "system_council", label: "👑 System Council (Supreme Authority)" },
+                          { value: "top_executive", label: "⭐ Top Executive (Executive Council)" },
                           { value: "lead", label: "Department Lead" },
                           { value: "co_lead", label: "Department Co-Lead" },
                           { value: "core_member", label: "Core Team Member" },

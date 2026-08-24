@@ -53,7 +53,15 @@ export async function upsertAchievementAction(formData: FormData) {
   let driveFileId: string | undefined = undefined;
   let imageUrl: string | undefined = undefined;
 
-  if (imageFile && typeof imageFile === "object" && "size" in imageFile && imageFile.size > 0) {
+  if (
+    imageFile &&
+    typeof imageFile === "object" &&
+    "size" in imageFile &&
+    typeof (imageFile as any).size === "number" &&
+    (imageFile as any).size > 0 &&
+    (imageFile as any).name &&
+    typeof (imageFile as any).arrayBuffer === "function"
+  ) {
     try {
       const arrayBuffer = await imageFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);

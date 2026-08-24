@@ -48,36 +48,44 @@ const ALLOWED_IMAGE_MIME_TYPES = [
   "image/svg+xml",
 ];
 
-async function uploadImageIfPresent(file: File | null) {
-  if (!file || file.size === 0) return undefined;
+async function uploadImageIfPresent(file: unknown): Promise<string | undefined> {
+  if (
+    !file ||
+    typeof file !== "object" ||
+    !("size" in file) ||
+    typeof (file as any).size !== "number" ||
+    (file as any).size === 0 ||
+    !(file as any).name ||
+    typeof (file as any).arrayBuffer !== "function"
+  ) {
+    return undefined;
+  }
 
-  // Security: Validate MIME type against allowlist
-  const mimeType = file.type || "image/jpeg";
+  const validFile = file as File;
+  const mimeType = validFile.type || "image/jpeg";
   if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType.toLowerCase())) {
     throw new Error(`Invalid file type "${mimeType}". Only image files (JPEG, PNG, WebP, GIF, AVIF) are allowed.`);
   }
 
-  // Security: Limit file size to 8MB
-  if (file.size > 8 * 1024 * 1024) {
+  if (validFile.size > 8 * 1024 * 1024) {
     throw new Error("Image file too large. Maximum size is 8MB.");
   }
 
   try {
-    const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = await validFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const driveRes = await uploadMemberAvatarToDrive({
       buffer,
-      fileName: file.name,
+      fileName: validFile.name,
       mimeType,
       memberName: `asset_${Date.now()}`,
     });
     return driveRes.viewUrl;
   } catch (err: any) {
-    // Re-throw validation errors, swallow upload errors with fallback
     if (err.message?.startsWith("Invalid file type") || err.message?.startsWith("Image file too large")) {
       throw err;
     }
-    console.error("Asset upload failed, fallback to placeholder:", err);
+    console.error("Asset upload fallback:", err?.message || err);
     return undefined;
   }
 }
@@ -767,7 +775,15 @@ export async function updateUserProfileAvatarAction(formData: FormData) {
 
   let finalAvatarUrl = avatarUrlInput;
 
-  if (file && file.size > 0) {
+  if (
+    file &&
+    typeof file === "object" &&
+    "size" in file &&
+    typeof (file as any).size === "number" &&
+    (file as any).size > 0 &&
+    (file as any).name &&
+    typeof (file as any).arrayBuffer === "function"
+  ) {
     const mimeType = file.type || "image/jpeg";
     if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType.toLowerCase())) {
       throw new Error("Invalid image file type. Please upload JPEG, PNG, or WebP.");

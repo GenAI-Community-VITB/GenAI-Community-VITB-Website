@@ -1,6 +1,8 @@
 import { MemberRoleAssignment } from "@/lib/types";
 
 export const TOP_6_ROLES: string[] = [
+  "system_council",
+  "top_executive",
   "president",
   "vice_president",
   "technical_lead",
@@ -56,6 +58,8 @@ export function isTop6Admin(
       const p = (r.position || "").toLowerCase();
       const t = (r.team || "").toLowerCase();
       return (
+        p === "system_council" ||
+        p === "top_executive" ||
         p === "president" ||
         p === "vice_president" ||
         (t === "technical_team" && (p === "lead" || p === "co_lead")) ||
@@ -72,8 +76,8 @@ export function isTop6Admin(
 }
 
 /**
- * Supreme Core Trio: President, AI/ML Lead, Technical Lead.
- * These 3 hold supreme authority to appoint and modify Top Executives.
+ * Supreme Core Trio / System Council Authority: System Council, President, AI/ML Lead, Technical Lead.
+ * These hold supreme authority to appoint and modify Top Executives.
  */
 export function isSupremeExecutive(
   role?: string | null,
@@ -85,6 +89,7 @@ export function isSupremeExecutive(
   const normalizedEmail = (email || "").toLowerCase().trim();
 
   if (
+    normalized === "system_council" ||
     normalized === "president" ||
     normalized === "aiml_lead" ||
     normalized === "technical_lead" ||
@@ -98,6 +103,7 @@ export function isSupremeExecutive(
       const pos = (r.position || "").toLowerCase();
       const tm = (r.team || "").toLowerCase();
       return (
+        pos === "system_council" ||
         pos === "president" ||
         pos.includes("aiml lead") ||
         pos.includes("ai/ml lead") ||
@@ -133,6 +139,8 @@ export function isExecutiveAccount(
   const normalized = role.toLowerCase().trim();
   if (isTop6Admin(role, roles)) return true;
   if (
+    normalized === "system_council" ||
+    normalized === "top_executive" ||
     normalized === "general_secretary" ||
     normalized === "general_secretary_provisional" ||
     normalized === "joint_secretary" ||
@@ -152,7 +160,7 @@ export function isExecutiveAccount(
 }
 
 /**
- * Returns human-friendly role title (e.g. "Finance Lead", "AIML Lead", "Technical Lead", "President").
+ * Returns human-friendly role title (e.g. "System Council", "Top Executive", "Finance Lead", "AIML Lead", "Technical Lead", "President").
  */
 export function getHumanReadableRole(
   role: string | null | undefined,
@@ -163,6 +171,8 @@ export function getHumanReadableRole(
     const team = (primary.team || "").toLowerCase();
     const pos = (primary.position || "").toLowerCase();
 
+    if (pos === "system_council") return "System Council";
+    if (pos === "top_executive") return "Top Executive";
     if (pos === "president") return "President";
     if (pos === "vice_president") return "Vice President";
     if (pos === "general_secretary") return "General Secretary";
@@ -193,6 +203,8 @@ export function getHumanReadableRole(
 
   if (!role) return "Staff Member";
   const r = role.toLowerCase();
+  if (r === "system_council") return "System Council";
+  if (r === "top_executive") return "Top Executive";
   if (r === "tech" || r === "technical_lead") return "Technical Lead";
   if (r === "technical_co_lead") return "Technical Co-Lead";
   if (r === "aiml_lead") return "AIML Lead";
