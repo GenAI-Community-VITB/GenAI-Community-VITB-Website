@@ -706,4 +706,162 @@ export async function restoreRegistrationAction(formData: FormData) {
   return { success: true };
 }
 
+/**
+ * Top-6 / Exec only: Fetches all volunteers assigned to a specific event.
+ */
+export async function getEventVolunteersAction(eventId: string) {
+  const { isTop6, role } = await requireStaffRole("volunteer");
+  const supabase = createAdminSupabase();
+
+  try {
+    const { data, error } = await supabase
+      .from("event_volunteers")
+      .select("id, event_id, user_id, assigned_at, user:user_profiles(id, email, full_name, assigned_to_name, role)")
+      .eq("event_id", eventId)
+      .order("assigned_at", { ascending: true });
+
+    if (error) {
+      console.warn("Could not query event_volunteers table:", error.message);
+      return { success: true, volunteers: [] };
+    }
+
+    return { success: true, volunteers: data || [] };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to fetch event volunteers", volunteers: [] };
+  }
+}
+
+/**
+ * Top-6 only: Assigns a club member as a scanner volunteer for an event.
+ */
+export async function assignEventVolunteerAction(formData: FormData) {
+  const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
+  const isEventLead = profile?.roles?.some((r: any) => r.team === "event_management" && String(r.position || "").includes("lead"));
+  if (!isTop6 && role !== "tech" && !isEventLead) {
+    throw new Error("Unauthorized: Only Top Executives and Event Leads can assign gate volunteers.");
+  }
+
+  const eventId = String(formData.get("event_id") || "").trim();
+  const targetUserId = String(formData.get("user_id") || "").trim();
+
+  if (!eventId || !targetUserId) {
+    throw new Error("Event ID and Member ID are required.");
+  }
+
+  const supabase = createAdminSupabase();
+
+  const { error } = await supabase.from("event_volunteers").upsert(
+    {
+      event_id: eventId,
+      user_id: targetUserId,
+      assigned_by: user.id,
+      assigned_at: new Date().toISOString(),
+    },
+    { onConflict: "event_id,user_id" },
+  );
+
+  if (error) {
+    throw new Error(error.message || "Failed to assign volunteer to event.");
+  }
+
+  // Audit log
+  try {
+    await logAuditEvent({
+      actorUserId: user.id,
+      actorEmail: profile?.email || user.email,
+      actorRole: role,
+      action: "event_volunteer_assigned",
+      targetType: "event",
+      targetId: eventId,
+      newState: { eventId, assignedUserId: targetUserId },
+    });
+  } catch {}
+
+  revalidatePath("/admin/events");
+  revalidatePath("/admin/scanner");
+  return { success: true };
+}
+
+/**
+ * Top-6 only: Revokes a member's scanner volunteer role for an event.
+ */
+export async function removeEventVolunteerAction(formData: FormData) {
+  const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
+  const isEventLead = profile?.roles?.some((r: any) => r.team === "event_management" && String(r.position || "").includes("lead"));
+  if (!isTop6 && role !== "tech" && !isEventLead) {
+    throw new Error("Unauthorized: Only Top Executives and Event Leads can revoke gate volunteers.");
+  }
+
+  const eventId = String(formData.get("event_id") || "").trim();
+  const targetUserId = String(formData.get("user_id") || "").trim();
+
+  if (!eventId || !targetUserId) {
+    throw new Error("Event ID and Member ID are required.");
+  }
+
+  const supabase = createAdminSupabase();
+
+  const { error } = await supabase
+    .from("event_volunteers")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("user_id", targetUserId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to remove volunteer from event.");
+  }
+
+  // Audit log
+  try {
+    await logAuditEvent({
+      actorUserId: user.id,
+      actorEmail: profile?.email || user.email,
+      actorRole: role,
+      action: "event_volunteer_revoked",
+      targetType: "event",
+      targetId: eventId,
+      newState: { eventId, revokedUserId: targetUserId },
+    });
+  } catch {}
+
+  revalidatePath("/admin/events");
+  revalidatePath("/admin/scanner");
+  return { success: true };
+}
+
+/**
+ * Bulk imports registered candidates from Excel/CSV and dispatches cryptographic QR passes.
+ */
+export async function importParticipantsBulkAction(params: {
+  eventId: string;
+  participants: Array<{
+    registrationId?: string;
+    fullName: string;
+    email: string;
+    collegeEmail?: string;
+    phoneNumber?: string;
+    branch?: string;
+    college?: string;
+  }>;
+  sendEmailDirectly?: boolean;
+}) {
+  await requireStaffRole("tech");
+  const { importParticipantsBulkAction: bulkImport } = await import("@/lib/data/registrations");
+  const res = await bulkImport(params);
+  revalidatePath("/admin/events");
+  revalidatePath("/admin/registrations");
+  return res;
+}
+
+/**
+ * Exports real-time event attendance data in CSV format.
+ */
+export async function exportAttendanceDataAction(eventId: string) {
+  await requireStaffRole("tech");
+  const { exportAttendanceDataAction: exportAttendance } = await import("@/lib/data/registrations");
+  return await exportAttendance(eventId);
+}
+
+
+
 

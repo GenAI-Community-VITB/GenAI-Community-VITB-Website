@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import type { Event } from "@/lib/types";
 import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { upsertEvent, deleteEvent } from "@/app/admin/actions";
+import { EventVolunteersModal } from "@/components/admin/event-volunteers-modal";
+import { ParticipantImporterModal } from "@/components/admin/participant-importer-modal";
+import { exportAttendanceDataAction } from "@/app/admin/events-actions";
+import { createClientSupabase } from "@/lib/supabase/client";
+import type { UserProfile } from "@/lib/types";
 import {
   Calendar,
   Plus,
@@ -17,6 +22,9 @@ import {
   Users,
   Ticket,
   Search,
+  UserCheck,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 
 interface EventsManagerProps {
@@ -57,7 +65,26 @@ export function EventsManager({
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Event | null>(null);
+  const [selectedVolunteerEvent, setSelectedVolunteerEvent] = useState<Event | null>(null);
+  const [selectedImportEvent, setSelectedImportEvent] = useState<Event | null>(null);
+  const [clubMembers, setClubMembers] = useState<UserProfile[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  // Load active members for volunteer delegation
+  useEffect(() => {
+    async function loadMembers() {
+      try {
+        const supabase = createClientSupabase();
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("is_active", true)
+          .order("full_name", { ascending: true });
+        if (data) setClubMembers(data as UserProfile[]);
+      } catch {}
+    }
+    loadMembers();
+  }, []);
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -456,6 +483,48 @@ export function EventsManager({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
+                    onClick={() => setSelectedImportEvent(event)}
+                    className="p-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition cursor-pointer"
+                    title="Bulk Import Participants (Excel/CSV)"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await exportAttendanceDataAction(event.id);
+                        if (res.success && res.csvContent) {
+                          const blob = new Blob([res.csvContent], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = res.filename || `Attendance_${event.title}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          setMessage({ type: "success", text: "Attendance data exported successfully." });
+                        } else {
+                          setMessage({ type: "error", text: res.error || "No attendance data to export." });
+                        }
+                      } catch (err: any) {
+                        setMessage({ type: "error", text: err.message || "Failed to export attendance." });
+                      }
+                    }}
+                    className="p-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition cursor-pointer"
+                    title="Export Attendance Sheet (CSV)"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVolunteerEvent(event)}
+                    className="p-1.5 rounded-lg border border-[#f5b642]/40 bg-[#f5b642]/10 text-[#f5b642] hover:bg-[#f5b642]/20 transition cursor-pointer"
+                    title="Manage Scanner Volunteers (Event-wise Delegation)"
+                  >
+                    <UserCheck className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleOpenEdit(event)}
                     className="p-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-[#f5b642] transition cursor-pointer"
                     title="Edit Event"
@@ -476,6 +545,26 @@ export function EventsManager({
           </div>
         ))}
       </div>
+
+      {/* Event Volunteers Management Modal */}
+      {selectedVolunteerEvent && (
+        <EventVolunteersModal
+          event={selectedVolunteerEvent}
+          allMembers={clubMembers}
+          onClose={() => setSelectedVolunteerEvent(null)}
+        />
+      )}
+
+      {/* Participant CSV Bulk Importer Modal */}
+      {selectedImportEvent && (
+        <ParticipantImporterModal
+          event={selectedImportEvent}
+          onClose={() => setSelectedImportEvent(null)}
+          onSuccess={() => {
+            setMessage({ type: "success", text: "Participants imported with QR codes generated!" });
+          }}
+        />
+      )}
 
       {/* Modal */}
       {showModal && (

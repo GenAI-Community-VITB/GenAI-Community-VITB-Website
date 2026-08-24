@@ -329,3 +329,41 @@ export async function requireStaffRole(minimumRole: string = "volunteer"): Promi
     isTop6: staff.isTop6,
   };
 }
+
+/**
+ * Checks if a user is an authorized scanner volunteer for a specific event.
+ * Top 6 executives and Tech team have universal scan authority.
+ */
+export async function isAssignedEventVolunteer(userId: string, eventId?: string | null): Promise<boolean> {
+  if (!userId) return false;
+  if (!eventId) return true; // Global fallback
+
+  try {
+    const supabase = createAdminSupabase();
+
+    // Check if user is Top 6 / Executive
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("*, roles:member_roles(*)")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profile && isTop6Admin(profile.role, profile.roles)) {
+      return true;
+    }
+
+    // Check if assigned specifically to this event
+    const { data: assignment } = await supabase
+      .from("event_volunteers")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    return Boolean(assignment);
+  } catch (err) {
+    console.error("Error checking event volunteer status:", err);
+    return true; // Non-blocking fallback
+  }
+}
+

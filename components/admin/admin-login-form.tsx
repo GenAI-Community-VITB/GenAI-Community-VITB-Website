@@ -1,8 +1,7 @@
 "use client";
 
 import { loginStaff } from "@/app/admin/actions";
-import { submitPasswordResetQuery } from "@/lib/data/password-resets";
-import Link from "next/link";
+import { requestPasswordResetOTP, verifyOTPAndResetPassword } from "@/lib/data/password-resets";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -11,11 +10,11 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  HelpCircle,
   CheckCircle2,
   AlertCircle,
   KeyRound,
   ShieldCheck,
+  RotateCw,
 } from "lucide-react";
 
 export function AdminLoginForm({ showInitialError }: { showInitialError: boolean }) {
@@ -24,11 +23,14 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
   const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Forgot Password Modal State
+  // OTP Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);
+  const [otpStep, setOtpStep] = useState<"email" | "verify" | "success">("email");
   const [resetEmail, setResetEmail] = useState("");
-  const [resetName, setResetName] = useState("");
-  const [resetReason, setResetReason] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [resetStatus, setResetStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isResetPending, startResetTransition] = useTransition();
 
@@ -53,32 +55,67 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
     }
   }
 
-  function handleResetSubmit(e: React.FormEvent) {
+  function handleSendOTP(e: React.FormEvent) {
     e.preventDefault();
     setResetStatus(null);
 
     startResetTransition(async () => {
       try {
-        const fd = new FormData();
-        fd.append("email", resetEmail);
-        fd.append("student_name", resetName);
-        fd.append("reason", resetReason);
-
-        const res = await submitPasswordResetQuery(fd);
-        setResetStatus({
-          type: "success",
-          text: res.message || "Reset request dispatched to Executive 6 for verification.",
-        });
-        setResetEmail("");
-        setResetName("");
-        setResetReason("");
+        const res = await requestPasswordResetOTP(resetEmail);
+        if (res.success) {
+          setResetStatus({ type: "success", text: res.message });
+          setOtpStep("verify");
+        } else {
+          setResetStatus({ type: "error", text: res.message || "Failed to generate OTP." });
+        }
       } catch (err: any) {
-        setResetStatus({
-          type: "error",
-          text: err.message || "Failed to submit request.",
-        });
+        setResetStatus({ type: "error", text: err.message || "Failed to request OTP." });
       }
     });
+  }
+
+  function handleVerifyAndReset(e: React.FormEvent) {
+    e.preventDefault();
+    setResetStatus(null);
+
+    if (newPassword !== confirmPassword) {
+      setResetStatus({ type: "error", text: "Passwords do not match." });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setResetStatus({ type: "error", text: "Password must be at least 8 characters long." });
+      return;
+    }
+
+    startResetTransition(async () => {
+      try {
+        const res = await verifyOTPAndResetPassword({
+          email: resetEmail,
+          otp: otpCode,
+          newPassword,
+        });
+
+        if (res.success) {
+          setResetStatus({ type: "success", text: res.message });
+          setOtpStep("success");
+        } else {
+          setResetStatus({ type: "error", text: res.message || "Password reset failed." });
+        }
+      } catch (err: any) {
+        setResetStatus({ type: "error", text: err.message || "Password reset failed." });
+      }
+    });
+  }
+
+  function resetModalState() {
+    setShowForgotModal(false);
+    setOtpStep("email");
+    setResetEmail("");
+    setOtpCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetStatus(null);
   }
 
   return (
@@ -95,7 +132,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         <div className="space-y-1">
           <label className="text-[10px] font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-1" htmlFor="admin-email">
             <Mail className="h-3 w-3 text-[#f5b642]" />
-            Club Email / User ID
+            Official VIT Bhopal Email / User ID
           </label>
           <div className="relative">
             <input
@@ -104,8 +141,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               type="email"
               required
               autoComplete="email"
-              placeholder="team.role@genai.community"
-              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30"
+              placeholder="e.g. lakshya.24bce10549@vitbhopal.ac.in"
+              className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30 font-mono"
             />
           </div>
         </div>
@@ -121,11 +158,12 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               type="button"
               onClick={() => {
                 setResetStatus(null);
+                setOtpStep("email");
                 setShowForgotModal(true);
               }}
-              className="text-[10px] font-medium text-[#f5b642] hover:text-[#ffd06a] hover:underline"
+              className="text-[10px] font-medium text-[#f5b642] hover:text-[#ffd06a] hover:underline cursor-pointer"
             >
-              Forgot password?
+              Forgot password? (OTP Reset)
             </button>
           </div>
           <div className="relative">
@@ -141,7 +179,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
             >
               {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
@@ -164,26 +202,26 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         </button>
       </form>
 
-      {/* Forgot Password Reset Modal */}
+      {/* OTP Password Reset Modal */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="relative w-full max-w-md rounded-2xl border border-[#332714] bg-[#120f0a] p-5 shadow-2xl space-y-3.5">
-            <div className="flex items-center justify-between border-b border-[#221c12] pb-2.5">
+          <div className="relative w-full max-w-md rounded-2xl border border-[#332714] bg-[#120f0a] p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#221c12] pb-3">
               <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-[#f5b642]" />
-                <h3 className="font-bold text-white text-sm">Staff Password Reset Query</h3>
+                <ShieldCheck className="h-4 w-4 text-[#f5b642]" />
+                <h3 className="font-bold text-white text-sm">
+                  {otpStep === "email" && "OTP Password Recovery"}
+                  {otpStep === "verify" && "Verify 6-Digit Code"}
+                  {otpStep === "success" && "Password Reset Successful"}
+                </h3>
               </div>
               <button
-                onClick={() => setShowForgotModal(false)}
+                onClick={resetModalState}
                 className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1"
               >
                 ✕
               </button>
             </div>
-
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              If you have lost your credentials, submit an administrative reset query. An Executive Lead will verify and re-issue your credentials.
-            </p>
 
             {resetStatus && (
               <div
@@ -202,66 +240,165 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               </div>
             )}
 
-            <form onSubmit={handleResetSubmit} className="space-y-2.5 text-left">
-              <div>
-                <label className="text-[10px] font-bold text-zinc-300 block mb-1">
-                  Official Club Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="your.role@genai.community"
-                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
-                />
-              </div>
+            {/* STEP 1: Enter Official Email */}
+            {otpStep === "email" && (
+              <form onSubmit={handleSendOTP} className="space-y-3 text-left">
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  Enter your official registered <strong className="text-white">@vitbhopal.ac.in</strong> email ID. A secure 6-digit single-use OTP will be delivered to your inbox.
+                </p>
 
-              <div>
-                <label className="text-[10px] font-bold text-zinc-300 block mb-1">
-                  Your Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={resetName}
-                  onChange={(e) => setResetName(e.target.value)}
-                  placeholder="e.g. Lakshya Kant"
-                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
-                />
-              </div>
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                    Official VIT Bhopal Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="e.g. lakshya.24bce10549@vitbhopal.ac.in"
+                    className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
+                  />
+                </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-zinc-300 block mb-1">
-                  Reason for Password Reset *
-                </label>
-                <textarea
-                  required
-                  rows={2}
-                  value={resetReason}
-                  onChange={(e) => setResetReason(e.target.value)}
-                  placeholder="e.g. Forgot default password / Device change"
-                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none resize-none"
-                />
-              </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={resetModalState}
+                    className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isResetPending || !resetEmail}
+                    className="flex-1 rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {isResetPending ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Sending OTP...</span>
+                      </>
+                    ) : (
+                      <span>Send OTP Code</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
 
-              <div className="flex gap-2 pt-1">
+            {/* STEP 2: Enter OTP & New Password */}
+            {otpStep === "verify" && (
+              <form onSubmit={handleVerifyAndReset} className="space-y-3 text-left">
+                <p className="text-[11px] text-zinc-400">
+                  Enter the 6-digit code dispatched to <strong className="text-white font-mono">{resetEmail}</strong> and specify your new password.
+                </p>
+
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                    6-Digit OTP Code *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    pattern="[0-9]{6}"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="123456"
+                    className="w-full rounded-xl border border-[#f5b642]/60 bg-[#18140d] px-3 py-2 text-center text-lg font-black tracking-widest text-[#f5b642] placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                    New Password * (Min. 8 characters)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      required
+                      minLength={8}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 pr-10 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                    >
+                      {showNewPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-300 block mb-1">
+                    Confirm New Password *
+                  </label>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpStep("email");
+                      setResetStatus(null);
+                    }}
+                    className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isResetPending || otpCode.length !== 6 || !newPassword}
+                    className="flex-1 rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {isResetPending ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <span>Verify & Reset Password</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 3: Success */}
+            {otpStep === "success" && (
+              <div className="space-y-4 text-center py-2">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-950/50 border border-emerald-500/40 text-emerald-400">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Credentials Updated</h4>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Your password has been securely updated. You can now log in to the portal using your new credentials.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setShowForgotModal(false)}
-                  className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition cursor-pointer"
+                  onClick={resetModalState}
+                  className="w-full rounded-xl bg-[#f5b642] py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isResetPending}
-                  className="flex-1 rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] transition disabled:opacity-50 cursor-pointer"
-                >
-                  {isResetPending ? "Submitting..." : "Submit Query"}
+                  Proceed to Sign In
                 </button>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

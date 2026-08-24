@@ -569,3 +569,83 @@ export async function approveMember(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/admin");
 }
+
+/**
+ * Updates a logged-in member's profile avatar image with segregated drive storage.
+ */
+export async function updateUserProfileAvatarAction(formData: FormData) {
+  const userId = String(formData.get("user_id") || "").trim();
+  const file = formData.get("avatar_file") as File | null;
+  const avatarUrlInput = String(formData.get("avatar_url") || "").trim();
+
+  if (!userId) {
+    throw new Error("User ID is required.");
+  }
+
+  const supabase = createAdminSupabase();
+
+  let finalAvatarUrl = avatarUrlInput;
+
+  if (file && file.size > 0) {
+    const mimeType = file.type || "image/jpeg";
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType.toLowerCase())) {
+      throw new Error("Invalid image file type. Please upload JPEG, PNG, or WebP.");
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      throw new Error("Image file too large. Maximum size is 8MB.");
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { uploadMemberAvatarToDrive } = await import("@/lib/google/drive");
+    const driveRes = await uploadMemberAvatarToDrive({
+      buffer,
+      fileName: file.name,
+      mimeType,
+      memberName: `user_${userId}`,
+    });
+
+    finalAvatarUrl = driveRes.viewUrl;
+  }
+
+  if (!finalAvatarUrl) {
+    throw new Error("Please select an image file or provide an avatar URL.");
+  }
+
+  // 1. Update user_profiles
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({
+      avatar_url: finalAvatarUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (error) throw new Error(error.message || "Failed to update profile avatar.");
+
+  // 2. Also sync to members table if matching member exists
+  try {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("email, full_name, assigned_to_name")
+      .eq("id", userId)
+      .single();
+
+    if (profile) {
+      const matchName = profile.assigned_to_name || profile.full_name;
+      await supabase
+        .from("members")
+        .update({ image_url: finalAvatarUrl })
+        .or(`email.ilike.${profile.email},name.ilike.${matchName}`);
+    }
+  } catch {}
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/users");
+  revalidatePath("/team");
+  revalidatePath("/about");
+
+  return { success: true, avatarUrl: finalAvatarUrl };
+}
+

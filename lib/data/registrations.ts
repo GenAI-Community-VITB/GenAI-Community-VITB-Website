@@ -501,9 +501,14 @@ export async function reviewPayment(params: {
         senderRole: params.reviewerRole,
         attachments: [
           {
-            filename: `QR_Pass_${reg.registration_number}.png`,
+            filename: `QR_Pass_${reg.registration_number}_inline.png`,
             content: qrBuffer,
             cid: qrCid,
+            contentType: "image/png",
+          },
+          {
+            filename: `Official_Entry_Pass_${reg.registration_number}.png`,
+            content: qrBuffer,
             contentType: "image/png",
           },
         ],
@@ -1301,5 +1306,250 @@ export async function getDeletedRegistrations(): Promise<DeletedRegistration[]> 
     return [];
   }
 }
+
+/**
+ * Bulk imports registered candidates from Excel/CSV, generates cryptographic QR tokens,
+ * creates verified registration and payment records, and optionally dispatches QR pass emails.
+ */
+export async function importParticipantsBulkAction(params: {
+  eventId: string;
+  participants: Array<{
+    registrationId?: string;
+    fullName: string;
+    email: string;
+    collegeEmail?: string;
+    phoneNumber?: string;
+    branch?: string;
+    college?: string;
+  }>;
+  sendEmailDirectly?: boolean;
+}): Promise<{
+  success: boolean;
+  importedCount: number;
+  error?: string;
+}> {
+  const { eventId, participants, sendEmailDirectly = false } = params;
+
+  if (!eventId || !participants || participants.length === 0) {
+    return { success: false, importedCount: 0, error: "No participants provided for import." };
+  }
+
+  const supabase = createAdminSupabase();
+
+  // Fetch event details
+  const { data: event } = await supabase
+    .from("events")
+    .select("title, event_date, venue")
+    .eq("id", eventId)
+    .single();
+
+  const eventTitle = event?.title || "GenAI Community Event";
+  const eventDate = event?.event_date ? formatISTDate(event.event_date) : "Event Date";
+  const venue = event?.venue || "Main Auditorium / Campus";
+
+  let importedCount = 0;
+
+  for (let i = 0; i < participants.length; i++) {
+    const p = participants[i];
+    const cleanName = (p.fullName || "").trim();
+    const cleanEmail = (p.email || "").trim().toLowerCase();
+    if (!cleanName || !cleanEmail) continue;
+
+    const registrationNumber = p.registrationId
+      ? p.registrationId.trim()
+      : `GAC26-${String(Date.now() % 100000).padStart(5, "0")}-${String(i + 1).padStart(3, "0")}`;
+    const cleanVitReg = cleanEmail.includes("@vitbhopal.ac.in")
+      ? cleanEmail.split("@")[0].toUpperCase()
+      : `VITB-${String(Date.now()).slice(-6)}`;
+    const branch = p.branch || "General";
+    const phone = p.phoneNumber || "";
+
+    // Generate secure QR Token
+    const qrToken = generateSecureQRToken();
+
+    const regId = crypto.randomUUID();
+
+    try {
+      // 1. Insert into registrations
+      await supabase.from("registrations").insert({
+        id: regId,
+        event_id: eventId,
+        registration_number: registrationNumber,
+        full_name: cleanName,
+        vit_registration_number: cleanVitReg,
+        branch_name: branch,
+        personal_email: cleanEmail,
+        college_email: p.collegeEmail || cleanEmail,
+        phone_number: phone,
+        registration_status: "verified",
+        registration_source: "online",
+        qr_token: qrToken,
+        college: p.college || "VIT Bhopal University",
+        created_at: new Date().toISOString(),
+      });
+
+      // 2. Insert verified payment
+      await supabase.from("payments").insert({
+        registration_id: regId,
+        amount: 0,
+        transaction_id: `EXCEL_IMPORT_${registrationNumber}`,
+        payment_status: "verified",
+        verified_at: new Date().toISOString(),
+      });
+
+      // 3. Optionally dispatch QR email with downloadable attachment
+      if (sendEmailDirectly) {
+        try {
+          const qrBuffer = await generateEntryPassQRCodeBuffer({
+            qrToken,
+            registrationNumber,
+            fullName: cleanName,
+            vitRegNumber: cleanVitReg,
+          });
+
+          const qrCid = `entry-pass-${registrationNumber}`;
+          const emailData = getRegistrationConfirmedTemplate({
+            fullName: cleanName,
+            vitRegNumber: cleanVitReg,
+            registrationNumber,
+            eventTitle,
+            eventDate,
+            venue,
+            qrContentId: qrCid,
+          });
+
+          await sendEmail({
+            to: cleanEmail,
+            subject: emailData.subject,
+            html: emailData.html,
+            emailType: "payment_approved_qr",
+            registrationId: regId,
+            eventId,
+            attachments: [
+              {
+                filename: `QR_Pass_${registrationNumber}_inline.png`,
+                content: qrBuffer,
+                cid: qrCid,
+                contentType: "image/png",
+              },
+              {
+                filename: `Official_Entry_Pass_${registrationNumber}.png`,
+                content: qrBuffer,
+                contentType: "image/png",
+              },
+            ],
+          });
+        } catch (emailErr) {
+          console.warn("Could not dispatch email during bulk import:", emailErr);
+        }
+      }
+
+      importedCount++;
+    } catch (importErr) {
+      console.error(`Error importing candidate ${cleanName}:`, importErr);
+    }
+  }
+
+  // Log to Audit & Google Sheets
+  const istTime = formatISTDate(new Date(), true);
+  appendToGoogleSheet("Audit Logs", [
+    [
+      `IMP-${Date.now()}`,
+      istTime,
+      "Admin",
+      "Event Operations",
+      "bulk_participant_import",
+      "event",
+      eventId,
+      `Imported ${importedCount} participants with unique QR tokens into ${eventTitle}`,
+      "Success",
+    ],
+  ]).catch(() => {});
+
+  return {
+    success: true,
+    importedCount,
+  };
+}
+
+/**
+ * Exports real-time event attendance data in CSV format.
+ */
+export async function exportAttendanceDataAction(eventId: string): Promise<{
+  success: boolean;
+  csvContent?: string;
+  filename?: string;
+  error?: string;
+}> {
+  if (!eventId) {
+    return { success: false, error: "Event ID is required." };
+  }
+
+  const supabase = createAdminSupabase();
+
+  try {
+    const { data: event } = await supabase
+      .from("events")
+      .select("title")
+      .eq("id", eventId)
+      .single();
+
+    const { data: registrations } = await supabase
+      .from("registrations")
+      .select("id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, checkins(scan_timestamp, scanned_by_name, status)")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true });
+
+    if (!registrations || registrations.length === 0) {
+      return { success: false, error: "No registration records found for this event." };
+    }
+
+    const headers = [
+      "Registration ID",
+      "Full Name",
+      "VIT Reg Number",
+      "Branch",
+      "Email",
+      "Phone",
+      "Status",
+      "Attendance",
+      "Check-in Time (IST)",
+      "Scanned By",
+    ];
+
+    const rows = registrations.map((r: any) => {
+      const checkin = Array.isArray(r.checkins) && r.checkins.length > 0 ? r.checkins[0] : null;
+      const isPresent = r.registration_status === "checked_in" || checkin?.status === "approved";
+      const checkinTime = checkin?.scan_timestamp ? formatISTDate(checkin.scan_timestamp, true) : "—";
+      const scanner = checkin?.scanned_by_name || "—";
+
+      return [
+        `"${r.registration_number || ""}"`,
+        `"${r.full_name || ""}"`,
+        `"${r.vit_registration_number || ""}"`,
+        `"${r.branch_name || ""}"`,
+        `"${r.personal_email || r.college_email || ""}"`,
+        `"${r.phone_number || ""}"`,
+        `"${r.registration_status || ""}"`,
+        `"${isPresent ? "Present" : "Absent"}"`,
+        `"${checkinTime}"`,
+        `"${scanner}"`,
+      ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const safeTitle = (event?.title || "Event").replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `Attendance_${safeTitle}_${Date.now()}.csv`;
+
+    return {
+      success: true,
+      csvContent,
+      filename,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to generate attendance export." };
+  }
+}
+
 
 

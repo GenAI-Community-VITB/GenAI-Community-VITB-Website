@@ -1,9 +1,22 @@
 import { google, drive_v3 } from "googleapis";
 import { Readable } from "stream";
+import crypto from "crypto";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { appendToGoogleSheet } from "@/lib/google/sheets";
+import { formatISTDate } from "@/lib/utils/format";
 
 // In-memory cache for fast local screenshot previews
 const localScreenshotCache = new Map<string, { buffer: Buffer; mimeType: string }>();
+
+// Hash cache for fast duplicate image detection (SHA256 -> { fileId, viewUrl })
+const uploadedImageHashCache = new Map<string, { fileId: string; viewUrl: string; folderPath: string }>();
+
+/**
+ * Computes SHA-256 checksum of a buffer.
+ */
+function computeBufferHash(buffer: Buffer): string {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
 
 /**
  * Initializes and returns the authenticated Google Drive v3 client.
@@ -106,22 +119,53 @@ async function getOrCreateFolder(
 }
 
 /**
- * Core upload function — uploads buffer to Google Drive Shared Drive/Folder or
- * falls back to base64 data-URL stored in Supabase with persistent database backup.
+ * Core upload function with duplicate avoidance and segregated folder paths.
  */
 async function uploadBufferToDrive(
   buffer: Buffer,
   fileName: string,
   mimeType: string,
   folderPath: string[],
-): Promise<{ fileId: string; viewUrl: string; isDataUrl: boolean }> {
-  const drive = getGoogleDriveClient();
-  const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
-  const sharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ID?.trim();
+  overrideFolderId?: string,
+): Promise<{ fileId: string; viewUrl: string; isDataUrl: boolean; isDuplicate?: boolean }> {
+  // 1. Check for Duplicate Image via SHA-256 Checksum
+  const hash = computeBufferHash(buffer);
+  const pathLabel = folderPath.join("/");
 
+  if (uploadedImageHashCache.has(hash)) {
+    const existing = uploadedImageHashCache.get(hash)!;
+    console.log(`[Storage] Duplicate image detected (${hash.slice(0, 8)}...). Re-linking existing asset: ${existing.fileId}`);
+
+    // Log duplicate attempt to Google Sheets & Supabase
+    const istTime = formatISTDate(new Date(), true);
+    appendToGoogleSheet("Audit Logs", [
+      [
+        `DUP-${Date.now()}`,
+        istTime,
+        "System",
+        "Storage System",
+        "duplicate_image_upload_prevented",
+        "storage",
+        existing.fileId,
+        `Duplicate image upload prevented. Re-linked to existing ${existing.fileId}`,
+        "Success (De-duplicated)",
+      ],
+    ]).catch(() => {});
+
+    return {
+      fileId: existing.fileId,
+      viewUrl: existing.viewUrl,
+      isDataUrl: existing.fileId.startsWith("storage_"),
+      isDuplicate: true,
+    };
+  }
+
+  const drive = getGoogleDriveClient();
+  const rootFolderId = overrideFolderId || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const sharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ID?.trim();
   const relayUrl = process.env.GOOGLE_DRIVE_RELAY_URL?.trim() || process.env.GOOGLE_FORM_WEBHOOK_URL?.trim();
 
-  // 1. Try Google Apps Script Drive Relay (Uploads directly to personal 15GB Google Drive)
+  // 2. Try Google Apps Script Drive Relay
   if (relayUrl) {
     try {
       const payload = {
@@ -142,11 +186,9 @@ async function uploadBufferToDrive(
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.fileId) {
-          return {
-            fileId: data.fileId,
-            viewUrl: data.directUrl || data.viewUrl || `/api/drive/asset/${data.fileId}`,
-            isDataUrl: false,
-          };
+          const viewUrl = data.directUrl || data.viewUrl || `/api/drive/asset/${data.fileId}`;
+          uploadedImageHashCache.set(hash, { fileId: data.fileId, viewUrl, folderPath: pathLabel });
+          return { fileId: data.fileId, viewUrl, isDataUrl: false };
         }
       }
     } catch (relayErr: any) {
@@ -154,12 +196,11 @@ async function uploadBufferToDrive(
     }
   }
 
-  // 2. Attempt Google Drive direct upload via Service Account (Works with Shared Drives)
+  // 3. Attempt Google Drive direct upload via Service Account
   if (drive && (rootFolderId || sharedDriveId)) {
     try {
       let targetFolderId = rootFolderId || sharedDriveId || "";
 
-      // Traverse/create folder hierarchy if target folder is specified
       if (targetFolderId && targetFolderId !== "root" && folderPath.length > 0) {
         for (const folderName of folderPath) {
           targetFolderId = await getOrCreateFolder(drive, folderName, targetFolderId, sharedDriveId);
@@ -198,47 +239,41 @@ async function uploadBufferToDrive(
 
       const fileId = response.data.id;
       if (fileId) {
-        // Attempt to make readable
         try {
           await drive.permissions.create({
             fileId,
             requestBody: { role: "reader", type: "anyone" },
             supportsAllDrives: true,
           });
-        } catch {
-          // Ignore permission create failure on domain-restricted folders
-        }
+        } catch {}
 
-        return {
-          fileId,
-          viewUrl: `/api/drive/asset/${fileId}`,
-          isDataUrl: false,
-        };
+        const viewUrl = `/api/drive/asset/${fileId}`;
+        uploadedImageHashCache.set(hash, { fileId, viewUrl, folderPath: pathLabel });
+
+        return { fileId, viewUrl, isDataUrl: false };
       }
     } catch (driveErr: any) {
-      console.warn(`Google Drive upload encountered error (${driveErr?.message || driveErr}). Persisting in fallback storage.`);
+      console.warn(`Google Drive upload error (${driveErr?.message || driveErr}). Persisting in fallback storage.`);
     }
   }
 
-  // ─── Reliable Fallback: Base64 Data-URL stored in Supabase & Memory Cache ────
+  // 4. Reliable Fallback: Base64 Data-URL stored in Supabase & Memory Cache
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
-
   const fallbackId = `storage_${Date.now()}_${Math.random().toString(36).slice(-6)}`;
-  localScreenshotCache.set(fallbackId, { buffer, mimeType });
 
-  // Also persist in database sync_failures table so images survive process restarts
+  localScreenshotCache.set(fallbackId, { buffer, mimeType });
+  uploadedImageHashCache.set(hash, { fileId: fallbackId, viewUrl: dataUrl, folderPath: pathLabel });
+
   try {
     const supabase = createAdminSupabase();
     await supabase.from("sync_failures").insert({
       operation: "screenshot_payload",
       entity_id: fallbackId,
-      error_message: "Google Drive offline fallback storage",
-      payload: { fileId: fallbackId, base64, mimeType, fileName },
+      error_message: `Google Drive fallback storage (${pathLabel})`,
+      payload: { fileId: fallbackId, base64, mimeType, fileName, hash, folderPath },
     });
-  } catch {
-    // Non-fatal
-  }
+  } catch {}
 
   return {
     fileId: fallbackId,
@@ -248,7 +283,7 @@ async function uploadBufferToDrive(
 }
 
 /**
- * Uploads a payment screenshot to Google Drive with automatic resilient storage fallback.
+ * 1. Uploads payment proof screenshot to isolated Payment Proofs folder.
  */
 export async function uploadPaymentScreenshotToDrive(params: {
   fileBuffer: Buffer;
@@ -264,21 +299,158 @@ export async function uploadPaymentScreenshotToDrive(params: {
   viewUrl: string;
 }> {
   const { fileBuffer, fileName, mimeType, eventTitle, year = new Date().getFullYear().toString() } = params;
-  const rootParentId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const paymentsFolderId = process.env.GOOGLE_DRIVE_PAYMENTS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
 
   const result = await uploadBufferToDrive(
     fileBuffer,
     fileName,
     mimeType,
-    ["GenAI Community Events", eventTitle, "Payment Screenshots", year],
+    ["GenAI Community", "Payment Proofs", eventTitle, year],
+    paymentsFolderId,
   );
 
   return {
     fileId: result.fileId,
     fileName,
     mimeType,
-    folderId: rootParentId || "secure-storage",
+    folderId: paymentsFolderId || "payments-storage",
     viewUrl: result.isDataUrl ? `/api/admin/drive/preview/${result.fileId}` : result.viewUrl,
+  };
+}
+
+/**
+ * 2. Uploads member profile avatar to isolated Member Avatars folder.
+ */
+export async function uploadMemberAvatarToDrive({
+  buffer,
+  fileName,
+  mimeType,
+  memberName,
+}: {
+  buffer: Buffer;
+  fileName: string;
+  mimeType: string;
+  memberName: string;
+}): Promise<{
+  fileId: string;
+  viewUrl: string;
+}> {
+  const safeName = memberName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const cleanFileName = `avatar_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
+  const avatarsFolderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+
+  const result = await uploadBufferToDrive(
+    buffer,
+    cleanFileName,
+    mimeType,
+    ["GenAI Community", "Member Avatars"],
+    avatarsFolderId,
+  );
+
+  return {
+    fileId: result.fileId,
+    viewUrl: result.viewUrl,
+  };
+}
+
+/**
+ * 3. Uploads event backup archive to isolated Event Backups folder.
+ */
+export async function uploadEventBackupToDrive({
+  buffer,
+  fileName,
+  eventTitle,
+}: {
+  buffer: Buffer;
+  fileName: string;
+  eventTitle: string;
+}): Promise<{
+  fileId: string;
+  viewUrl: string;
+}> {
+  const backupsFolderId = process.env.GOOGLE_DRIVE_BACKUPS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+
+  const result = await uploadBufferToDrive(
+    buffer,
+    fileName,
+    "application/json",
+    ["GenAI Community", "Event Backups", eventTitle],
+    backupsFolderId,
+  );
+
+  return {
+    fileId: result.fileId,
+    viewUrl: result.viewUrl,
+  };
+}
+
+/**
+ * 4. Uploads achievement media to isolated Achievements folder.
+ */
+export async function uploadAchievementMediaToDrive({
+  buffer,
+  fileName,
+  mimeType,
+  achievementTitle,
+}: {
+  buffer: Buffer;
+  fileName: string;
+  mimeType: string;
+  achievementTitle: string;
+}): Promise<{
+  fileId: string;
+  viewUrl: string;
+}> {
+  const achievementsFolderId = process.env.GOOGLE_DRIVE_ACHIEVEMENTS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const safeName = achievementTitle.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30);
+  const cleanFileName = `achievement_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
+
+  const result = await uploadBufferToDrive(
+    buffer,
+    cleanFileName,
+    mimeType,
+    ["GenAI Community", "Achievements"],
+    achievementsFolderId,
+  );
+
+  return {
+    fileId: result.fileId,
+    viewUrl: result.viewUrl,
+  };
+}
+
+/**
+ * 5. Uploads project media to isolated Projects folder.
+ */
+export async function uploadProjectMediaToDrive({
+  buffer,
+  fileName,
+  mimeType,
+  projectTitle,
+}: {
+  buffer: Buffer;
+  fileName: string;
+  mimeType: string;
+  projectTitle: string;
+}): Promise<{
+  fileId: string;
+  viewUrl: string;
+}> {
+  const projectsFolderId = process.env.GOOGLE_DRIVE_PROJECTS_FOLDER_ID?.trim() || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
+  const safeName = projectTitle.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30);
+  const cleanFileName = `project_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
+
+  const result = await uploadBufferToDrive(
+    buffer,
+    cleanFileName,
+    mimeType,
+    ["GenAI Community", "Projects"],
+    projectsFolderId,
+  );
+
+  return {
+    fileId: result.fileId,
+    viewUrl: result.viewUrl,
   };
 }
 
@@ -288,7 +460,6 @@ export async function uploadPaymentScreenshotToDrive(params: {
 export async function getDriveFileStream(
   fileId: string,
 ): Promise<{ stream: Readable; mimeType: string } | null> {
-  // 1. Check local in-memory cache
   if (localScreenshotCache.has(fileId)) {
     const item = localScreenshotCache.get(fileId)!;
     const stream = new Readable();
@@ -297,7 +468,6 @@ export async function getDriveFileStream(
     return { stream, mimeType: item.mimeType };
   }
 
-  // 2. Check Supabase fallback storage
   if (fileId.startsWith("storage_")) {
     try {
       const supabase = createAdminSupabase();
@@ -322,7 +492,6 @@ export async function getDriveFileStream(
     }
   }
 
-  // 3. Attempt Google Drive stream
   const drive = getGoogleDriveClient();
   if (!drive) return null;
 
@@ -350,35 +519,4 @@ export async function getDriveFileStream(
     console.error("Error retrieving file stream from Google Drive:", error);
     return null;
   }
-}
-
-/**
- * Uploads a club asset image (avatar, event banner, team banner, project cover).
- */
-export async function uploadMemberAvatarToDrive({
-  buffer,
-  fileName,
-  mimeType,
-  memberName,
-}: {
-  buffer: Buffer;
-  fileName: string;
-  mimeType: string;
-  memberName: string;
-}): Promise<{
-  fileId: string;
-  viewUrl: string;
-}> {
-  const safeName = memberName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const cleanFileName = `asset_${safeName}_${Date.now()}.${fileName.split(".").pop() || "png"}`;
-
-  const result = await uploadBufferToDrive(buffer, cleanFileName, mimeType, [
-    "Club Assets",
-    "Avatars & Media",
-  ]);
-
-  return {
-    fileId: result.fileId,
-    viewUrl: result.viewUrl,
-  };
 }

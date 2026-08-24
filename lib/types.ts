@@ -59,7 +59,17 @@ export type EmailType =
   | "payment_rejected"
   | "custom_email"
   | "finance_reminder"
+  | "password_reset_otp"
   | "test_email";
+
+export interface EventVolunteer {
+  id: string;
+  event_id: string;
+  user_id: string;
+  assigned_by?: string | null;
+  assigned_at: string;
+  user?: UserProfile;
+}
 
 export interface MemberRoleAssignment {
   id?: string;

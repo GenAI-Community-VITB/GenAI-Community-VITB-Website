@@ -83,17 +83,17 @@ export function getSubmissionReceivedTemplate(params: {
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span style="display: inline-block; background-color: rgba(245, 182, 66, 0.15); border: 1px solid rgba(245, 182, 66, 0.4); color: ${GOLD_COLOR}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
-        Submission Received
+        Registration Successful — Verification Pending
       </span>
-      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Registration Under Review</h2>
-      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle}</p>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Registration Successful</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle} · Ref ID: ${registrationNumber}</p>
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
       Hi <strong>${fullName}</strong>,
     </p>
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
-      Thank you for registering for <strong>${eventTitle}</strong>. Your registration details and payment screenshot have been safely received by our systems.
+      Your registration form submission has been successfully received by our systems. Payment verification is currently pending review by the club finance team.
     </p>
 
     <!-- Details Card -->
@@ -307,3 +307,58 @@ export function getFinanceReminderTemplate(params: {
     html: baseEmailLayout(content, `${pendingCount} event registrations awaiting finance verification`),
   };
 }
+
+export function getOTPEmailTemplate(params: {
+  fullName: string;
+  email: string;
+  otpCode: string;
+  validMinutes?: number;
+}): { subject: string; html: string } {
+  const { fullName, email, otpCode, validMinutes = 10 } = params;
+
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background-color: rgba(245, 182, 66, 0.15); border: 1px solid rgba(245, 182, 66, 0.4); color: ${GOLD_COLOR}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+        Security Verification
+      </span>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Password Reset Request</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">GenAI Community VIT Bhopal</p>
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
+      Hi <strong>${fullName || "Club Member"}</strong> (${email}),
+    </p>
+    <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      We received a request to reset your password. Use the single-use OTP code below to verify your identity and configure a new password.
+    </p>
+
+    <!-- OTP Display Box -->
+    <div style="background-color: #120e09; border: 2px solid ${GOLD_COLOR}; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
+      <p style="margin: 0 0 8px 0; font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; font-family: monospace;">
+        One-Time Verification Code
+      </p>
+      <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: ${GOLD_COLOR}; font-family: monospace; padding: 8px 0;">
+        ${otpCode}
+      </div>
+      <p style="margin: 8px 0 0 0; font-size: 12px; color: #f59e0b; font-family: monospace;">
+        ⏱️ Expires in ${validMinutes} minutes
+      </p>
+    </div>
+
+    <div style="background-color: #1a1408; border: 1px solid #4a3814; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 12px; color: #ffd06a; line-height: 1.5;">
+        🔒 <strong>Security Warning:</strong> Never share this code with anyone. Club executives and technical leads will never ask for your verification code.
+      </p>
+    </div>
+
+    <p style="margin: 0; font-size: 13px; color: #71717a;">
+      If you did not request this password reset, please ignore this email or notify the Technical Lead immediately.
+    </p>
+  `;
+
+  return {
+    subject: `Password Reset Verification Code: ${otpCode} (GenAI Community)`,
+    html: baseEmailLayout(content, `Your password reset verification code is ${otpCode}`),
+  };
+}
+

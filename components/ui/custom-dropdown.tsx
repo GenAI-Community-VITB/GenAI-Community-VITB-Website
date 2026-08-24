@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, ReactNode } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, ReactNode } from "react";
 import { ChevronDown, Check } from "lucide-react";
 
 export interface CustomDropdownOption {
@@ -31,7 +31,12 @@ export function CustomDropdown({
   disabled = false,
 }: CustomDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [placement, setPlacement] = useState<"bottom" | "top">("bottom");
+  const [horizontalAlign, setHorizontalAlign] = useState<"left" | "right">("left");
+  const [maxMenuHeight, setMaxMenuHeight] = useState<number>(240);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Normalize options to object format
   const normalizedOptions: CustomDropdownOption[] = options.map((opt) => {
@@ -42,6 +47,52 @@ export function CustomDropdown({
   });
 
   const selectedOption = normalizedOptions.find((opt) => opt.value === value);
+
+  // Calculate dynamic placement to ensure menu NEVER overflows viewport
+  useLayoutEffect(() => {
+    if (!isOpen || !dropdownRef.current) return;
+
+    function updatePosition() {
+      if (!dropdownRef.current) return;
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const requiredHeight = 220;
+
+      let chosenPlacement: "bottom" | "top" = "bottom";
+      let calculatedMaxHeight = 240;
+
+      if (spaceBelow < requiredHeight && spaceAbove > spaceBelow) {
+        chosenPlacement = "top";
+        calculatedMaxHeight = Math.min(260, Math.max(120, spaceAbove - 16));
+      } else {
+        chosenPlacement = "bottom";
+        calculatedMaxHeight = Math.min(260, Math.max(120, spaceBelow - 16));
+      }
+
+      setPlacement(chosenPlacement);
+      setMaxMenuHeight(calculatedMaxHeight);
+
+      // Horizontal boundary check
+      if (rect.left + 220 > viewportWidth && rect.right > 220) {
+        setHorizontalAlign("right");
+      } else {
+        setHorizontalAlign("left");
+      }
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -79,10 +130,16 @@ export function CustomDropdown({
         />
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - Auto-positioned to prevent window overflow */}
       {isOpen && (
         <div
-          className={`absolute left-0 top-full mt-1.5 w-full min-w-[160px] max-h-60 overflow-y-auto rounded-2xl border-2 border-[#f5b642]/80 bg-[#120e09] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] z-50 divide-y divide-[#221c13] ${dropdownClassName}`}
+          ref={menuRef}
+          style={{ maxHeight: `${maxMenuHeight}px` }}
+          className={`absolute ${
+            placement === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+          } ${
+            horizontalAlign === "right" ? "right-0" : "left-0"
+          } w-full min-w-[160px] overflow-y-auto rounded-2xl border-2 border-[#f5b642]/80 bg-[#120e09] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] z-50 divide-y divide-[#221c13] ${dropdownClassName}`}
         >
           {normalizedOptions.map((opt) => {
             const isSelected = opt.value === value;
