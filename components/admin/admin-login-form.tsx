@@ -15,6 +15,7 @@ import {
   KeyRound,
   ShieldCheck,
   RotateCw,
+  Sparkles,
 } from "lucide-react";
 
 export function AdminLoginForm({ showInitialError }: { showInitialError: boolean }) {
@@ -22,6 +23,10 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
   const [error, setError] = useState(showInitialError ? "Invalid email or password. Please verify your credentials." : "");
   const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Form Controlled State
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
   // OTP Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -99,6 +104,9 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
         if (res.success) {
           setResetStatus({ type: "success", text: res.message });
           setOtpStep("success");
+          // Pre-fill login inputs with new credentials
+          setLoginEmail(resetEmail.trim().toLowerCase());
+          setLoginPassword(newPassword);
         } else {
           setResetStatus({ type: "error", text: res.message || "Password reset failed." });
         }
@@ -130,10 +138,13 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
         {/* Email Field */}
         <div className="space-y-1">
-          <label className="text-[10px] font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-1" htmlFor="admin-email">
-            <Mail className="h-3 w-3 text-[#f5b642]" />
-            Official VIT Bhopal Email / User ID
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-1" htmlFor="admin-email">
+              <Mail className="h-3 w-3 text-[#f5b642]" />
+              Official VIT Bhopal Email ID
+            </label>
+            <span className="text-[9px] font-mono text-zinc-500">xyz.24bceXXXX@vitbhopal.ac.in</span>
+          </div>
           <div className="relative">
             <input
               id="admin-email"
@@ -141,6 +152,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               type="email"
               required
               autoComplete="email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
               placeholder="e.g. lakshya.24bce10549@vitbhopal.ac.in"
               className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30 font-mono"
             />
@@ -158,6 +171,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               type="button"
               onClick={() => {
                 setResetStatus(null);
+                setResetEmail(loginEmail || "");
                 setOtpStep("email");
                 setShowForgotModal(true);
               }}
@@ -173,6 +187,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
               placeholder="••••••••••••"
               className="w-full rounded-xl border border-[#2e2a20] bg-[#14120c] px-3.5 py-2.5 pr-10 text-xs text-white outline-none transition placeholder:text-zinc-600 focus:border-[#f5b642] focus:ring-1 focus:ring-[#f5b642]/30 font-mono"
             />
@@ -244,7 +260,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
             {otpStep === "email" && (
               <form onSubmit={handleSendOTP} className="space-y-3 text-left">
                 <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Enter your official registered <strong className="text-white">@vitbhopal.ac.in</strong> email ID. A secure 6-digit single-use OTP will be delivered to your inbox.
+                  Enter your official registered <strong className="text-white">@vitbhopal.ac.in</strong> email ID (e.g. <span className="text-[#f5b642] font-mono">xyz.24bceXXXX@vitbhopal.ac.in</span>). A secure 6-digit single-use OTP will be delivered to your official mailbox.
                 </p>
 
                 <div>
@@ -280,18 +296,21 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                         <span>Sending OTP...</span>
                       </>
                     ) : (
-                      <span>Send OTP Code</span>
+                      <>
+                        <KeyRound className="h-3.5 w-3.5" />
+                        <span>Send 6-Digit OTP</span>
+                      </>
                     )}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* STEP 2: Enter OTP & New Password */}
+            {/* STEP 2: Verify OTP & Enter New Password */}
             {otpStep === "verify" && (
               <form onSubmit={handleVerifyAndReset} className="space-y-3 text-left">
                 <p className="text-[11px] text-zinc-400">
-                  Enter the 6-digit code dispatched to <strong className="text-white font-mono">{resetEmail}</strong> and specify your new password.
+                  Enter the 6-digit verification code sent to <strong className="text-white font-mono">{resetEmail}</strong>:
                 </p>
 
                 <div>
@@ -302,17 +321,16 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                     type="text"
                     required
                     maxLength={6}
-                    pattern="[0-9]{6}"
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                     placeholder="123456"
-                    className="w-full rounded-xl border border-[#f5b642]/60 bg-[#18140d] px-3 py-2 text-center text-lg font-black tracking-widest text-[#f5b642] placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
+                    className="w-full text-center tracking-[0.5em] text-lg font-bold rounded-xl border border-[#f5b642]/60 bg-[#18140d] px-3 py-2 text-[#f5b642] placeholder:text-zinc-700 focus:border-[#f5b642] focus:outline-none font-mono"
                   />
                 </div>
 
                 <div>
                   <label className="text-[10px] font-bold text-zinc-300 block mb-1">
-                    New Password * (Min. 8 characters)
+                    New Password (Min 8 characters) *
                   </label>
                   <div className="relative">
                     <input
@@ -393,9 +411,10 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                 <button
                   type="button"
                   onClick={resetModalState}
-                  className="w-full rounded-xl bg-[#f5b642] py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition cursor-pointer"
+                  className="w-full rounded-xl bg-[#f5b642] py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  Proceed to Sign In
+                  <span>Proceed to Sign In</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}

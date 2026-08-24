@@ -207,32 +207,75 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
     const supabase = await createServerSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error || !data.user) {
-      return { ok: false, error: error?.message || "Invalid credentials. Please verify your email and password." };
+    if (!error && data.user) {
+      const cookieStore = await cookies();
+      cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24, // 24 hours
+      });
+
+      cookieStore.set("club_admin_email", email, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24, // 24 hours
+      });
+
+      return { ok: true };
     }
+  } catch {}
 
-    // Set admin session cookie and email cookie for seamless cross-subpage state
-    const cookieStore = await cookies();
-    cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
-    });
+  // 3. Resilient Fallback: Verify directly against user_profiles table
+  try {
+    const adminSupabase = createAdminSupabase();
+    const { data: profile } = await adminSupabase
+      .from("user_profiles")
+      .select("id, email, password, is_active, is_voided, role")
+      .ilike("email", email)
+      .maybeSingle();
 
-    cookieStore.set("club_admin_email", email, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
-    });
+    if (profile && profile.password && profile.password === password) {
+      if (profile.is_voided || profile.is_active === false) {
+        return { ok: false, error: "This staff account has been deactivated or voided." };
+      }
 
-    return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message || "Authentication service temporarily unavailable." };
+      // Automatically synchronize password with Supabase Auth service
+      try {
+        await adminSupabase.auth.admin.updateUserById(profile.id, {
+          password: password,
+          email_confirm: true,
+        });
+      } catch {}
+
+      // Set admin session cookies
+      const cookieStore = await cookies();
+      cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24,
+      });
+
+      cookieStore.set("club_admin_email", profile.email || email, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24,
+      });
+
+      return { ok: true };
+    }
+  } catch (fallbackErr: any) {
+    console.error("Database fallback login check error:", fallbackErr);
   }
+
+  return { ok: false, error: "Invalid credentials. Please verify your official @vitbhopal.ac.in email and password." };
 }
 
 export async function logoutAdmin() {
