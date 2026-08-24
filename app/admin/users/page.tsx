@@ -1,4 +1,4 @@
-import { requireStaffRole } from "@/lib/auth/permissions";
+import { requireStaffRole, isSupremeExecutive } from "@/lib/auth/permissions";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { UserManagement } from "@/components/admin/user-management";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
@@ -17,6 +17,8 @@ export default async function UsersPage() {
     .from("user_profiles")
     .select("*")
     .order("created_at", { ascending: false });
+
+  const isSupreme = isSupremeExecutive(role, profile.roles, profile.email || user.email);
 
   return (
     <div style={{ zoom: "115%" }} className="min-h-screen bg-[#070707] text-white">
@@ -57,6 +59,9 @@ export default async function UsersPage() {
         <UserManagement
           users={(users as UserProfile[]) || []}
           currentUserId={user.id}
+          currentUserRole={role}
+          currentUserEmail={profile.email || user.email}
+          isSupremeLeader={isSupreme}
         />
       </main>
     </div>

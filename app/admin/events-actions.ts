@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { requireStaffRole, getAuthenticatedStaff, isExecutiveLeader } from "@/lib/auth/permissions";
+import {
+  requireStaffRole,
+  getAuthenticatedStaff,
+  isExecutiveLeader,
+  isSupremeExecutive,
+  isExecutiveAccount,
+  isTop6Admin,
+} from "@/lib/auth/permissions";
 import { reviewPayment, sendCustomStaffEmail } from "@/lib/data/registrations";
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import { logAuditEvent } from "@/lib/data/audit";
@@ -178,22 +185,6 @@ export async function upsertStaffUserAction(formData: FormData) {
   let password = formData.get("password") ? String(formData.get("password")).trim() : undefined;
   const isActive = formData.get("is_active") === "on" || formData.get("is_active") === "true";
 
-  // Check explicit executive leadership permission if target user is or becomes a Top Executive
-  const isTargetTopExecutive = staffRole === "tech" || [
-    "president",
-    "vice_president",
-    "technical_lead",
-    "technical_co_lead",
-    "aiml_lead",
-    "aiml_co_lead",
-  ].includes(staffRole);
-
-  if (isTargetTopExecutive && !isExecutiveLeader(role, profile.roles)) {
-    throw new Error(
-      "Permission Denied: Only President, Technical Leads, and AI/ML Leads are authorized to modify or appoint Top Executive roles.",
-    );
-  }
-
   let generatedPassword = "";
   if (!userId && (!password || password.length < 8)) {
     generatedPassword = `GenAI@${Math.random().toString(36).slice(-5)}!${Math.floor(100 + Math.random() * 900)}`;
@@ -221,6 +212,39 @@ export async function upsertStaffUserAction(formData: FormData) {
     assignedRoles = [];
   }
 
+  const supabase = createAdminSupabase();
+
+  // Load existing target profile & roles if editing
+  let previousProfile: any = null;
+  let previousRoles: any[] = [];
+  if (userId) {
+    const { data: prevProf } = await supabase
+      .from("user_profiles")
+      .select("*, roles:member_roles(*)")
+      .eq("id", userId)
+      .single();
+    previousProfile = prevProf;
+    previousRoles = prevProf?.roles || [];
+  }
+
+  // Check if target is currently an Executive or being assigned an Executive role
+  const isTargetExecutive =
+    isExecutiveAccount(staffRole, assignedRoles) ||
+    (previousProfile ? isExecutiveAccount(previousProfile.role, previousRoles) : false);
+
+  const actorIsSupreme = isSupremeExecutive(role, profile.roles, profile.email || user.email);
+
+  if (isTargetExecutive) {
+    if (!actorIsSupreme) {
+      throw new Error(
+        "Permission Denied: Only the President, AI/ML Lead, and Technical Lead are authorized to appoint or modify Top Executive members.",
+      );
+    }
+    if (!isActive) {
+      throw new Error("Action blocked: Top Executive accounts are protected and cannot be disabled.");
+    }
+  }
+
   // Handle optional avatar file upload to Google Drive
   const avatarFile = formData.get("avatar_file") as File | null;
   let avatarDriveFileId: string | undefined = undefined;
@@ -241,18 +265,6 @@ export async function upsertStaffUserAction(formData: FormData) {
     } catch (err) {
       console.error("Avatar upload failed, skipping:", err);
     }
-  }
-
-  const supabase = createAdminSupabase();
-
-  if (userId) {
-    // Load previous profile state for comprehensive audit logging
-    const { data: previousProfile } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
     // Check if trying to disable or demote the last active Tech user
     if (!isActive || staffRole !== "tech") {
       const { data: activeTechs } = await supabase
@@ -301,7 +313,7 @@ export async function upsertStaffUserAction(formData: FormData) {
     }
 
     if (password && password.length >= 8) {
-      await supabase.auth.admin.updateUserById(userId, { password });
+      await supabase.auth.admin.updateUserById(userId!, { password });
     }
 
     await logAuditEvent({
@@ -310,7 +322,7 @@ export async function upsertStaffUserAction(formData: FormData) {
       actorRole: role,
       action: "member_profile_updated",
       targetType: "user",
-      targetId: userId,
+      targetId: userId!,
       previousState: {
         full_name: (previousProfile as any)?.full_name,
         assigned_to_name: (previousProfile as any)?.assigned_to_name,
@@ -414,10 +426,10 @@ export async function voidStaffUserAction(userId: string, reason: string) {
   const { user, profile, role } = await requireStaffRole("tech");
   const supabase = createAdminSupabase();
 
-  // Load target user profile
+  // Load target user profile & roles
   const { data: targetProfile } = await supabase
     .from("user_profiles")
-    .select("*")
+    .select("*, roles:member_roles(*)")
     .eq("id", userId)
     .single();
 
@@ -425,9 +437,14 @@ export async function voidStaffUserAction(userId: string, reason: string) {
     throw new Error("Target user not found");
   }
 
-  // Guard against voiding yourself or last tech lead
+  // Guard against voiding yourself
   if (userId === user.id) {
     throw new Error("You cannot void your own account.");
+  }
+
+  // Guard against voiding Top Executive accounts
+  if (isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
+    throw new Error("Action blocked: Top Executive accounts are protected and cannot be voided.");
   }
 
   const { error: voidErr } = await supabase
@@ -474,21 +491,30 @@ export async function voidStaffUserAction(userId: string, reason: string) {
 }
 
 /**
- * Tech-only: Soft-disables a staff user with safeguard for last tech lead.
+ * Tech-only: Soft-disables a staff user with safeguard for last tech lead and Top Executive accounts.
  */
 export async function toggleStaffUserActiveAction(userId: string, currentActive: boolean) {
   const { user, profile, role } = await requireStaffRole("tech");
 
   const supabase = createAdminSupabase();
 
+  const { data: targetProfile } = await supabase
+    .from("user_profiles")
+    .select("*, roles:member_roles(*)")
+    .eq("id", userId)
+    .single();
+
+  if (!targetProfile) {
+    throw new Error("Target user not found");
+  }
+
+  // Guard against disabling Top Executive accounts
+  if (isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
+    throw new Error("Action blocked: Top Executive accounts are protected and cannot be disabled.");
+  }
+
   if (currentActive) {
     // Check if last tech
-    const { data: targetProfile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
     if (targetProfile?.role === "tech") {
       const { data: activeTechs } = await supabase
         .from("user_profiles")

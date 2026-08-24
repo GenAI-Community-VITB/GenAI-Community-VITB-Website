@@ -54,6 +54,89 @@ export function isTop6Admin(
 /** Alias for isTop6Admin */
 export const isExecutiveLeader = isTop6Admin;
 
+/**
+ * Supreme Core Trio: President, AI/ML Lead, Technical Lead.
+ * These 3 hold supreme authority to appoint and modify Top Executives.
+ */
+export function isSupremeExecutive(
+  role?: UserRole | string | null,
+  roles?: MemberRoleAssignment[],
+  email?: string | null,
+): boolean {
+  if (!role && !email) return false;
+  const normalized = (role || "").toLowerCase().trim();
+  const normalizedEmail = (email || "").toLowerCase().trim();
+
+  // 1. Direct role match
+  if (
+    normalized === "president" ||
+    normalized === "aiml_lead" ||
+    normalized === "technical_lead" ||
+    normalized === "tech_lead"
+  ) {
+    return true;
+  }
+
+  // 2. Relational role match
+  if (roles && Array.isArray(roles)) {
+    const hasSupremeRole = roles.some((r) => {
+      const pos = (r.position || "").toLowerCase();
+      const tm = (r.team || "").toLowerCase();
+      return (
+        pos === "president" ||
+        pos.includes("aiml lead") ||
+        pos.includes("ai/ml lead") ||
+        pos.includes("technical lead") ||
+        pos.includes("tech lead") ||
+        (tm.includes("technical") && pos.includes("lead") && !pos.includes("co_lead") && !pos.includes("co-lead")) ||
+        (tm.includes("aiml") && pos.includes("lead") && !pos.includes("co_lead") && !pos.includes("co-lead"))
+      );
+    });
+    if (hasSupremeRole) return true;
+  }
+
+  // 3. Fallback email identifier for core leadership trio
+  if (
+    normalizedEmail.includes("harshvardhan.24bce10511") ||
+    normalizedEmail.includes("lakshya.24bce10549") ||
+    normalizedEmail.includes("abhinav.24bsa10110")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether an account belongs to Top 6 or Panel Executive leadership.
+ * These accounts are strictly protected and cannot be disabled or voided.
+ */
+export function isExecutiveAccount(
+  role?: UserRole | string | null,
+  roles?: MemberRoleAssignment[],
+): boolean {
+  if (!role) return false;
+  const normalized = role.toLowerCase().trim();
+  if (isTop6Admin(role, roles)) return true;
+  if (
+    normalized === "general_secretary" ||
+    normalized === "general_secretary_provisional" ||
+    normalized === "joint_secretary" ||
+    normalized === "assistant_secretary" ||
+    normalized === "student_coordinator" ||
+    normalized === "panel"
+  ) {
+    return true;
+  }
+  if (roles && Array.isArray(roles)) {
+    return roles.some((r) => {
+      const tm = (r.team || "").toLowerCase();
+      return tm === "panel" || tm === "top 6" || tm === "executive";
+    });
+  }
+  return false;
+}
+
 export { formatISTDate } from "@/lib/utils/format";
 
 export const ROLE_HIERARCHY: Record<string, number> = {

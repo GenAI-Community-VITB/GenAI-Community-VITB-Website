@@ -46,7 +46,7 @@ import {
   KeyRound,
   Clock,
 } from "lucide-react";
-import { isTop6Admin } from "@/lib/utils/format";
+import { isTop6Admin, isSupremeExecutive, isExecutiveAccount } from "@/lib/utils/format";
 import {
   getPasswordResetQueries,
   resolvePasswordResetQueryAction,
@@ -56,6 +56,9 @@ import {
 interface UserManagementProps {
   users: UserProfile[];
   currentUserId: string;
+  currentUserRole?: string;
+  currentUserEmail?: string;
+  isSupremeLeader?: boolean;
 }
 
 export function MemberAvatar({
@@ -167,8 +170,17 @@ export function getRosterDetailsFromEmail(email: string): {
   return { position: "Member", team: dept.team, isLead: false, isTop6: false };
 }
 
-export function UserManagement({ users, currentUserId }: UserManagementProps) {
+export function UserManagement({
+  users,
+  currentUserId,
+  currentUserRole,
+  currentUserEmail,
+  isSupremeLeader: initialIsSupremeLeader,
+}: UserManagementProps) {
   const [userList, setUserList] = useState(users);
+  const isSupremeLeader =
+    initialIsSupremeLeader ??
+    isSupremeExecutive(currentUserRole, [], currentUserEmail);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -823,6 +835,11 @@ export function UserManagement({ users, currentUserId }: UserManagementProps) {
                         <Ban className="h-3 w-3" />
                         Voided
                       </span>
+                    ) : isExecutiveAccount(u.role, u.roles) ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 shadow-[0_0_10px_rgba(245,182,66,0.08)]" title="Protected Top Executive Account">
+                        <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+                        Protected Exec
+                      </span>
                     ) : u.is_active ? (
                       <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs">
                         <UserCheck className="h-3.5 w-3.5" />
@@ -838,44 +855,65 @@ export function UserManagement({ users, currentUserId }: UserManagementProps) {
 
                   {/* Actions */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap text-right">
-                    {!isVoided && (
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(u)}
-                          className="rounded-xl border border-[#2e2618] bg-[#17140e] px-2 py-1 text-xs font-semibold text-zinc-300 hover:border-[#f5b642] hover:text-white transition cursor-pointer"
-                        >
-                          <Pencil className="h-3 w-3 inline mr-1" />
-                          Edit
-                        </button>
+                    {!isVoided && (() => {
+                      const isExec = isExecutiveAccount(u.role, u.roles);
+                      const canEditTarget = !isExec || isSupremeLeader;
 
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(u.id, u.is_active)}
-                          className={`rounded-xl px-2 py-1 text-xs font-semibold transition cursor-pointer ${
-                            u.is_active
-                              ? "text-zinc-400 hover:bg-zinc-800"
-                              : "text-emerald-400 hover:bg-emerald-950/40"
-                          }`}
-                        >
-                          {u.is_active ? "Disable" : "Enable"}
-                        </button>
+                      return (
+                        <div className="inline-flex items-center gap-1.5">
+                          {canEditTarget ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(u)}
+                              className="rounded-xl border border-[#2e2618] bg-[#17140e] px-2 py-1 text-xs font-semibold text-zinc-300 hover:border-[#f5b642] hover:text-white transition cursor-pointer"
+                            >
+                              <Pencil className="h-3 w-3 inline mr-1" />
+                              Edit
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="Only President, AI/ML Lead, and Technical Lead can modify Top Executive accounts"
+                              className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-2 py-1 text-xs font-semibold text-zinc-600 cursor-not-allowed opacity-60"
+                            >
+                              <Pencil className="h-3 w-3 inline mr-1" />
+                              Locked
+                            </button>
+                          )}
 
-                        {u.id !== currentUserId && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setVoidTarget(u);
-                              setVoidReason("");
-                            }}
-                            title="Void account"
-                            className="rounded-xl p-1 text-red-500 hover:bg-red-950/40 transition cursor-pointer"
-                          >
-                            <UserMinus className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    )}
+                          {/* Disable / Enable button ONLY rendered for NON-executive accounts */}
+                          {!isExec && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(u.id, u.is_active)}
+                              className={`rounded-xl px-2 py-1 text-xs font-semibold transition cursor-pointer ${
+                                u.is_active
+                                  ? "text-zinc-400 hover:bg-zinc-800"
+                                  : "text-emerald-400 hover:bg-emerald-950/40"
+                              }`}
+                            >
+                              {u.is_active ? "Disable" : "Enable"}
+                            </button>
+                          )}
+
+                          {/* Void button ONLY rendered for NON-executive accounts */}
+                          {!isExec && u.id !== currentUserId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setVoidTarget(u);
+                                setVoidReason("");
+                              }}
+                              title="Void account"
+                              className="rounded-xl p-1 text-red-500 hover:bg-red-950/40 transition cursor-pointer"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               );
@@ -1171,24 +1209,59 @@ export function UserManagement({ users, currentUserId }: UserManagementProps) {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
-                  Primary System Role
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-zinc-300 block">
+                    Primary System Role
+                  </label>
+                  {isSupremeLeader ? (
+                    <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> Supreme Council Authority
+                    </span>
+                  ) : null}
+                </div>
                 <CustomDropdown
                   value={primaryRole}
                   onChange={(val) => setPrimaryRole(val as UserRole)}
-                  options={[
-                    { value: "president", label: "President (Super Admin)" },
-                    { value: "vice_president", label: "Vice President (Super Admin)" },
-                    { value: "technical_lead", label: "Technical Lead (Super Admin)" },
-                    { value: "technical_co_lead", label: "Technical Co-Lead (Super Admin)" },
-                    { value: "aiml_lead", label: "AI/ML Lead (Super Admin)" },
-                    { value: "aiml_co_lead", label: "AI/ML Co-Lead (Super Admin)" },
-                    { value: "finance", label: "Finance Team Member" },
-                    { value: "volunteer", label: "Volunteer / Scanner" },
-                  ]}
+                  options={
+                    isSupremeLeader
+                      ? [
+                          { value: "president", label: "👑 President (Supreme Council)" },
+                          { value: "aiml_lead", label: "⚡ AI/ML Lead (Supreme Council)" },
+                          { value: "technical_lead", label: "🛠️ Technical Lead (Supreme Council)" },
+                          { value: "vice_president", label: "⭐ Vice President (Executive Council)" },
+                          { value: "technical_co_lead", label: "🛠️ Technical Co-Lead (Executive Council)" },
+                          { value: "aiml_co_lead", label: "⚡ AI/ML Co-Lead (Executive Council)" },
+                          { value: "general_secretary", label: "📜 General Secretary (Panel Executive)" },
+                          { value: "joint_secretary", label: "📜 Joint Secretary (Panel Executive)" },
+                          { value: "assistant_secretary", label: "📜 Assistant Secretary (Panel Executive)" },
+                          { value: "student_coordinator", label: "🎓 Student Coordinator (Panel Executive)" },
+                          { value: "lead", label: "Department Lead" },
+                          { value: "co_lead", label: "Department Co-Lead" },
+                          { value: "core_member", label: "Core Team Member" },
+                          { value: "tech", label: "Tech Team Staff" },
+                          { value: "finance", label: "Finance Team Member" },
+                          { value: "volunteer", label: "Volunteer / Scanner" },
+                        ]
+                      : [
+                          { value: "lead", label: "Department Lead" },
+                          { value: "co_lead", label: "Department Co-Lead" },
+                          { value: "core_member", label: "Core Team Member" },
+                          { value: "tech", label: "Tech Team Staff" },
+                          { value: "finance", label: "Finance Team Member" },
+                          { value: "volunteer", label: "Volunteer / Scanner" },
+                        ]
+                  }
                 />
               </div>
+
+              {editingUser && isExecutiveAccount(editingUser.role, editingUser.roles) && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span>
+                    <strong>Protected Top Executive Account:</strong> Permanent active status enforced.
+                  </span>
+                </div>
+              )}
 
               {/* OPTIONAL AVATAR IMAGE UPLOAD (STORED IN DRIVE) */}
               <div className="rounded-2xl border border-[#333333] bg-[#181818] p-3.5 space-y-2">
