@@ -6,6 +6,7 @@ import {
   getEventVolunteersAction,
   assignEventVolunteerAction,
   removeEventVolunteerAction,
+  getAllStaffMembersAction,
 } from "@/app/admin/events-actions";
 import {
   Users,
@@ -17,51 +18,63 @@ import {
   AlertCircle,
   RotateCw,
   X,
+  Sparkles,
 } from "lucide-react";
 
 interface EventVolunteersModalProps {
   event: Event;
-  allMembers: UserProfile[];
+  allMembers?: UserProfile[];
   onClose: () => void;
 }
 
 export function EventVolunteersModal({
   event,
-  allMembers,
+  allMembers = [],
   onClose,
 }: EventVolunteersModalProps) {
   const [volunteers, setVolunteers] = useState<any[]>([]);
+  const [memberList, setMemberList] = useState<UserProfile[]>(allMembers);
   const [loading, setLoading] = useState(true);
   const [searchMember, setSearchMember] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  async function loadVolunteers() {
+  async function loadVolunteersAndMembers() {
     setLoading(true);
     try {
-      const res = await getEventVolunteersAction(event.id);
-      if (res.success) {
-        setVolunteers(res.volunteers || []);
+      const [volRes, memRes] = await Promise.all([
+        getEventVolunteersAction(event.id),
+        memberList.length === 0 ? getAllStaffMembersAction() : Promise.resolve({ success: true, members: memberList }),
+      ]);
+
+      if (volRes.success) {
+        setVolunteers(volRes.volunteers || []);
+      }
+      if (memRes.success && memRes.members && memRes.members.length > 0) {
+        setMemberList(memRes.members);
       }
     } catch (err: any) {
-      console.error("Failed to load volunteers:", err);
+      console.error("Failed to load volunteers and members:", err);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadVolunteers();
+    loadVolunteersAndMembers();
   }, [event.id]);
 
   const assignedUserIds = new Set(volunteers.map((v) => v.user_id));
 
-  const eligibleMembers = allMembers.filter((m) => {
+  const eligibleMembers = memberList.filter((m) => {
     if (assignedUserIds.has(m.id)) return false;
-    const nameMatch = (m.assigned_to_name || m.full_name || "").toLowerCase().includes(searchMember.toLowerCase());
-    const emailMatch = (m.email || "").toLowerCase().includes(searchMember.toLowerCase());
-    return nameMatch || emailMatch;
+    const search = searchMember.trim().toLowerCase();
+    if (!search) return true;
+    const nameMatch = (m.assigned_to_name || m.full_name || "").toLowerCase().includes(search);
+    const emailMatch = (m.email || "").toLowerCase().includes(search);
+    const roleMatch = (m.role || "").toLowerCase().includes(search);
+    return nameMatch || emailMatch || roleMatch;
   });
 
   function handleAssign(e: React.FormEvent) {
@@ -79,7 +92,7 @@ export function EventVolunteersModal({
         if (res.success) {
           setFeedback({ type: "success", message: "Volunteer assigned successfully to this event." });
           setSelectedUserId("");
-          loadVolunteers();
+          loadVolunteersAndMembers();
         }
       } catch (err: any) {
         setFeedback({ type: "error", message: err.message || "Failed to assign volunteer." });
@@ -98,7 +111,7 @@ export function EventVolunteersModal({
         const res = await removeEventVolunteerAction(fd);
         if (res.success) {
           setFeedback({ type: "success", message: "Volunteer scanner role revoked for this event." });
-          loadVolunteers();
+          loadVolunteersAndMembers();
         }
       } catch (err: any) {
         setFeedback({ type: "error", message: err.message || "Failed to remove volunteer." });
@@ -150,11 +163,29 @@ export function EventVolunteersModal({
         </div>
 
         {/* Assign New Volunteer Section */}
-        <form onSubmit={handleAssign} className="space-y-2 rounded-xl border border-[#261f13] bg-[#18140e] p-3.5">
-          <label className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider block flex items-center gap-1.5">
-            <UserPlus className="h-3.5 w-3.5 text-[#f5b642]" />
-            Assign Gate Volunteer
-          </label>
+        <form onSubmit={handleAssign} className="space-y-3 rounded-xl border border-[#261f13] bg-[#18140e] p-3.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider block flex items-center gap-1.5">
+              <UserPlus className="h-3.5 w-3.5 text-[#f5b642]" />
+              Assign Gate Volunteer
+            </label>
+            <span className="text-[10px] text-zinc-400 font-mono">
+              {eligibleMembers.length} available member{eligibleMembers.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          {/* Instant Search Bar */}
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              value={searchMember}
+              onChange={(e) => setSearchMember(e.target.value)}
+              placeholder="Filter members by name, roll, or @vitbhopal.ac.in email..."
+              className="w-full rounded-xl border border-[#2a2215] bg-[#120f0a] pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-[#f5b642] transition font-mono"
+            />
+          </div>
+
           <div className="flex gap-2">
             <div className="relative flex-1">
               <select
@@ -163,10 +194,12 @@ export function EventVolunteersModal({
                 required
                 className="w-full rounded-xl border border-[#332714] bg-[#120f0a] px-3 py-2 text-xs text-white outline-none focus:border-[#f5b642] transition cursor-pointer"
               >
-                <option value="">Select a club member to assign...</option>
+                <option value="">
+                  {loading ? "Loading club roster..." : eligibleMembers.length === 0 ? "No matching members found" : "-- Select a club member to assign --"}
+                </option>
                 {eligibleMembers.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.assigned_to_name || m.full_name} ({m.email})
+                    {m.assigned_to_name || m.full_name} — {m.email} ({m.role || "member"})
                   </option>
                 ))}
               </select>

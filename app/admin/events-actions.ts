@@ -7,6 +7,7 @@ import { reviewPayment, sendCustomStaffEmail } from "@/lib/data/registrations";
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import { logAuditEvent } from "@/lib/data/audit";
 import { eventSchema, userManagementSchema } from "@/lib/validation";
+import type { UserProfile } from "@/lib/types";
 
 /**
  * Reviews a student registration payment (Approve/Reject) from Finance or Tech portal.
@@ -877,6 +878,26 @@ export async function exportAttendanceDataAction(eventId: string) {
   await requireStaffRole("tech");
   const { exportAttendanceDataAction: exportAttendance } = await import("@/lib/data/registrations");
   return await exportAttendance(eventId);
+}
+
+/**
+ * Fetches all active community staff members for volunteer assignment modal.
+ */
+export async function getAllStaffMembersAction(): Promise<{ success: boolean; members: UserProfile[] }> {
+  try {
+    const supabase = createAdminSupabase();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("id, email, full_name, assigned_to_name, role, is_active, avatar_url, roles:member_roles(team, position)")
+      .eq("is_active", true)
+      .order("assigned_to_name", { ascending: true });
+
+    if (error) throw error;
+    return { success: true, members: (data as any[]) || [] };
+  } catch (err: any) {
+    console.error("Error fetching staff members for volunteer assignment:", err);
+    return { success: false, members: [] };
+  }
 }
 
 

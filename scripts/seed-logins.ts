@@ -52,7 +52,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["gen.sec.provisional@genai.community"],
     fullName: "General Secretary (Provisional)",
     assignedToName: "Anuj Srivastava",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "panel",
     position: "general_secretary_provisional",
   },
@@ -61,7 +61,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["general.secretary@genai.community"],
     fullName: "General Secretary",
     assignedToName: "Aditya Mishra",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "panel",
     position: "general_secretary",
   },
@@ -70,7 +70,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["joint.secretary@genai.community"],
     fullName: "Joint Secretary",
     assignedToName: "Anvi Vajpayee",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "panel",
     position: "joint_secretary",
   },
@@ -79,7 +79,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["assistant.secretary@genai.community"],
     fullName: "Assistant Secretary",
     assignedToName: "Archita Shukla",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "panel",
     position: "assistant_secretary",
   },
@@ -88,7 +88,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["student.coord.001@genai.community"],
     fullName: "Student Coordinator 01",
     assignedToName: "Ishani Verma",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "panel",
     position: "student_coordinator",
   },
@@ -97,7 +97,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["student.coord.002@genai.community"],
     fullName: "Student Coordinator 02",
     assignedToName: "Prince Agrawal",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "panel",
     position: "student_coordinator",
   },
@@ -108,7 +108,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["hr.lead@genai.community"],
     fullName: "HR Lead",
     assignedToName: "Amritanshu Gupta",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "hr_team",
     position: "lead",
   },
@@ -117,7 +117,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["hr.co.lead@genai.community"],
     fullName: "HR Co-Lead",
     assignedToName: "Srishti Manav",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "hr_team",
     position: "co_lead",
   },
@@ -126,7 +126,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["hr.coremember.001@genai.community"],
     fullName: "HR Core Member 01",
     assignedToName: "Nilansh Chauhan",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "hr_team",
     position: "core_member",
   },
@@ -135,7 +135,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["hr.coremember.002@genai.community"],
     fullName: "HR Core Member 02",
     assignedToName: "Aashka Swaroop",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "hr_team",
     position: "core_member",
   },
@@ -146,7 +146,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["event.lead@genai.community"],
     fullName: "Event Management Lead",
     assignedToName: "Priyansh Upadhyay",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "event_management_team",
     position: "lead",
   },
@@ -155,7 +155,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["event.co.lead@genai.community"],
     fullName: "Event Management Co-Lead",
     assignedToName: "Anya Singh",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "event_management_team",
     position: "co_lead",
   },
@@ -164,7 +164,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["event.coremember.001@genai.community"],
     fullName: "Event Core Member 01",
     assignedToName: "Shikha Singh",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "event_management_team",
     position: "core_member",
   },
@@ -173,7 +173,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["event.coremember.002@genai.community"],
     fullName: "Event Core Member 02",
     assignedToName: "Shaurya Tyagi",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "event_management_team",
     position: "core_member",
   },
@@ -184,7 +184,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["design.lead@genai.community"],
     fullName: "Design Lead",
     assignedToName: "Agrim Mathur",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "design_team",
     position: "lead",
   },
@@ -193,7 +193,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["design.co.lead@genai.community"],
     fullName: "Design Co-Lead",
     assignedToName: "Kushagra Nigam",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "design_team",
     position: "co_lead",
   },
@@ -202,7 +202,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["design.coremember.001@genai.community"],
     fullName: "Design Core Member 01",
     assignedToName: "Ameeshi",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "design_team",
     position: "core_member",
   },
@@ -231,7 +231,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["aiml.coremember.001@genai.community"],
     fullName: "AI/ML Core Member 01",
     assignedToName: "Rachit Singh",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "aiml_innovation_team",
     position: "core_member",
   },
@@ -240,7 +240,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["aiml.coremember.002@genai.community"],
     fullName: "AI/ML Core Member 02",
     assignedToName: "Suhani Boxi",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "aiml_innovation_team",
     position: "core_member",
   },
@@ -249,7 +249,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["aiml.coremember.003@genai.community"],
     fullName: "AI/ML Core Member 03",
     assignedToName: "Sargam Ghagre",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "aiml_innovation_team",
     position: "core_member",
   },
@@ -258,7 +258,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["aiml.coremember.004@genai.community"],
     fullName: "AI/ML Core Member 04",
     assignedToName: "Aditya Verma",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "aiml_innovation_team",
     position: "core_member",
   },
@@ -269,7 +269,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["social.lead@genai.community"],
     fullName: "Social Media Lead",
     assignedToName: "Jharna Gupta",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "social_media_team",
     position: "lead",
   },
@@ -278,7 +278,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["social.co.lead@genai.community"],
     fullName: "Social Media Co-Lead",
     assignedToName: "Sakcham Shaw",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "social_media_team",
     position: "co_lead",
   },
@@ -287,7 +287,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["social.coremember.001@genai.community"],
     fullName: "Social Media Core Member 01",
     assignedToName: "Arpan Akar",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "social_media_team",
     position: "core_member",
   },
@@ -296,7 +296,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["social.coremember.002@genai.community"],
     fullName: "Social Media Core Member 02",
     assignedToName: "Ayesha Raza",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "social_media_team",
     position: "core_member",
   },
@@ -305,7 +305,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["social.coremember.003@genai.community"],
     fullName: "Social Media Core Member 03",
     assignedToName: "Sanidhya Raj",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "social_media_team",
     position: "core_member",
   },
@@ -314,7 +314,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["social.coremember.004@genai.community"],
     fullName: "Social Media Core Member 04",
     assignedToName: "Priyanshu Sinha",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "social_media_team",
     position: "core_member",
   },
@@ -325,7 +325,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.lead@genai.community"],
     fullName: "PR & Outreach Lead",
     assignedToName: "Shashwat Mishra",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "lead",
   },
@@ -334,7 +334,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.co.lead@genai.community"],
     fullName: "PR & Outreach Co-Lead",
     assignedToName: "Drishti Pandey",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "co_lead",
   },
@@ -343,7 +343,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.coremember.001@genai.community"],
     fullName: "PR & Outreach Core Member 01",
     assignedToName: "Debasmita Ghosh",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "core_member",
   },
@@ -352,7 +352,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.coremember.002@genai.community"],
     fullName: "PR & Outreach Core Member 02",
     assignedToName: "Palak Priya",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "core_member",
   },
@@ -361,7 +361,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.coremember.003@genai.community"],
     fullName: "PR & Outreach Core Member 03",
     assignedToName: "Saanvi Mittal",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "core_member",
   },
@@ -370,7 +370,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.coremember.004@genai.community"],
     fullName: "PR & Outreach Core Member 04",
     assignedToName: "Anjali Pandey",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "core_member",
   },
@@ -379,7 +379,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["pr.coremember.005@genai.community"],
     fullName: "PR & Outreach Core Member 05",
     assignedToName: "Pushkar Banjara",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "pr_outreach_team",
     position: "core_member",
   },
@@ -408,7 +408,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["tech.coremember.001@genai.community"],
     fullName: "Technical Core Member 01",
     assignedToName: "Anushka Bhatnagar",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "technical_team",
     position: "core_member",
   },
@@ -417,7 +417,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["tech.coremember.002@genai.community"],
     fullName: "Technical Core Member 02",
     assignedToName: "Rishab jain",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "technical_team",
     position: "core_member",
   },
@@ -426,7 +426,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["tech.coremember.003@genai.community"],
     fullName: "Technical Core Member 03",
     assignedToName: "Aaditi Shrivastava",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "technical_team",
     position: "core_member",
   },
@@ -435,7 +435,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["tech.coremember.004@genai.community"],
     fullName: "Technical Core Member 04",
     assignedToName: "Nitin Sharma",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "technical_team",
     position: "core_member",
   },
@@ -444,7 +444,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["tech.coremember.005@genai.community"],
     fullName: "Technical Core Member 05",
     assignedToName: "Nivedita Jain",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "technical_team",
     position: "core_member",
   },
@@ -455,7 +455,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["content.lead@genai.community"],
     fullName: "Content Lead",
     assignedToName: "Muskan Jha",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "content_team",
     position: "lead",
   },
@@ -464,7 +464,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["content.co.lead@genai.community"],
     fullName: "Content Co-Lead",
     assignedToName: "Muskan Bhatia",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "content_team",
     position: "co_lead",
   },
@@ -473,7 +473,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["content.coremember.001@genai.community"],
     fullName: "Content Core Member 01",
     assignedToName: "Kaustubh",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "content_team",
     position: "core_member",
   },
@@ -482,7 +482,7 @@ export const ROSTER_2026: MemberRosterItem[] = [
     legacyEmails: ["content.coremember.002@genai.community"],
     fullName: "Content Core Member 02",
     assignedToName: "Arsh Arun",
-    primaryRole: "volunteer",
+    primaryRole: "core_member",
     team: "content_team",
     position: "core_member",
   },
@@ -526,18 +526,18 @@ export async function seedLogins() {
 
   for (const item of ROSTER_2026) {
     try {
-      // Look up existing user by new email, legacy email, or assignedToName in metadata
-      const existingUser = existingUsers.find((u) => {
-        const uEmail = u.email?.toLowerCase();
-        if (uEmail === item.email.toLowerCase()) return true;
-        if (item.legacyEmails?.some((leg) => leg.toLowerCase() === uEmail)) return true;
-        const metaAssigned = (u.user_metadata?.assigned_to_name || "").toLowerCase();
-        const metaFull = (u.user_metadata?.full_name || "").toLowerCase();
-        return (
-          metaAssigned === item.assignedToName.toLowerCase() ||
-          metaFull === item.fullName.toLowerCase()
-        );
-      });
+      // Look up existing user strictly by new email, then legacy email, then assignedToName
+      let existingUser = existingUsers.find((u) => u.email?.toLowerCase() === item.email.toLowerCase());
+      if (!existingUser) {
+        existingUser = existingUsers.find((u) => item.legacyEmails?.some((leg) => leg.toLowerCase() === u.email?.toLowerCase()));
+      }
+      if (!existingUser) {
+        existingUser = existingUsers.find((u) => {
+          const metaAssigned = (u.user_metadata?.assigned_to_name || "").toLowerCase();
+          const metaFull = (u.user_metadata?.full_name || "").toLowerCase();
+          return metaAssigned === item.assignedToName.toLowerCase() || metaFull === item.fullName.toLowerCase();
+        });
+      }
 
       let userId: string;
 
@@ -546,7 +546,6 @@ export async function seedLogins() {
         // In-place edit of existing user email and metadata
         await supabase.auth.admin.updateUserById(userId, {
           email: item.email,
-          password: DEFAULT_PASSWORD,
           user_metadata: {
             full_name: item.fullName,
             assigned_to_name: item.assignedToName,
@@ -556,22 +555,42 @@ export async function seedLogins() {
         });
         updatedCount++;
       } else {
-        const { data: newUser, error: createAuthError } = await supabase.auth.admin.createUser({
-          email: item.email,
-          password: DEFAULT_PASSWORD,
-          email_confirm: true,
-          user_metadata: {
-            full_name: item.fullName,
-            assigned_to_name: item.assignedToName,
-            role: item.primaryRole,
-          },
-        });
+        try {
+          const { data: newUser, error: createAuthError } = await supabase.auth.admin.createUser({
+            email: item.email,
+            password: DEFAULT_PASSWORD,
+            email_confirm: true,
+            user_metadata: {
+              full_name: item.fullName,
+              assigned_to_name: item.assignedToName,
+              role: item.primaryRole,
+            },
+          });
 
-        if (createAuthError || !newUser.user) {
-          throw new Error(createAuthError?.message || "Failed to create user");
+          if (createAuthError || !newUser.user) {
+            throw new Error(createAuthError?.message || "Failed to create user");
+          }
+          userId = newUser.user.id;
+          createdCount++;
+        } catch (createErr: any) {
+          // If already exists in Auth, fetch by email directly
+          const { data: listRes } = await supabase.auth.admin.listUsers();
+          const found = listRes?.users?.find((u) => u.email?.toLowerCase() === item.email.toLowerCase());
+          if (found) {
+            userId = found.id;
+            await supabase.auth.admin.updateUserById(userId, {
+              user_metadata: {
+                full_name: item.fullName,
+                assigned_to_name: item.assignedToName,
+                role: item.primaryRole,
+              },
+              email_confirm: true,
+            });
+            updatedCount++;
+          } else {
+            throw createErr;
+          }
         }
-        userId = newUser.user.id;
-        createdCount++;
       }
 
       // Upsert user_profiles in-place

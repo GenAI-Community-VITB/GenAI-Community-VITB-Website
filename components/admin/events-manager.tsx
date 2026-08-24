@@ -6,8 +6,7 @@ import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { upsertEvent, deleteEvent } from "@/app/admin/actions";
 import { EventVolunteersModal } from "@/components/admin/event-volunteers-modal";
 import { ParticipantImporterModal } from "@/components/admin/participant-importer-modal";
-import { exportAttendanceDataAction } from "@/app/admin/events-actions";
-import { createClientSupabase } from "@/lib/supabase/client";
+import { exportAttendanceDataAction, getAllStaffMembersAction } from "@/app/admin/events-actions";
 import type { UserProfile } from "@/lib/types";
 import {
   Calendar,
@@ -74,14 +73,13 @@ export function EventsManager({
   useEffect(() => {
     async function loadMembers() {
       try {
-        const supabase = createClientSupabase();
-        const { data } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq("is_active", true)
-          .order("full_name", { ascending: true });
-        if (data) setClubMembers(data as UserProfile[]);
-      } catch {}
+        const res = await getAllStaffMembersAction();
+        if (res.success && res.members) {
+          setClubMembers(res.members);
+        }
+      } catch (err) {
+        console.error("Failed to load staff members:", err);
+      }
     }
     loadMembers();
   }, []);
@@ -469,6 +467,19 @@ export function EventsManager({
               </div>
             </div>
 
+            {isAllowed && (
+              <div className="pt-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedVolunteerEvent(event)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-500/20 via-[#f5b642]/15 to-amber-500/20 py-2 px-3 text-xs font-bold text-[#ffd06a] hover:from-amber-500/30 hover:to-[#f5b642]/30 shadow-[0_0_15px_rgba(245,182,66,0.15)] transition cursor-pointer"
+                >
+                  <UserCheck className="h-3.5 w-3.5 text-[#f5b642]" />
+                  <span>Assign Scanner Volunteers</span>
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-3 border-t border-[#221c12]">
               <a
                 href={event.slug ? `/events/${event.slug}` : `/events`}
@@ -514,14 +525,6 @@ export function EventsManager({
                     title="Export Attendance Sheet (CSV)"
                   >
                     <Download className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedVolunteerEvent(event)}
-                    className="p-1.5 rounded-lg border border-[#f5b642]/40 bg-[#f5b642]/10 text-[#f5b642] hover:bg-[#f5b642]/20 transition cursor-pointer"
-                    title="Manage Scanner Volunteers (Event-wise Delegation)"
-                  >
-                    <UserCheck className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
