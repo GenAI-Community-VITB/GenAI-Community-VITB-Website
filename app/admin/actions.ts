@@ -398,12 +398,14 @@ export async function upsertMember(formData: FormData) {
   );
 
   // Revalidate the specific team page so the change is live immediately
-  const { data: team } = await supabase
-    .from("teams")
-    .select("slug")
-    .eq("id", parsed.data.team_id)
-    .single();
-  if (team?.slug) revalidatePath(`/team/${team.slug}`);
+  if (parsed.data.team_id) {
+    const { data: team } = await supabase
+      .from("teams")
+      .select("slug")
+      .eq("id", parsed.data.team_id)
+      .maybeSingle();
+    if (team?.slug) revalidatePath(`/team/${team.slug}`);
+  }
 
   revalidatePath("/");
   revalidatePath("/admin");
@@ -719,14 +721,15 @@ export async function deleteTeam(formData: FormData) {
 }
 
 export async function approveMember(formData: FormData) {
-  const id = String(formData.get("id"));
+  const id = String(formData.get("id") || "").trim();
+  if (!id) throw new Error("Member ID is required.");
   const supabase = createAdminSupabase();
 
   const { data: existing } = await supabase
     .from("members")
     .select("team_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   const { error } = await supabase
     .from("members")
@@ -739,12 +742,13 @@ export async function approveMember(formData: FormData) {
       .from("teams")
       .select("slug")
       .eq("id", existing.team_id)
-      .single();
+      .maybeSingle();
     if (team?.slug) revalidatePath(`/team/${team.slug}`);
   }
 
   revalidatePath("/");
   revalidatePath("/admin");
+  return { success: true };
 }
 
 /**
@@ -807,7 +811,7 @@ export async function updateUserProfileAvatarAction(formData: FormData) {
       .from("user_profiles")
       .select("email, full_name, assigned_to_name")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       const matchName = profile.assigned_to_name || profile.full_name;

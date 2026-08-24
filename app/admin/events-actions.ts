@@ -114,7 +114,7 @@ export async function updateEventConfigurationAction(formData: FormData) {
     .from("events")
     .select("*")
     .eq("id", eventId)
-    .single();
+    .maybeSingle();
 
   const updatePayload: Record<string, unknown> = {
     title,
@@ -222,7 +222,7 @@ export async function upsertStaffUserAction(formData: FormData) {
       .from("user_profiles")
       .select("*, roles:member_roles(*)")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
     previousProfile = prevProf;
     previousRoles = prevProf?.roles || [];
   }
@@ -431,7 +431,7 @@ export async function voidStaffUserAction(userId: string, reason: string) {
     .from("user_profiles")
     .select("*, roles:member_roles(*)")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   if (!targetProfile) {
     throw new Error("Target user not found");
@@ -502,7 +502,7 @@ export async function toggleStaffUserActiveAction(userId: string, currentActive:
     .from("user_profiles")
     .select("*, roles:member_roles(*)")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   if (!targetProfile) {
     throw new Error("Target user not found");

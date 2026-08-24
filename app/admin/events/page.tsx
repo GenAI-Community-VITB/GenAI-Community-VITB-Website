@@ -21,7 +21,7 @@ export default async function AdminEventsSettingsPage() {
     .select("*")
     .order("event_date", { ascending: true })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!event) {
     notFound();
