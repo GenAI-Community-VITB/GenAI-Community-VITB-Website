@@ -19,7 +19,7 @@ export default async function FinancePage() {
     getRegistrationsQueue(),
     getActiveBranches(),
     supabase.from("events").select("*").order("event_date", { ascending: true }).limit(1).maybeSingle(),
-    isTop6 ? getDeletedRegistrations() : Promise.resolve([]),
+    getDeletedRegistrations(),
   ]);
 
   const branchNames = branches.map((b) => b.name);

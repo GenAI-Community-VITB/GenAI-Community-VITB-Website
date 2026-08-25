@@ -71,6 +71,11 @@ export function AdminDashboardClient(props: {
   } = props;
   const [tab, setTab] = useState<TabId | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(300);
+  const [currentEvents, setCurrentEvents] = useState<Event[]>(events);
+
+  useEffect(() => {
+    setCurrentEvents(events);
+  }, [events]);
 
   const [activeOnlineCount, setActiveOnlineCount] = useState<number>(1);
 
@@ -377,7 +382,7 @@ export function AdminDashboardClient(props: {
               const active = tab === id;
               let count = 0;
               if (id === "teams") count = teams.length;
-              else if (id === "events") count = events.length;
+              else if (id === "events") count = currentEvents.length;
               else if (id === "projects") count = projects.length;
               else if (id === "achievements") count = achievements.length;
               else if (id === "winners") count = winners.length;
@@ -460,7 +465,8 @@ export function AdminDashboardClient(props: {
               {/* ── 2. Events Management ── */}
               <div className={tab === "events" ? "block space-y-8" : "hidden"}>
                 <EventsManager
-                  initialEvents={events}
+                  initialEvents={currentEvents}
+                  onEventsChange={setCurrentEvents}
                   isAllowed={isTop6 || userRole === "tech" || userRole.toLowerCase().includes("event")}
                 />
               </div>

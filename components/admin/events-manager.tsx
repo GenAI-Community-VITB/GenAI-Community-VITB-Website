@@ -29,6 +29,7 @@ import {
 interface EventsManagerProps {
   initialEvents: Event[];
   isAllowed?: boolean;
+  onEventsChange?: (events: Event[]) => void;
 }
 
 function toDatetimeLocalValue(iso?: string | null): string {
@@ -60,8 +61,13 @@ function formatEventDate(iso?: string | null): string {
 export function EventsManager({
   initialEvents,
   isAllowed = true,
+  onEventsChange,
 }: EventsManagerProps) {
   const [events, setEvents] = useState<Event[]>(initialEvents);
+
+  useEffect(() => {
+    onEventsChange?.(events);
+  }, [events, onEventsChange]);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Event | null>(null);
   const [selectedVolunteerEvent, setSelectedVolunteerEvent] = useState<Event | null>(null);

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "preflight": "node scripts/verify-100-checkpoints.js",
-    "test:diagnostics": "node scripts/verify-100-checkpoints.js"
+    "test:diagnostics": "node scripts/verify-100-checkpoints.js",
+    "null-invalid-emails": "npx tsx scripts/null-invalid-member-emails.ts",
+    "send-testing-emails": "npx tsx scripts/send-testing-credentials-email.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

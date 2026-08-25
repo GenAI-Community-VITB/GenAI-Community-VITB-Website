@@ -59,8 +59,8 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Payment screenshot exceeds the 2 MB limit. Please select a smaller file.");
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Payment screenshot exceeds the 10 MB limit. Please select a smaller file.");
       setScreenshot(null);
       setScreenshotPreview(null);
       return;

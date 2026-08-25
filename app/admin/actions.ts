@@ -270,6 +270,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
   }
 
   // 2. Try Supabase Auth via Server Client (Atomically sets auth cookies)
+  let authErrorDetail = "";
   try {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -295,22 +296,44 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       dispatchLoginSecurityEmail(email).catch(() => {});
       return { ok: true };
     }
-  } catch {}
+    if (error) {
+      authErrorDetail = error.message;
+    }
+  } catch (err: any) {
+    authErrorDetail = err?.message || "Auth client initialization failed";
+  }
 
   // 3. Resilient Fallback: Verify directly against user_profiles table
   try {
     const adminSupabase = createAdminSupabase();
-    const { data: profile } = await adminSupabase
+    const { data: profile, error: profileErr } = await adminSupabase
       .from("user_profiles")
-      .select("id, email, password, is_active, is_voided, role")
+      .select("id, email, password, is_active, is_voided, role, full_name, assigned_to_name")
       .ilike("email", email)
       .maybeSingle();
 
-    if (profile && profile.password && profile.password === password) {
-      if (profile.is_voided || profile.is_active === false) {
-        return { ok: false, error: "This staff account has been deactivated or voided." };
-      }
+    if (profileErr) {
+      return {
+        ok: false,
+        error: `Database profile lookup failed: ${profileErr.message} (Supabase code: ${profileErr.code || "unknown"})`,
+      };
+    }
 
+    if (!profile) {
+      return {
+        ok: false,
+        error: `No staff account found with email "${email}". Please verify that you are using your registered @vitbhopal.ac.in email or contact the Student Coordinator.`,
+      };
+    }
+
+    if (profile.is_voided || profile.is_active === false) {
+      return {
+        ok: false,
+        error: `Account Deactivated: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has been voided or marked inactive.`,
+      };
+    }
+
+    if (profile.password && profile.password === password) {
       // Automatically synchronize password with Supabase Auth service
       try {
         await adminSupabase.auth.admin.updateUserById(profile.id, {
@@ -340,11 +363,18 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       dispatchLoginSecurityEmail(profile.email || email).catch(() => {});
       return { ok: true };
     }
+
+    return {
+      ok: false,
+      error: `Incorrect password entered for "${email}". ${authErrorDetail ? `(Auth response: ${authErrorDetail})` : "Please verify your credentials or use the Forgot Password option."}`,
+    };
   } catch (fallbackErr: any) {
     console.error("Database fallback login check error:", fallbackErr);
+    return {
+      ok: false,
+      error: `Authentication failed: ${fallbackErr?.message || "Internal server error"}.`,
+    };
   }
-
-  return { ok: false, error: "Invalid credentials. Please verify your official @vitbhopal.ac.in email and password." };
 }
 
 export async function logoutStaff(): Promise<void> {
@@ -831,10 +861,12 @@ export async function updateUserProfileAvatarAction(formData: FormData) {
 
     if (profile) {
       const matchName = profile.assigned_to_name || profile.full_name;
-      await supabase
-        .from("members")
-        .update({ image_url: finalAvatarUrl })
-        .or(`email.ilike.${profile.email},name.ilike.${matchName}`);
+      if (matchName) {
+        await supabase
+          .from("members")
+          .update({ image_url: finalAvatarUrl, updated_at: new Date().toISOString() })
+          .ilike("name", matchName);
+      }
     }
   } catch {}
 

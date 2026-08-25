@@ -37,22 +37,32 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const eventId = String(formData.get("event_id") || "").trim();
-    const fullName = String(formData.get("full_name") || "").trim();
-    const vitRegNumber = String(formData.get("vit_registration_number") || "").trim();
-    const branchName = String(formData.get("branch_name") || "").trim();
-    const branchId = String(formData.get("branch_id") || "").trim() || undefined;
-    const personalEmail = String(formData.get("personal_email") || "").trim();
-    const collegeEmail = String(formData.get("college_email") || "").trim();
-    const phoneNumber = String(formData.get("phone_number") || "").trim();
-    const transactionId = String(formData.get("transaction_id") || "").trim();
-    const screenshotFile = formData.get("screenshot_file") as File | null;
+    const eventId = String(formData.get("event_id") || formData.get("eventId") || "").trim();
+    const fullName = String(formData.get("full_name") || formData.get("fullName") || "").trim();
+    const vitRegNumber = String(formData.get("vit_registration_number") || formData.get("vitRegistrationNumber") || "").trim();
+    const branchName = String(formData.get("branch_name") || formData.get("branchName") || "").trim();
+    const branchId = String(formData.get("branch_id") || formData.get("branchId") || "").trim() || undefined;
+    const personalEmail = String(formData.get("personal_email") || formData.get("personalEmail") || "").trim();
+    const collegeEmail = String(formData.get("college_email") || formData.get("collegeEmail") || "").trim();
+    const phoneNumber = String(formData.get("phone_number") || formData.get("phoneNumber") || "").trim();
+    const transactionId = String(formData.get("transaction_id") || formData.get("transactionId") || "").trim();
+    const screenshotFile = (formData.get("screenshot_file") || formData.get("screenshot")) as File | null;
 
     if (!screenshotFile || !(screenshotFile instanceof File) || screenshotFile.size === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "Please upload a clear JPG, PNG, or WEBP payment screenshot under 2 MB.",
+          error: "Please upload a clear JPG, PNG, or WEBP payment screenshot under 10 MB.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (screenshotFile.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Payment screenshot exceeds the 10 MB limit. Please select a smaller image.",
         },
         { status: 400 },
       );

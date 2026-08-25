@@ -1117,7 +1117,7 @@ export async function restoreDeletedRegistration(params: {
     return { success: false, error: "Deleted registration record not found." };
   }
 
-  // Restore into active registrations
+  // 1. Restore into active registrations
   const { error: insertErr } = await supabase.from("registrations").insert({
     id: delRecord.original_registration_id,
     registration_number: delRecord.registration_number,
@@ -1133,13 +1133,50 @@ export async function restoreDeletedRegistration(params: {
   });
 
   if (insertErr) {
-    return { success: false, error: insertErr.message };
+    return { success: false, error: `Failed to restore registration: ${insertErr.message}` };
   }
 
-  // Remove from deleted table
+  // 2. Restore payments record so submission appears in Finance Dashboard
+  try {
+    const rawPayments = delRecord.raw_data?.payments;
+    if (Array.isArray(rawPayments) && rawPayments.length > 0) {
+      for (const p of rawPayments) {
+        await supabase.from("payments").insert({
+          id: p.id || undefined,
+          registration_id: delRecord.original_registration_id,
+          amount: p.amount || 200,
+          transaction_id: p.transaction_id || `RESTORED_${Date.now()}`,
+          drive_file_id: p.drive_file_id || "restored_file",
+          drive_file_name: p.drive_file_name || "payment_proof.jpg",
+          drive_mime_type: p.drive_mime_type || "image/jpeg",
+          drive_folder_id: p.drive_folder_id || "Payment Proofs",
+          verification_status: p.verification_status || (delRecord.payment_status === "verified" ? "verified" : "pending"),
+          verified_by: p.verified_by || null,
+          verified_at: p.verified_at || null,
+          rejection_reason: p.rejection_reason || null,
+        });
+      }
+    } else {
+      // Create fallback payment record
+      await supabase.from("payments").insert({
+        registration_id: delRecord.original_registration_id,
+        amount: 200,
+        transaction_id: `RESTORED_${Date.now()}`,
+        drive_file_id: "restored_file",
+        drive_file_name: "payment_proof.jpg",
+        drive_mime_type: "image/jpeg",
+        drive_folder_id: "Payment Proofs",
+        verification_status: delRecord.payment_status === "verified" ? "verified" : "pending",
+      });
+    }
+  } catch (payRestoreErr: any) {
+    console.error("Error restoring payment record:", payRestoreErr);
+  }
+
+  // 3. Remove from deleted table
   await supabase.from("deleted_registrations").delete().eq("id", params.deletedId);
 
-  // Audit Log
+  // 4. Audit Log
   await logAuditEvent({
     actorUserId: params.actorId,
     actorRole: params.actorRole,

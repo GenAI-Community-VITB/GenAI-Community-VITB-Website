@@ -69,17 +69,17 @@ export function OnSpotRegistrationModal({
 
     try {
       const formData = new FormData();
-      formData.append("eventId", activeEvent.id);
-      formData.append("fullName", fullName.trim());
-      formData.append("vitRegistrationNumber", vitRegNumber.trim().toUpperCase());
-      formData.append("branchName", branchName.trim());
-      formData.append("personalEmail", personalEmail.trim().toLowerCase());
-      formData.append("collegeEmail", collegeEmail.trim().toLowerCase());
-      formData.append("phoneNumber", phoneNumber.trim());
+      formData.append("event_id", activeEvent.id);
+      formData.append("full_name", fullName.trim());
+      formData.append("vit_registration_number", vitRegNumber.trim().toUpperCase());
+      formData.append("branch_name", branchName.trim());
+      formData.append("personal_email", personalEmail.trim().toLowerCase());
+      formData.append("college_email", collegeEmail.trim().toLowerCase());
+      formData.append("phone_number", phoneNumber.trim());
       formData.append("amount", activeEvent.registration_fee.toString());
-      formData.append("transactionId", transactionId.trim() || `ONSPOT_${Date.now()}`);
-      formData.append("registrationSource", "on_spot");
-      formData.append("screenshot", file);
+      formData.append("transaction_id", transactionId.trim() || `ONSPOT_${Date.now()}`);
+      formData.append("registration_source", "on_spot");
+      formData.append("screenshot_file", file);
 
       const res = await fetch("/api/register", {
         method: "POST",

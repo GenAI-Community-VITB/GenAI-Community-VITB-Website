@@ -711,19 +711,25 @@ export async function updateMyAvatarAction(formData: FormData) {
     })
     .eq("id", user.id);
 
-  if (profileErr) throw new Error(profileErr.message);
+  if (profileErr) {
+    console.error("Supabase user_profiles avatar update error:", profileErr);
+    throw new Error(
+      `Failed to save avatar in database: ${profileErr.message}. (Table column: ${profileErr.details || profileErr.hint || profileErr.code})`
+    );
+  }
 
   // 2. Sync to members table for public hierarchy and team cards
   try {
-    const matchEmail = profile?.email || user.email;
     const matchName = profile?.assigned_to_name || profile?.full_name;
-    if (matchEmail) {
+    if (matchName) {
       await supabase
         .from("members")
-        .update({ image_url: driveRes.viewUrl })
-        .or(`email.ilike.${matchEmail},name.ilike.${matchName}`);
+        .update({ image_url: driveRes.viewUrl, updated_at: new Date().toISOString() })
+        .ilike("name", matchName);
     }
-  } catch {}
+  } catch (syncErr: any) {
+    console.warn("Non-fatal members table sync notice:", syncErr?.message || syncErr);
+  }
 
   revalidatePath("/admin");
   revalidatePath("/admin/users");
@@ -853,13 +859,10 @@ export async function deleteRegistrationAction(formData: FormData) {
 }
 
 /**
- * Top-6 only: Restores an archived registration back into active status.
+ * Staff Action: Restores an archived registration back into active status.
  */
 export async function restoreRegistrationAction(formData: FormData) {
-  const { user, role, isTop6 } = await requireStaffRole("finance");
-  if (!isTop6) {
-    throw new Error("Unauthorized: Only Top-6 Executives have permission to restore deleted participants.");
-  }
+  const { user, role } = await requireStaffRole("finance");
 
   const deletedId = String(formData.get("deleted_id") || "").trim();
 
