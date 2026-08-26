@@ -1,12 +1,16 @@
+import { Metadata } from "next";
 import { Hero } from "@/components/site/hero";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { ClubPillarsSection } from "@/components/site/club-pillars-section";
 import { ScrollTickerSection } from "@/components/site/scroll-ticker";
 import { QuotesSection } from "@/components/site/quotes-section";
+import { BlogSection } from "@/components/site/blog-section";
+import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/seo/json-ld";
 import { getUpcomingRegisterableEvent } from "@/lib/data/events";
 import { getAchievements } from "@/lib/data/achievements";
 import { getHierarchyMembers } from "@/lib/data/public";
+import { getBlogPosts } from "@/lib/data/blog";
 import Link from "next/link";
 import {
   Users,
@@ -21,11 +25,21 @@ import {
 
 export const revalidate = 60;
 
+export const metadata: Metadata = {
+  title: "GENAI Community VIT Bhopal | Generative AI Club",
+  description:
+    "Official website of the Generative AI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, open-source AI projects, and student passes.",
+  alternates: {
+    canonical: "/",
+  },
+};
+
 export default async function Home() {
-  const [upcomingEvent, achievements, hierarchyMembers] = await Promise.all([
+  const [upcomingEvent, achievements, hierarchyMembers, blogPosts] = await Promise.all([
     getUpcomingRegisterableEvent(30),
     getAchievements(),
     getHierarchyMembers(),
+    getBlogPosts(),
   ]);
 
   const memberCount = hierarchyMembers?.length || 51;
@@ -33,6 +47,10 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black">
+      {/* Schema.org Structured Data */}
+      <OrganizationJsonLd />
+      <WebSiteJsonLd />
+
       <Navbar />
       <main className="space-y-0">
         {/* 1. Master Hero with Live Stats & Flashing 30-Day Event Banner */}
@@ -169,6 +187,9 @@ export default async function Home() {
             </div>
           </div>
         </section>
+
+        {/* 6. AI-Powered LinkedIn Community Dispatches / Blog Section */}
+        <BlogSection posts={blogPosts} />
       </main>
       <Footer />
     </div>

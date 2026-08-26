@@ -1,16 +1,39 @@
+import { Metadata } from "next";
 import { EventGrid } from "@/components/site/event-grid";
 import { Footer } from "@/components/site/footer";
 import { Navbar } from "@/components/site/navbar";
 import { getEvents } from "@/lib/data/public";
-import { Calendar, Sparkles } from "lucide-react";
+import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { Calendar } from "lucide-react";
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "AI Events, Hackathons & Workshops",
+  description:
+    "Explore upcoming AI events, hackathons, and technical workshops organized by the GENAI Community at VIT Bhopal University. Get registration passes and check-in information.",
+  alternates: {
+    canonical: "/events",
+  },
+  openGraph: {
+    title: "AI Events, Hackathons & Workshops | GENAI Community VIT Bhopal",
+    description:
+      "Explore upcoming AI events, hackathons, and technical workshops organized by GENAI Community at VIT Bhopal University.",
+    url: "https://www.genaiclubvitb.in/events",
+  },
+};
 
 export default async function EventsPage() {
   const events = await getEvents();
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://www.genaiclubvitb.in" },
+          { name: "Events", url: "https://www.genaiclubvitb.in/events" },
+        ]}
+      />
       <Navbar />
 
       {/* Ambient background lighting */}
@@ -43,3 +66,4 @@ export default async function EventsPage() {
     </div>
   );
 }
+

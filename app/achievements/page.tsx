@@ -1,16 +1,39 @@
+import { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { AchievementsSection } from "@/components/site/achievements-section";
 import { getAchievements } from "@/lib/data/achievements";
-import { Trophy, Sparkles } from "lucide-react";
+import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { Trophy } from "lucide-react";
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Awards, Accolades & Milestones",
+  description:
+    "Explore major national hackathon victories, research publications, awards, and technical milestones achieved by the GENAI Community at VIT Bhopal University.",
+  alternates: {
+    canonical: "/achievements",
+  },
+  openGraph: {
+    title: "Awards & Milestones | GENAI Community VIT Bhopal",
+    description:
+      "Explore major national hackathon podiums and achievements by GENAI Community at VIT Bhopal University.",
+    url: "https://www.genaiclubvitb.in/achievements",
+  },
+};
 
 export default async function AchievementsPage() {
   const achievements = await getAchievements();
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://www.genaiclubvitb.in" },
+          { name: "Achievements", url: "https://www.genaiclubvitb.in/achievements" },
+        ]}
+      />
       <Navbar />
 
       {/* Ambient background lighting */}
@@ -39,3 +62,4 @@ export default async function AchievementsPage() {
     </div>
   );
 }
+
