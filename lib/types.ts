@@ -67,7 +67,51 @@ export type EmailType =
   | "password_reset_otp"
   | "login_security_alert"
   | "system_alert"
+  | "event_reminder"
   | "test_email";
+
+export type EmailDeliveryStatus =
+  | "PENDING"
+  | "QUEUED"
+  | "SENT"
+  | "DELIVERED"
+  | "BOUNCED"
+  | "FAILED"
+  | "CANCELLED";
+
+export interface EmailLogRecord {
+  id: string;
+  registration_id?: string | null;
+  event_id?: string | null;
+  recipient_email: string;
+  email_type: EmailType;
+  subject: string;
+  sender_id?: string | null;
+  sender_role?: string;
+  status: EmailDeliveryStatus | string;
+  provider: string;
+  provider_message_id?: string | null;
+  attempt_count: number;
+  last_attempt_at?: string;
+  sent_at?: string;
+  delivered_at?: string | null;
+  failed_at?: string | null;
+  failure_reason?: string | null;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailStats {
+  total: number;
+  pending: number;
+  queued: number;
+  sent: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  cancelled: number;
+}
 
 export interface EventVolunteer {
   id: string;
@@ -396,6 +440,21 @@ export interface Achievement {
   drive_file_id?: string | null;
   link_url?: string | null;
   created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  summary: string;
+  original_content?: string | null;
+  post_url: string;
+  author_name?: string | null;
+  tags?: string[];
+  is_published: boolean;
+  display_order?: number;
+  published_at: string;
   created_at: string;
   updated_at: string;
 }

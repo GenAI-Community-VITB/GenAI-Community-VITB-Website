@@ -97,6 +97,25 @@ export const APPROVED_BTECH_BRANCHES = [
   "BTECH Bioengineering",
 ] as const;
 
+/**
+ * Approved M.Tech & Integrated M.Tech Branches for VIT Bhopal (from Schools List: SCSE, SEEE, SASL)
+ */
+export const APPROVED_MTECH_BRANCHES = [
+  "MTECH CSE (AI & Data Science)",
+  "MTECH CSE (Cyber Security & Digital Forensics)",
+  "MTECH CSE (Computational & Data Science)",
+  "MTECH VLSI Design",
+  "Integrated MTECH CSE (AI & ML)",
+  "Integrated MTECH CSE (Cyber Security)",
+  "Integrated MTECH CSE (Computational & Data Science)",
+  "Integrated MTECH Software Engineering",
+] as const;
+
+export const ALL_APPROVED_BRANCHES = [
+  ...APPROVED_BTECH_BRANCHES,
+  ...APPROVED_MTECH_BRANCHES,
+] as const;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Student Registration Schema
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,8 +137,8 @@ export const studentRegistrationSchema = z.object({
   branch_name: z
     .string()
     .trim()
-    .refine((val) => APPROVED_BTECH_BRANCHES.includes(val as any), {
-      message: "Please select an eligible B.Tech branch from the dropdown",
+    .refine((val) => ALL_APPROVED_BRANCHES.includes(val as any), {
+      message: "Please select an eligible B.Tech or M.Tech branch from the dropdown",
     }),
   branch_id: z.string().uuid().optional().nullable(),
   personal_email: z
