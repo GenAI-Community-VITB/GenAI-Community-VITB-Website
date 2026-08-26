@@ -686,21 +686,26 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                 </div>
               )}
 
-              {/* Prior Checkin Notice */}
-              {scanState.priorCheckinTime && (
-                <div className="rounded-2xl border border-red-500/40 bg-red-950/40 p-3.5 text-xs text-red-200 mb-4">
-                  <div className="flex items-center gap-1.5 font-bold mb-1">
-                    <Clock className="h-4 w-4 text-red-400" />
-                    <span>Prior Admittance Recorded:</span>
+              {/* Prior Checkin Notice / Duplicate Entry Alert */}
+              {scanState.isAlreadyCheckedIn && (
+                <div className="rounded-2xl border-2 border-red-500 bg-red-950/60 p-4 text-xs text-red-200 mb-4 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-pulse">
+                  <div className="flex items-center gap-2 font-black text-sm text-red-300 mb-2 uppercase tracking-wide">
+                    <ShieldAlert className="h-5 w-5 text-red-400 shrink-0" />
+                    <span>Duplicate Ticket Scan Detected</span>
                   </div>
-                  <p className="text-[11px]">
-                    <strong>Timestamp:</strong> {formatISTDate(scanState.priorCheckinTime)}
+                  <p className="text-xs text-zinc-300 mb-3 leading-relaxed">
+                    This participant has <strong>ALREADY been admitted</strong> to the venue. A second check-in attempt cannot be processed by general volunteers.
                   </p>
-                  {scanState.priorScannedBy && (
-                    <p className="text-[11px] mt-0.5">
-                      <strong>Scanned By:</strong> {scanState.priorScannedBy}
-                    </p>
-                  )}
+                  <div className="bg-black/50 rounded-xl p-3 border border-red-500/30 space-y-1.5 font-mono text-[11px]">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">First Admitted At:</span>
+                      <strong className="text-amber-300">{formatISTDate(scanState.priorCheckinTime)}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Gate Verifier:</span>
+                      <strong className="text-white">{scanState.priorScannedBy || "Event Volunteer"}</strong>
+                    </div>
+                  </div>
                 </div>
               )}
 

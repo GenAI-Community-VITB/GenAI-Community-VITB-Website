@@ -6,6 +6,7 @@ import { FinanceQueue } from "@/components/admin/finance-queue";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import { Exec6Notifications } from "@/components/admin/exec6-notifications";
+import { AdminInactivityChip } from "@/components/admin/inactivity-timer";
 import Link from "next/link";
 import { Event } from "@/lib/types";
 
@@ -46,6 +47,7 @@ export default async function FinancePage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <AdminInactivityChip />
             <Exec6Notifications isTop6={isTop6} />
             <ChangePasswordButton />
             <div className="flex items-center gap-2 rounded-2xl border border-[#2e2618] bg-[#14110b] px-4 py-2 text-xs text-zinc-300">

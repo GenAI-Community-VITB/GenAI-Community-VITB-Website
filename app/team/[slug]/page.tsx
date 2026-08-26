@@ -4,6 +4,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Users } from "lucide-react";
 import { LinkedinIcon } from "@/components/ui/icons";
+import { normalizeDriveImageUrl } from "@/lib/utils/format";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -131,6 +132,8 @@ function MemberCard({ member }: { member: MemberData }) {
     .slice(0, 2)
     .toUpperCase();
 
+  const normalizedImage = normalizeDriveImageUrl(member.image_url);
+
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#222] bg-[#0d0d0d] shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#f5b642]/40 hover:shadow-[0_12px_40px_rgba(245,182,66,0.10)]">
       {/* Top shimmer on hover */}
@@ -141,10 +144,10 @@ function MemberCard({ member }: { member: MemberData }) {
 
       {/* Photo / Avatar area */}
       <div className="relative h-52 w-full overflow-hidden bg-[#111] border-b border-[#1e1e1e]">
-        {member.image_url ? (
+        {normalizedImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={member.image_url}
+            src={normalizedImage}
             alt={`${member.name} photo`}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />

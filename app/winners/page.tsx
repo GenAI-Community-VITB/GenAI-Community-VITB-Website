@@ -1,16 +1,39 @@
+import { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { WinnersSection } from "@/components/site/winners-section";
 import { getEventWinners } from "@/lib/data/winners";
-import { Trophy, Sparkles } from "lucide-react";
+import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { Trophy } from "lucide-react";
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Event Champions & Hackathon Winners",
+  description:
+    "Discover the official hall of fame, cash prize winners, and champions from AI hackathons and coding sprints hosted by GENAI Community VIT Bhopal.",
+  alternates: {
+    canonical: "/winners",
+  },
+  openGraph: {
+    title: "Event Champions & Winners | GENAI Community VIT Bhopal",
+    description:
+      "Celebrating the top builders and champions from our hackathons and challenges at VIT Bhopal University.",
+    url: "https://www.genaiclubvitb.in/winners",
+  },
+};
 
 export default async function WinnersPage() {
   const winners = await getEventWinners();
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://www.genaiclubvitb.in" },
+          { name: "Winners", url: "https://www.genaiclubvitb.in/winners" },
+        ]}
+      />
       <Navbar />
 
       {/* Ambient background lighting */}
@@ -41,3 +64,4 @@ export default async function WinnersPage() {
     </div>
   );
 }
+

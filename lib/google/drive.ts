@@ -11,6 +11,9 @@ const localScreenshotCache = new Map<string, { buffer: Buffer; mimeType: string 
 // Hash cache for fast duplicate image detection (SHA256 -> { fileId, viewUrl })
 const uploadedImageHashCache = new Map<string, { fileId: string; viewUrl: string; folderPath: string }>();
 
+// Module-level singleton for the Drive client
+let _driveClientCache: { key: string; client: drive_v3.Drive } | null = null;
+
 /**
  * Computes SHA-256 checksum of a buffer.
  */
@@ -19,8 +22,9 @@ function computeBufferHash(buffer: Buffer): string {
 }
 
 /**
- * Initializes and returns the authenticated Google Drive v3 client.
+ * Initializes and returns the authenticated Google Drive v3 client (singleton, cached).
  * Uses service account credentials from environment variables.
+ * The client is reused across all concurrent requests to avoid JWT overhead.
  */
 export function getGoogleDriveClient(): drive_v3.Drive | null {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
@@ -41,6 +45,11 @@ export function getGoogleDriveClient(): drive_v3.Drive | null {
   // Handle escaped newlines in private key string if passed from .env
   privateKey = privateKey.replace(/\\n/g, "\n");
 
+  const cacheKey = `${clientEmail}|${privateKey.slice(-8)}`;
+  if (_driveClientCache && _driveClientCache.key === cacheKey) {
+    return _driveClientCache.client;
+  }
+
   try {
     const auth = new google.auth.JWT({
       email: clientEmail,
@@ -48,7 +57,9 @@ export function getGoogleDriveClient(): drive_v3.Drive | null {
       scopes: ["https://www.googleapis.com/auth/drive"],
     });
 
-    return google.drive({ version: "v3", auth });
+    const client = google.drive({ version: "v3", auth });
+    _driveClientCache = { key: cacheKey, client };
+    return client;
   } catch (err) {
     console.error("Error creating Google Drive JWT auth client:", err);
     return null;

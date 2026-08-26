@@ -338,7 +338,13 @@ export function getTargetSpreadsheetId(tabName: SheetTabName): string {
 }
 
 /**
- * Returns authenticated Google Sheets v4 client.
+ * Module-level singleton cache for the Google Sheets client.
+ * Rebuilt only when credentials change; avoids JWT overhead per request.
+ */
+let _sheetsClientCache: { key: string; client: sheets_v4.Sheets } | null = null;
+
+/**
+ * Returns an authenticated Google Sheets v4 client (singleton, cached).
  */
 export function getGoogleSheetsClient(): sheets_v4.Sheets | null {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -351,6 +357,11 @@ export function getGoogleSheetsClient(): sheets_v4.Sheets | null {
   // Handle various new line encodings in private key
   privateKey = privateKey.replace(/\\n/g, "\n");
 
+  const cacheKey = `${clientEmail}|${privateKey.slice(-8)}`;
+  if (_sheetsClientCache && _sheetsClientCache.key === cacheKey) {
+    return _sheetsClientCache.client;
+  }
+
   try {
     const auth = new google.auth.JWT({
       email: clientEmail,
@@ -358,7 +369,9 @@ export function getGoogleSheetsClient(): sheets_v4.Sheets | null {
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
 
-    return google.sheets({ version: "v4", auth });
+    const client = google.sheets({ version: "v4", auth });
+    _sheetsClientCache = { key: cacheKey, client };
+    return client;
   } catch (err) {
     console.error("Failed to initialize Google Sheets client:", err);
     return null;
@@ -864,56 +877,87 @@ async function ensureSheetHeaders(
 }
 
 /**
- * Appends rows to a Google Sheets tab.
- * Operates non-blockingly and logs failures into Supabase `sync_failures`.
+ * Bounded write-queue for Google Sheets append operations.
+ * Google Sheets API enforces a quota of 100 requests/100 seconds per project.
+ * Under 1,000 concurrent events, unlimited parallel appends would blow this quota.
+ * This queue caps concurrency at MAX_CONCURRENT_WRITES (4) and serializes the rest.
  */
-export async function appendToGoogleSheet(
+const MAX_CONCURRENT_WRITES = 4;
+let _activeWrites = 0;
+type QueuedWrite = () => Promise<void>;
+const _writeQueue: QueuedWrite[] = [];
+
+function _drainWriteQueue(): void {
+  while (_activeWrites < MAX_CONCURRENT_WRITES && _writeQueue.length > 0) {
+    const next = _writeQueue.shift()!;
+    _activeWrites++;
+    next().finally(() => {
+      _activeWrites--;
+      _drainWriteQueue();
+    });
+  }
+}
+
+function _enqueueWrite(fn: QueuedWrite): void {
+  _writeQueue.push(fn);
+  _drainWriteQueue();
+}
+
+/**
+ * Appends rows to a Google Sheets tab through the bounded write-queue.
+ * Non-blocking: returns a Promise that resolves when the write is complete.
+ * Failures are logged to Supabase `sync_failures` for retry.
+ */
+export function appendToGoogleSheet(
   tabName: SheetTabName,
   rows: (string | number | boolean | null | undefined)[][],
 ): Promise<boolean> {
-  const spreadsheetId = getTargetSpreadsheetId(tabName);
-  const sheets = getGoogleSheetsClient();
+  return new Promise<boolean>((resolve) => {
+    _enqueueWrite(async () => {
+      const spreadsheetId = getTargetSpreadsheetId(tabName);
+      const sheets = getGoogleSheetsClient();
 
-  if (!sheets || !spreadsheetId) {
-    return false;
-  }
+      if (!sheets || !spreadsheetId) {
+        resolve(false);
+        return;
+      }
 
-  try {
-    const effectiveTabName = await ensureSheetHeaders(sheets, spreadsheetId, tabName);
+      try {
+        const effectiveTabName = await ensureSheetHeaders(sheets, spreadsheetId, tabName);
 
-    const sanitizedRows = rows.map((row) =>
-      row.map((val) => (val === null || val === undefined ? "" : String(val))),
-    );
+        const sanitizedRows = rows.map((row) =>
+          row.map((val) => (val === null || val === undefined ? "" : String(val))),
+        );
 
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `'${effectiveTabName}'!A:A`,
-      valueInputOption: "USER_ENTERED",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: {
-        values: sanitizedRows,
-      },
+        await sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `'${effectiveTabName}'!A:A`,
+          valueInputOption: "USER_ENTERED",
+          insertDataOption: "INSERT_ROWS",
+          requestBody: { values: sanitizedRows },
+        });
+
+        resolve(true);
+      } catch (err: any) {
+        console.error(`Failed to append to Google Sheet (${tabName}):`, err.message);
+
+        try {
+          const supabase = createAdminSupabase();
+          await supabase.from("sync_failures").insert({
+            service: "google_sheets",
+            operation: `append_${tabName}`,
+            payload: { tabName, rows },
+            error_message: err.message || "Unknown error",
+            resolved: false,
+          });
+        } catch (dbErr) {
+          console.error("Failed to log sync failure to database:", dbErr);
+        }
+
+        resolve(false);
+      }
     });
-
-    return true;
-  } catch (err: any) {
-    console.error(`Failed to append to Google Sheet (${tabName}):`, err.message);
-
-    try {
-      const supabase = createAdminSupabase();
-      await supabase.from("sync_failures").insert({
-        service: "google_sheets",
-        operation: `append_${tabName}`,
-        payload: { tabName, rows },
-        error_message: err.message || "Unknown error",
-        resolved: false,
-      });
-    } catch (dbErr) {
-      console.error("Failed to log sync failure to database:", dbErr);
-    }
-
-    return false;
-  }
+  });
 }
 
 /**

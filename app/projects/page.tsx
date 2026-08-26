@@ -1,16 +1,39 @@
+import { Metadata } from "next";
 import { Footer } from "@/components/site/footer";
 import { ProjectGrid } from "@/components/site/project-grid";
 import { Navbar } from "@/components/site/navbar";
 import { getProjects } from "@/lib/data/public";
-import { Cpu, Sparkles } from "lucide-react";
+import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { Cpu } from "lucide-react";
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "AI Research & Open-Source Projects",
+  description:
+    "Discover open-source AI projects, autonomous agent toolkits, transformer experiments, and multi-modal models built by the GENAI Community at VIT Bhopal University.",
+  alternates: {
+    canonical: "/projects",
+  },
+  openGraph: {
+    title: "AI Research & Open-Source Projects | GENAI Community VIT Bhopal",
+    description:
+      "Discover open-source AI systems and agentic toolkits built by GENAI Community at VIT Bhopal University.",
+    url: "https://www.genaiclubvitb.in/projects",
+  },
+};
 
 export default async function ProjectsPage() {
   const projects = await getProjects();
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://www.genaiclubvitb.in" },
+          { name: "Projects", url: "https://www.genaiclubvitb.in/projects" },
+        ]}
+      />
       <Navbar />
 
       {/* Ambient background lighting */}
@@ -43,3 +66,4 @@ export default async function ProjectsPage() {
     </div>
   );
 }
+

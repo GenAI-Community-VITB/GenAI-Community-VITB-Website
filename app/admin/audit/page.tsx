@@ -3,6 +3,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { AuditLogViewer } from "@/components/admin/audit-log-viewer";
 import { SheetsSyncWidget } from "@/components/admin/sheets-sync-widget";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
+import { AdminInactivityChip } from "@/components/admin/inactivity-timer";
 import { AuditLog } from "@/lib/types";
 import { ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
@@ -41,6 +42,7 @@ export default async function AuditLogsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <AdminInactivityChip />
             <ChangePasswordButton />
             <div className="flex items-center gap-2 rounded-2xl border border-[#2e2618] bg-[#14110b] px-4 py-2 text-xs text-zinc-300">
               <span className="font-mono text-zinc-400">Admin:</span>

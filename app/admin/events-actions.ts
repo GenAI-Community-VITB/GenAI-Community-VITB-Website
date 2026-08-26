@@ -265,6 +265,9 @@ export async function upsertStaffUserAction(formData: FormData) {
     } catch (err) {
       console.error("Avatar upload failed, skipping:", err);
     }
+  }
+
+  if (userId) {
     // Check if trying to disable or demote the last active Tech user
     if (!isActive || staffRole !== "tech") {
       const { data: activeTechs } = await supabase
@@ -735,6 +738,7 @@ export async function updateMyAvatarAction(formData: FormData) {
   revalidatePath("/admin/users");
   revalidatePath("/team");
   revalidatePath("/about");
+  revalidatePath("/");
 
   return {
     success: true,

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { UpiQrDisplay } from "@/components/events/upi-qr-display";
@@ -21,6 +22,32 @@ import {
 import Link from "next/link";
 
 export const revalidate = 0;
+
+export async function generateMetadata(props: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await props.params;
+  const event = await getEventBySlugOrId(slug);
+
+  if (!event) {
+    return {
+      title: "Register for Event | GENAI Community VIT Bhopal",
+    };
+  }
+
+  const cleanSlug = event.slug || event.id;
+  return {
+    title: `Register: ${event.title} · Entry Pass`,
+    description: `Official registration and payment submission portal for ${event.title} organized by GENAI Community at VIT Bhopal University.`,
+    alternates: {
+      canonical: `/events/${cleanSlug}/register`,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
 
 export default async function EventRegistrationPage(props: {
   params: Promise<{ slug: string }>;
