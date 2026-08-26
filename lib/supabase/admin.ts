@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 function getCleanSupabaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -6,10 +6,18 @@ function getCleanSupabaseUrl(): string {
 }
 
 /**
+ * Module-level singleton cache for the admin Supabase client.
+ * Keyed by "url|serviceKey" so it auto-invalidates if credentials change.
+ * Prevents creating thousands of client instances under concurrent load.
+ */
+let _adminClientCache: { key: string; client: SupabaseClient } | null = null;
+
+/**
  * Server-only Supabase client that uses the service role key.
  * This bypasses Row Level Security — NEVER expose this to the browser.
+ * Returns a cached singleton to avoid repeated auth handshakes under load.
  */
-export function createAdminSupabase() {
+export function createAdminSupabase(): SupabaseClient {
   const url = getCleanSupabaseUrl();
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -20,10 +28,21 @@ export function createAdminSupabase() {
     );
   }
 
-  return createClient(url, serviceKey, {
+  const cacheKey = `${url}|${serviceKey.slice(-8)}`;
+  if (_adminClientCache && _adminClientCache.key === cacheKey) {
+    return _adminClientCache.client;
+  }
+
+  const client = createClient(url, serviceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: {
+      headers: { "x-application-name": "genai-club-admin" },
+    },
   });
+
+  _adminClientCache = { key: cacheKey, client };
+  return client;
 }

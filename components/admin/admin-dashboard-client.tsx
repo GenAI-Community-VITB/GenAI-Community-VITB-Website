@@ -28,6 +28,7 @@ import {
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
 import { TeamsManager } from "@/components/admin/teams-manager";
 import { EventsManager } from "@/components/admin/events-manager";
+import { AdminInactivityChip } from "@/components/admin/inactivity-timer";
 import { ProjectsManager } from "@/components/admin/projects-manager";
 import { AchievementsManager } from "@/components/admin/achievements-manager";
 import { WinnersManager } from "@/components/admin/winners-manager";
@@ -70,7 +71,6 @@ export function AdminDashboardClient(props: {
     isTop6 = true,
   } = props;
   const [tab, setTab] = useState<TabId | null>(null);
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(300);
   const [currentEvents, setCurrentEvents] = useState<Event[]>(events);
 
   useEffect(() => {
@@ -114,38 +114,6 @@ export function AdminDashboardClient(props: {
       setActiveOnlineCount(1);
     }
   }, [userName, userRole]);
-
-  useEffect(() => {
-    const STORAGE_KEY = "genai_club_last_activity_ts";
-    const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
-
-    function updateRemaining() {
-      let lastActivity = Date.now();
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = parseInt(stored, 10);
-          if (!isNaN(parsed) && parsed <= Date.now()) {
-            lastActivity = parsed;
-          }
-        }
-      } catch {}
-
-      const idle = Date.now() - lastActivity;
-      const left = Math.max(0, Math.ceil((INACTIVITY_TIMEOUT_MS - idle) / 1000));
-      setSecondsRemaining(left);
-    }
-
-    updateRemaining();
-    const interval = setInterval(updateRemaining, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatTimer = (sec: number) => {
-    const mins = Math.floor(sec / 60);
-    const secs = sec % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
 
   return (
     <div style={{ zoom: "115%" }} className="min-h-screen bg-[#070707] text-white">
@@ -251,13 +219,7 @@ export function AdminDashboardClient(props: {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl border border-amber-900/50 bg-[#1e160a] px-3 py-1.5 text-amber-300 shadow-sm">
-                <Clock className="h-3.5 w-3.5 text-[#f5b642] shrink-0 animate-spin-slow" />
-                <span className="text-[11px] text-zinc-300 font-medium">Auto-Logout:</span>
-                <strong className="font-mono text-xs font-bold text-[#f5b642]">
-                  {formatTimer(secondsRemaining)}
-                </strong>
-              </div>
+              <AdminInactivityChip />
             </div>
           </div>
         </motion.div>
