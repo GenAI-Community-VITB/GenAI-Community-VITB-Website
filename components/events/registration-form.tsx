@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Branch, Event } from "@/lib/types";
-import { APPROVED_BTECH_BRANCHES } from "@/lib/validation";
+import { ALL_APPROVED_BRANCHES, APPROVED_BTECH_BRANCHES, APPROVED_MTECH_BRANCHES } from "@/lib/validation";
 import { AlertCircle, Check, CheckCircle2, ChevronDown, Clock, FileText, GraduationCap, Info, Loader2, ShieldCheck, Upload } from "lucide-react";
 import Link from "next/link";
 
@@ -134,6 +134,16 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
 
       const data = await res.json();
 
+      if (res.status === 429) {
+        const retrySec = data.retryAfter || res.headers.get("Retry-After") || 60;
+        setError(
+          data.message ||
+            `Too many registration requests. Please wait ${retrySec} seconds before submitting again.`
+        );
+        setPending(false);
+        return;
+      }
+
       if (!res.ok || !data.success) {
         setError(data.error || "Registration submission failed.");
         setPending(false);
@@ -151,6 +161,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
       setPending(false);
     }
   }
+
 
   if (isClosed) {
     return (
@@ -278,7 +289,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
 
           <div className="space-y-2 relative" ref={dropdownRef}>
             <label className="text-xs font-semibold tracking-wider text-zinc-300 uppercase" htmlFor="branch_name">
-              Branch (B.Tech Only) <span className="text-[#f5b642]">*</span>
+              Branch (B.Tech & M.Tech Eligible) <span className="text-[#f5b642]">*</span>
             </label>
 
             {/* Custom Styled Branch Selector */}
@@ -296,7 +307,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
                 <div className="flex items-center gap-2.5 truncate">
                   <GraduationCap className="h-4 w-4 text-[#f5b642] shrink-0" />
                   <span className={branch ? "text-white font-medium" : "text-zinc-500"}>
-                    {branch || "Select your branch"}
+                    {branch || "Select your branch / program"}
                   </span>
                 </div>
                 <ChevronDown
@@ -308,8 +319,12 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
 
               {/* Dropdown Options Menu */}
               {branchDropdownOpen && (
-                <div className="absolute left-0 top-full mt-2 w-full max-h-60 overflow-y-auto rounded-2xl border-2 border-[#f5b642]/80 bg-[#120e09] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] z-50 divide-y divide-[#221c13]">
-                  {branchOptions.map((bName) => {
+                <div className="absolute left-0 top-full mt-2 w-full max-h-64 overflow-y-auto rounded-2xl border-2 border-[#f5b642]/80 bg-[#120e09] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] z-50 divide-y divide-[#221c13]">
+                  {/* B.Tech Section */}
+                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f5b642]/80 font-mono bg-black/40">
+                    B.Tech Programmes
+                  </div>
+                  {APPROVED_BTECH_BRANCHES.map((bName) => {
                     const isSelected = branch === bName;
                     return (
                       <button
@@ -319,7 +334,33 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
                           setBranch(bName);
                           setBranchDropdownOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs text-left transition font-mono ${
+                        className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-xs text-left transition font-mono ${
+                          isSelected
+                            ? "bg-[#2a2012] text-[#f5b642] font-bold"
+                            : "text-zinc-300 hover:bg-[#1a140d] hover:text-white"
+                        }`}
+                      >
+                        <span className="truncate">{bName}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-[#f5b642] shrink-0 ml-2" />}
+                      </button>
+                    );
+                  })}
+
+                  {/* M.Tech Section */}
+                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400/80 font-mono bg-black/40">
+                    M.Tech & Integrated Programmes
+                  </div>
+                  {APPROVED_MTECH_BRANCHES.map((bName) => {
+                    const isSelected = branch === bName;
+                    return (
+                      <button
+                        key={bName}
+                        type="button"
+                        onClick={() => {
+                          setBranch(bName);
+                          setBranchDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-xs text-left transition font-mono ${
                           isSelected
                             ? "bg-[#2a2012] text-[#f5b642] font-bold"
                             : "text-zinc-300 hover:bg-[#1a140d] hover:text-white"
@@ -333,7 +374,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
                 </div>
               )}
             </div>
-            <p className="text-[11px] text-zinc-500">Official recognized VIT Bhopal engineering branches.</p>
+            <p className="text-[11px] text-zinc-500">Official recognized VIT Bhopal engineering branches (B.Tech & M.Tech).</p>
           </div>
         </div>
 
