@@ -5,6 +5,7 @@ import { formatISTDate } from "@/lib/utils/format";
 export interface LogAuditParams {
   actorUserId?: string | null;
   actorEmail?: string | null;
+  actorName?: string | null;
   actorRole: string;
   action: string;
   targetType: string;
@@ -23,6 +24,11 @@ export interface LogAuditParams {
 export async function logAuditEvent(params: LogAuditParams) {
   try {
     const supabase = createAdminSupabase();
+    const enrichedMetadata = {
+      ...(params.actorName ? { actorName: params.actorName } : {}),
+      ...(params.metadata || {}),
+    };
+
     const { data, error } = await supabase
       .from("audit_logs")
       .insert({
@@ -35,7 +41,7 @@ export async function logAuditEvent(params: LogAuditParams) {
         previous_state: params.previousState || null,
         new_state: params.newState || null,
         reason: params.reason || null,
-        metadata: params.metadata || {},
+        metadata: enrichedMetadata,
         ip_address: params.ipAddress || null,
         user_agent: params.userAgent || null,
       })
@@ -48,24 +54,29 @@ export async function logAuditEvent(params: LogAuditParams) {
 
     // Mirror to Google Sheets non-blockingly
     const istTime = formatISTDate(data?.created_at ? new Date(data.created_at) : new Date(), true);
+    const actorIdentifier = params.actorName
+      ? `${params.actorName} (${params.actorEmail || params.actorRole})`
+      : (params.actorEmail || params.actorUserId || "System");
+
     appendToGoogleSheet("System Audit Logs", [
       [
         data?.id || `AUDIT-${Date.now()}`,
         istTime,
-        params.actorEmail || params.actorUserId || "System",
+        actorIdentifier,
         params.actorRole,
         params.action,
         params.targetType,
         params.targetId || "Global",
         "SUCCESS",
         params.ipAddress || "Internal",
-        JSON.stringify(params.metadata || {}),
+        JSON.stringify(enrichedMetadata),
       ],
     ]).catch((err) => console.error("Error mirroring audit log to Google Sheets:", err));
   } catch (err) {
     console.error("Error in logAuditEvent:", err);
   }
 }
+
 
 export interface LogSystemFailureParams {
   module: string;

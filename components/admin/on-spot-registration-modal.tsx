@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Event, Branch } from "@/lib/types";
-import { APPROVED_BTECH_BRANCHES } from "@/lib/validation";
+import { ALL_APPROVED_BRANCHES, APPROVED_BTECH_BRANCHES, APPROVED_MTECH_BRANCHES } from "@/lib/validation";
 import { UserPlus, X, CheckCircle2, RotateCw, AlertCircle, Upload, GraduationCap, ChevronDown, Check } from "lucide-react";
 
 interface OnSpotRegistrationModalProps {
@@ -22,7 +22,7 @@ export function OnSpotRegistrationModal({
 }: OnSpotRegistrationModalProps) {
   const [fullName, setFullName] = useState("");
   const [vitRegNumber, setVitRegNumber] = useState("");
-  const [branchName, setBranchName] = useState<string>(APPROVED_BTECH_BRANCHES[0] || "");
+  const [branchName, setBranchName] = useState<string>(ALL_APPROVED_BRANCHES[0] || "");
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const branchDropdownRef = useRef<HTMLDivElement>(null);
   const [personalEmail, setPersonalEmail] = useState("");
@@ -31,7 +31,7 @@ export function OnSpotRegistrationModal({
   const [transactionId, setTransactionId] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
-  const branchOptions = APPROVED_BTECH_BRANCHES;
+  const branchOptions = ALL_APPROVED_BRANCHES;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -203,7 +203,7 @@ export function OnSpotRegistrationModal({
             {/* Custom Styled Branch Selector (Matching Student Registration Page) */}
             <div className="relative" ref={branchDropdownRef}>
               <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
-                Branch (B.Tech Only) *
+                Branch (B.Tech & M.Tech Eligible) *
               </label>
               <div className="relative">
                 <button
