@@ -34,6 +34,8 @@ import {
   Check,
 } from "lucide-react";
 
+import { EmailOperations } from "@/components/admin/email-operations";
+
 interface FinanceQueueProps {
   initialRegistrations: Array<Registration & { payments?: Payment[]; event?: { title: string } }>;
   initialDeletedRegistrations?: DeletedRegistration[];
@@ -453,6 +455,9 @@ export function FinanceQueue({
           <span>{actionError}</span>
         </div>
       )}
+
+      {/* Email Operations & Transactional Metrics */}
+      <EmailOperations eventId={activeEvent?.id} activeEventTitle={activeEvent?.title} />
 
       {/* Search & Filter Bar */}
       {!showArchivedTab && (

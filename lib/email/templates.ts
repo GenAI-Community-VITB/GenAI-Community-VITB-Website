@@ -422,4 +422,97 @@ export function getLoginSecurityAlertTemplate(params: {
   };
 }
 
+export function getEventReminderTemplate(params: {
+  fullName: string;
+  vitRegNumber: string;
+  registrationNumber: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime?: string;
+  venue: string;
+  qrContentId?: string;
+}): { subject: string; html: string } {
+  const {
+    fullName,
+    vitRegNumber,
+    registrationNumber,
+    eventTitle,
+    eventDate,
+    eventTime = "10:00 AM IST",
+    venue,
+    qrContentId,
+  } = params;
+
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background-color: rgba(245, 182, 66, 0.15); border: 1px solid rgba(245, 182, 66, 0.4); color: ${GOLD_COLOR}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+        ⚡ Live Event Reminder
+      </span>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Get Ready for ${eventTitle}</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">Pass ID: ${registrationNumber}</p>
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
+      Hi <strong>${fullName}</strong>,
+    </p>
+    <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
+      This is a quick reminder that <strong>${eventTitle}</strong> is happening soon! Your registration is confirmed and we look forward to seeing you.
+    </p>
+
+    <!-- Schedule Details Card -->
+    <div style="background-color: #120e09; border: 1px solid #2a2215; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a; width: 40%;">Event Date:</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600;">${eventDate}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Reporting Time:</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600;">${eventTime}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Venue:</td>
+          <td style="padding: 6px 0; font-size: 13px; color: ${GOLD_COLOR}; font-weight: 700;">${venue}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 13px; color: #71717a;">VIT Reg Number:</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-family: monospace;">${vitRegNumber}</td>
+        </tr>
+      </table>
+    </div>
+
+    ${
+      qrContentId
+        ? `
+      <div style="text-align: center; margin-bottom: 24px; padding: 20px; background-color: #120e09; border: 1px dashed #2a2215; border-radius: 16px;">
+        <p style="margin: 0 0 12px 0; font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+          Your Gate Admission QR Code
+        </p>
+        <img src="cid:${qrContentId}" alt="Entry QR Pass" width="220" height="220" style="display: block; margin: 0 auto; border-radius: 12px; border: 2px solid ${GOLD_COLOR};" />
+        <p style="margin: 12px 0 0 0; font-size: 11px; color: #71717a;">
+          Please present this QR code at the registration desk for instant entry.
+        </p>
+      </div>
+    `
+        : ""
+    }
+
+    <div style="background-color: #1a1408; border: 1px solid #4a3814; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 12px; color: #ffd06a; line-height: 1.5;">
+        💡 <strong>Quick Tip:</strong> Please arrive 15 minutes before the reporting time with your college ID card.
+      </p>
+    </div>
+
+    <p style="margin: 0; font-size: 12px; color: #71717a; text-align: center;">
+      Questions? Reach out to our team at <a href="mailto:registrations@genaiclubvitb.in" style="color: ${GOLD_COLOR}; text-decoration: none;">registrations@genaiclubvitb.in</a>.
+    </p>
+  `;
+
+  return {
+    subject: `Event Reminder: ${eventTitle} is happening on ${eventDate}!`,
+    html: baseEmailLayout(content, `Reminder for ${eventTitle} on ${eventDate}`),
+  };
+}
+
+
 
