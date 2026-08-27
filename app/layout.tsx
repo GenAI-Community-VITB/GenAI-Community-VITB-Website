@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { CursorGlow } from "@/components/site/cursor-glow";
 import { TopLeftLoadingBanner } from "@/components/site/top-left-loading-banner";
-import { BetaBadge } from "@/components/site/beta-badge";
 import { Analytics } from "@/components/seo/analytics";
 import "./globals.css";
 
@@ -124,8 +123,6 @@ export default function RootLayout({
         {/* Google Analytics 4 (No PII) */}
         <Analytics />
 
-        {/* Removable Top-Right Beta Badge */}
-        <BetaBadge />
         <Suspense fallback={null}>
           <TopLeftLoadingBanner />
         </Suspense>
