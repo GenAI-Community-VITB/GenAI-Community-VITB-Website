@@ -64,3 +64,36 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+/**
+ * Health and on-demand trigger for blogs sync.
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const cronSecret = process.env.CRON_SECRET?.trim();
+    const { searchParams } = new URL(request.url);
+    const secretParam = searchParams.get("secret");
+
+    if (cronSecret && secretParam !== cronSecret) {
+      return NextResponse.json({
+        status: "healthy",
+        message: "LinkedIn Blogs Sync Endpoint is active. Provide secret query parameter to trigger ingestion.",
+      });
+    }
+
+    // Trigger sync with past dispatches
+    const result = await syncLinkedInDispatches();
+    try {
+      revalidatePath("/blogs");
+      revalidatePath("/");
+    } catch {}
+
+    return NextResponse.json({
+      status: "synced",
+      timestamp: new Date().toISOString(),
+      ...result,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ status: "error", error: err?.message || String(err) }, { status: 500 });
+  }
+}

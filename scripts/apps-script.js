@@ -343,3 +343,20 @@ function handleFailsafeRegistrationFormSubmit(regData) {
     return { success: false, error: err.toString() };
   }
 }
+
+/**
+ * Automated Free Scheduled Trigger to sync LinkedIn Posts to the website Blogs portal.
+ * Set trigger: Time-driven -> Day timer (e.g. Every 6 or 12 hours)
+ */
+function triggerLinkedInBlogsSync() {
+  const WEBHOOK_URL = "https://genai.community/api/blogs/sync?secret=genai_community_cron_secret_2026_secure";
+  try {
+    const response = UrlFetchApp.fetch(WEBHOOK_URL, {
+      method: "get",
+      muteHttpExceptions: true
+    });
+    Logger.log("LinkedIn Blogs Sync Trigger Response: " + response.getContentText());
+  } catch (err) {
+    Logger.log("Error in triggerLinkedInBlogsSync: " + err.toString());
+  }
+}
