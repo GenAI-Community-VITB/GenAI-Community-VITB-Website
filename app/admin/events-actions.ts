@@ -635,7 +635,7 @@ export async function changeMyPasswordAction(newPassword: string) {
       [
         logId,
         istTime,
-        profile?.email || user.email || "staff@genai.community",
+        profile?.email || user.email || "genaicommunityvitbofficial@gmail.com",
         "self_password_changed",
         "Community User Management",
         `Updated by: ${actorName} (${role || "Staff"})`,

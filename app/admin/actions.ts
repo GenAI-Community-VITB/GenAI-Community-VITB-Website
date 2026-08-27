@@ -123,7 +123,7 @@ function logInternalChange(
   appendToGoogleSheet("Internal Management Log", [[
     logId,
     istStr,
-    "admin@genai.community", // will be overridden with actor when available
+    "genaicommunityvitbofficial@gmail.com", // will be overridden with actor when available
     "admin",
     action,
     module,
@@ -154,7 +154,7 @@ function logEventLifecycle(
   appendToGoogleSheet("Event Lifecycle Log", [[
     logId,
     istStr,
-    "admin@genai.community",
+    "genaicommunityvitbofficial@gmail.com",
     "admin",
     action,
     eventId,
