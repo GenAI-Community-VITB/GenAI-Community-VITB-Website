@@ -32,6 +32,7 @@ import {
   GraduationCap,
   ChevronDown,
   Check,
+  QrCode,
 } from "lucide-react";
 
 import { EmailOperations } from "@/components/admin/email-operations";
@@ -359,14 +360,26 @@ export function FinanceQueue({
           <p className="text-xs text-zinc-400">All submissions link automatically to the active event.</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowOnSpotModal(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#f5b642] px-4 py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition shadow-lg shrink-0"
-        >
-          <UserPlus className="h-4 w-4" />
-          + On-Spot Registration
-        </button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowOnSpotModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-[#1a140c] px-3.5 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 hover:text-white transition shadow-md cursor-pointer"
+            title="Open Live UPI Payment & Student Self-Register QR"
+          >
+            <QrCode className="h-4 w-4 text-[#f5b642]" />
+            <span>Desk Payment QR</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowOnSpotModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#f5b642] px-4 py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition shadow-lg cursor-pointer"
+          >
+            <UserPlus className="h-4 w-4" />
+            <span>+ On-Spot Registration</span>
+          </button>
+        </div>
       </div>
 
       {/* Overview Stat Badges */}
