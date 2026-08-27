@@ -74,6 +74,7 @@ export function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={true}
                 className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition duration-200 ${
                   isActive
                     ? "bg-[#1f190e] text-[#f5b642] border border-[#f5b642]/50 shadow-[0_0_12px_rgba(245,182,66,0.15)]"
@@ -90,6 +91,7 @@ export function Navbar() {
         <div className="flex items-center gap-2 md:hidden">
           <Link
             href="/events"
+            prefetch={true}
             className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black shadow-[0_0_12px_rgba(245,182,66,0.35)]"
           >
             Events
@@ -116,6 +118,7 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch={true}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-2 rounded-2xl p-3 text-xs font-bold transition ${
                     isActive
@@ -141,6 +144,7 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
+              prefetch={true}
               className={`flex items-center gap-1.5 shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
                 isActive
                   ? "bg-[#1f190e] text-[#f5b642] border border-[#f5b642]/60 shadow-[0_0_10px_rgba(245,182,66,0.25)]"

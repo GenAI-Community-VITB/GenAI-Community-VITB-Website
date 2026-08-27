@@ -111,6 +111,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
+      <head>
+        <link rel="preconnect" href="https://lh3.googleusercontent.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
+        <link rel="preconnect" href="https://drive.google.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://drive.google.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <meta name="color-scheme" content="dark" />
+      </head>
       <body className="min-h-full flex flex-col bg-black text-white selection:bg-[#f5b642] selection:text-black">
         {/* Google Analytics 4 (No PII) */}
         <Analytics />

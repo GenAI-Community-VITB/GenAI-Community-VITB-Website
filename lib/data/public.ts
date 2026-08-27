@@ -3,7 +3,30 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
 
+// Ultra-fast in-memory LRU-style cache
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+const MEMORY_CACHE = new Map<string, CacheEntry<any>>();
+const CACHE_TTL_MS = 60_000; // 60 seconds memory persistence
+
+function getCached<T>(key: string): T | null {
+  const entry = MEMORY_CACHE.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry.data;
+  }
+  return null;
+}
+
+function setCache<T>(key: string, data: T): void {
+  MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
+}
+
 export const getTeamsWithMembers = cache(async () => {
+  const cached = getCached<any[]>("teams_with_members");
+  if (cached) return cached;
+
   try {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
@@ -11,15 +34,17 @@ export const getTeamsWithMembers = cache(async () => {
       .select("*, members(*)")
       .order("created_at", { ascending: true });
 
-    if (error) {
+    let result = data ?? [];
+    if (error || !data) {
       const admin = createAdminSupabase();
       const res = await admin
         .from("teams")
         .select("*, members(*)")
         .order("created_at", { ascending: true });
-      return res.data ?? [];
+      result = res.data ?? [];
     }
-    return data ?? [];
+    if (result.length > 0) setCache("teams_with_members", result);
+    return result;
   } catch {
     try {
       const admin = createAdminSupabase();
@@ -27,7 +52,9 @@ export const getTeamsWithMembers = cache(async () => {
         .from("teams")
         .select("*, members(*)")
         .order("created_at", { ascending: true });
-      return res.data ?? [];
+      const fallback = res.data ?? [];
+      if (fallback.length > 0) setCache("teams_with_members", fallback);
+      return fallback;
     } catch {
       return [];
     }
@@ -35,21 +62,27 @@ export const getTeamsWithMembers = cache(async () => {
 });
 
 export const getProjects = cache(async () => {
+  const cached = getCached<any[]>("public_projects");
+  if (cached) return cached;
+
   try {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
       .from("projects")
       .select("*")
       .order("created_at", { ascending: false });
+
+    let result = data ?? [];
     if (error || !data) {
       const admin = createAdminSupabase();
       const res = await admin
         .from("projects")
         .select("*")
         .order("created_at", { ascending: false });
-      return res.data ?? [];
+      result = res.data ?? [];
     }
-    return data;
+    if (result.length > 0) setCache("public_projects", result);
+    return result;
   } catch {
     try {
       const admin = createAdminSupabase();
@@ -57,7 +90,9 @@ export const getProjects = cache(async () => {
         .from("projects")
         .select("*")
         .order("created_at", { ascending: false });
-      return res.data ?? [];
+      const fallback = res.data ?? [];
+      if (fallback.length > 0) setCache("public_projects", fallback);
+      return fallback;
     } catch {
       return [];
     }
@@ -65,6 +100,9 @@ export const getProjects = cache(async () => {
 });
 
 export const getEvents = cache(async () => {
+  const cached = getCached<any[]>("public_events");
+  if (cached) return cached;
+
   try {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
@@ -84,12 +122,15 @@ export const getEvents = cache(async () => {
       list = data ?? [];
     }
 
-    return list.filter(
+    const filtered = list.filter(
       (e: any) =>
         e.slug !== "test-event-2026" &&
         !e.title?.toLowerCase().includes("test event") &&
         !e.title?.toLowerCase().includes("dummy"),
     );
+
+    if (filtered.length > 0) setCache("public_events", filtered);
+    return filtered;
   } catch {
     try {
       const admin = createAdminSupabase();
@@ -98,12 +139,14 @@ export const getEvents = cache(async () => {
         .select("*")
         .order("event_date", { ascending: true });
       const list = res.data ?? [];
-      return list.filter(
+      const filtered = list.filter(
         (e: any) =>
           e.slug !== "test-event-2026" &&
           !e.title?.toLowerCase().includes("test event") &&
           !e.title?.toLowerCase().includes("dummy"),
       );
+      if (filtered.length > 0) setCache("public_events", filtered);
+      return filtered;
     } catch {
       return [];
     }
@@ -111,6 +154,9 @@ export const getEvents = cache(async () => {
 });
 
 export const getHierarchyMembers = cache(async () => {
+  const cached = getCached<any[]>("hierarchy_members_51");
+  if (cached) return cached;
+
   try {
     const admin = createAdminSupabase();
     const { data: profiles } = await admin
@@ -123,7 +169,7 @@ export const getHierarchyMembers = cache(async () => {
     }
 
     // Map database profiles to hierarchy cards with volunteer as secondary
-    return profiles.map((p) => {
+    const result = profiles.map((p) => {
       const rawRoles = Array.isArray(p.roles) ? (p.roles as any[]) : [];
       // Sort roles so non-volunteer is first (primary) and volunteer is last (secondary)
       const sortedRoles = [...rawRoles].sort((a, b) => {
@@ -166,6 +212,11 @@ export const getHierarchyMembers = cache(async () => {
         avatarUrl: normalizedAvatar || null,
       };
     });
+
+    if (result && result.length > 0) {
+      setCache("hierarchy_members_51", result);
+    }
+    return result;
   } catch {
     return null;
   }

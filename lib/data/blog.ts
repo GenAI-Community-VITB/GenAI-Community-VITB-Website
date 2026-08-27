@@ -84,7 +84,14 @@ const AUTHENTIC_PAST_POSTS: BlogPost[] = [
   },
 ];
 
+let cachedBlogPosts: { data: BlogPost[]; timestamp: number } | null = null;
+const BLOG_CACHE_TTL = 60_000;
+
 export const getBlogPosts = cache(async (): Promise<BlogPost[]> => {
+  if (cachedBlogPosts && Date.now() - cachedBlogPosts.timestamp < BLOG_CACHE_TTL) {
+    return cachedBlogPosts.data;
+  }
+
   try {
     const supabase = createAdminSupabase();
     const { data: posts, error } = await supabase
@@ -94,11 +101,15 @@ export const getBlogPosts = cache(async (): Promise<BlogPost[]> => {
       .order("published_at", { ascending: false });
 
     if (error || !posts || posts.length === 0) {
+      cachedBlogPosts = { data: AUTHENTIC_PAST_POSTS, timestamp: Date.now() };
       return AUTHENTIC_PAST_POSTS;
     }
 
-    return posts as BlogPost[];
+    const result = posts as BlogPost[];
+    cachedBlogPosts = { data: result, timestamp: Date.now() };
+    return result;
   } catch {
+    cachedBlogPosts = { data: AUTHENTIC_PAST_POSTS, timestamp: Date.now() };
     return AUTHENTIC_PAST_POSTS;
   }
 });
