@@ -189,7 +189,11 @@ export function BlogsClient({ posts }: BlogsClientProps) {
                 </span>
 
                 <a
-                  href={post.post_url}
+                  href={
+                    post.post_url && post.post_url.startsWith("http") && !post.post_url.includes("-GAI")
+                      ? post.post_url
+                      : "https://www.linkedin.com/company/genai-community-vit-bhopal/posts/"
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-bold text-[#f5b642] hover:text-[#ffd06a] transition-colors group-hover:underline"

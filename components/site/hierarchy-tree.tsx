@@ -982,26 +982,26 @@ export function MemberHierarchyTree({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-full max-w-lg rounded-3xl border-2 border-[#f5b642] bg-[#0d0a07] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.25)] space-y-6 will-change-[transform,opacity]"
+              className="relative z-10 w-full max-w-lg rounded-3xl border-2 border-[#f5b642] bg-[#0d0a07] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.25)] space-y-6 will-change-[transform,opacity] overflow-hidden max-h-[90vh] overflow-y-auto"
             >
-              {/* Header Profile Summary */}
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              {/* Header Profile Summary with Prominently Enlarged Card Avatar */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
                 <HierarchyAvatar
                   name={selectedMember.name}
                   avatarUrl={selectedMember.avatarUrl}
-                  className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_30px_rgba(245,182,66,0.4)] shrink-0"
-                  fallbackClassName="flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
-                  initialsClassName="font-black text-3xl text-[#f5b642]"
+                  className="h-36 w-36 sm:h-44 sm:w-44 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_35px_rgba(245,182,66,0.45)] shrink-0"
+                  fallbackClassName="flex h-36 w-36 sm:h-44 sm:w-44 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
+                  initialsClassName="font-black text-4xl text-[#f5b642]"
                 />
 
-                <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="space-y-2 min-w-0 flex-1 break-words">
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-0.5 text-xs font-bold text-amber-300 font-mono uppercase">
                     {selectedMember.teamName}
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight break-words">
                     {selectedMember.name}
                   </h3>
-                  <p className="text-sm font-bold text-[#f5b642]">
+                  <p className="text-sm font-bold text-[#f5b642] break-words">
                     {selectedMember.roleTitle}
                   </p>
                   {selectedMember.email && selectedMember.email.endsWith("@vitbhopal.ac.in") && (
@@ -1108,22 +1108,22 @@ const TreeNodeCard = memo(function TreeNodeCard({
       {/* ── CARD CONTENT: AVATAR + NAME + FULL UNABBREVIATED DESIGNATION ── */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          {/* Avatar Thumbnail with Enlarged Visual Footprint */}
+          {/* Avatar Thumbnail */}
           <div
-            className={`shrink-0 overflow-hidden rounded-2xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
+            className={`shrink-0 overflow-hidden rounded-xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
               badgeText === "President"
-                ? "h-14 w-14 sm:h-16 sm:w-16 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_15px_rgba(245,182,66,0.3)] text-base"
+                ? "h-10 w-10 sm:h-11 sm:w-11 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_10px_rgba(245,182,66,0.25)] text-xs"
                 : badgeText === "Vice President"
-                ? "h-14 w-14 sm:h-16 sm:w-16 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_15px_rgba(56,189,248,0.3)] text-base"
+                ? "h-10 w-10 sm:h-11 sm:w-11 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.25)] text-xs"
                 : badgeText === "Lead" || badgeText === "Co-Lead"
-                ? "h-12 w-12 sm:h-13 sm:w-13 border-[#3d3018] bg-[#1a140c] text-[#f5b642] text-sm"
-                : "h-11 w-11 sm:h-12 sm:w-12 border-[#2b2417] bg-[#120f0a] text-zinc-300 text-xs"
+                ? "h-9 w-9 sm:h-10 sm:w-10 border-[#3d3018] bg-[#1a140c] text-[#f5b642] text-xs"
+                : "h-8 w-8 sm:h-9 sm:w-9 border-[#2b2417] bg-[#120f0a] text-zinc-300 text-[10px]"
             }`}
           >
             <HierarchyAvatar
               name={member.name}
               avatarUrl={member.avatarUrl}
-              className="h-full w-full object-cover rounded-xl"
+              className="h-full w-full object-cover rounded-lg"
               fallbackClassName="flex h-full w-full items-center justify-center font-bold"
               initialsClassName="font-mono text-inherit"
             />
