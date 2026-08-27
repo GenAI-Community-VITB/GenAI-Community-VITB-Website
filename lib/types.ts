@@ -174,6 +174,9 @@ export interface Member {
   name: string;
   role: string;
   position: string;
+  official_email?: string | null;
+  email?: string | null;
+  github_url?: string | null;
   linkedin_url: string | null;
   image_url: string | null;
   status: "pending" | "active";
@@ -214,6 +217,9 @@ export interface Event {
   upi_id?: string | null;
   upi_qr_image_url?: string | null;
   guidelines?: string[] | string | null;
+  allowed_degrees?: string[] | null;
+  allowed_branches?: string[] | null;
+  eligibility_notes?: string | null;
   registered_count?: number;
   created_at: string;
   updated_at: string;
@@ -451,6 +457,7 @@ export interface BlogPost {
   original_content?: string | null;
   post_url: string;
   author_name?: string | null;
+  image_url?: string | null;
   tags?: string[];
   is_published: boolean;
   display_order?: number;

@@ -11,6 +11,7 @@ import {
   paymentReviewSchema,
   checkinOverrideSchema,
   generateSecureQRToken,
+  validateEventEligibility,
 } from "@/lib/validation";
 import { generateEntryPassQRCodeBuffer } from "@/lib/qr/generator";
 import { sendEmail } from "@/lib/email/mailer";
@@ -86,6 +87,51 @@ export async function createRegistration(params: {
   }
 
   const supabase = createAdminSupabase();
+
+  // 0. Verify event status and strict degree / branch eligibility
+  const { data: eventData, error: eventErr } = await supabase
+    .from("events")
+    .select("id, title, is_registration_open, registration_deadline, allowed_degrees, allowed_branches, status")
+    .eq("id", params.eventId)
+    .single();
+
+  if (eventErr || !eventData) {
+    return {
+      success: false,
+      error: "The specified event could not be found.",
+      errorCode: "EVENT_NOT_FOUND",
+    };
+  }
+
+  if (!eventData.is_registration_open || eventData.status === "past") {
+    return {
+      success: false,
+      error: "Registration for this event is currently closed.",
+      errorCode: "REGISTRATION_CLOSED",
+    };
+  }
+
+  if (eventData.registration_deadline && new Date() > new Date(eventData.registration_deadline)) {
+    return {
+      success: false,
+      error: "The registration deadline for this event has passed.",
+      errorCode: "DEADLINE_PASSED",
+    };
+  }
+
+  const eligibilityCheck = validateEventEligibility(
+    params.branchName,
+    eventData.allowed_degrees,
+    eventData.allowed_branches
+  );
+
+  if (!eligibilityCheck.valid) {
+    return {
+      success: false,
+      error: eligibilityCheck.error || "You are not eligible for this event based on degree/branch criteria.",
+      errorCode: "INELIGIBLE_STUDENT",
+    };
+  }
 
   // Strict Duplication Avoidance Rules
   const cleanTxId = params.transactionId.trim();
@@ -218,14 +264,8 @@ export async function createRegistration(params: {
     })
     .eq("id", registrationId);
 
-  // Fetch event details for email
-  const { data: eventData } = await supabase
-    .from("events")
-    .select("title")
-    .eq("id", params.eventId)
-    .single();
-
-  const eventTitle = eventData?.title || "Test Event";
+  // Use event details for email
+  const eventTitle = eventData?.title || "GenAI Community Event";
 
   // Send Submission Received Email to both Personal and College Email
   const submissionEmail = getSubmissionReceivedTemplate({
@@ -314,12 +354,74 @@ export async function createRegistration(params: {
     ],
   ]).catch((err) => console.error("Error mirroring payment to Google Sheets:", err));
 
+  // ── AUTOMATED GOOGLE FORM & APPS SCRIPT FAILSAFE ──
+  dispatchGoogleFormFailsafe({
+    registrationId,
+    registrationNumber,
+    eventId: params.eventId,
+    eventTitle,
+    fullName: params.fullName,
+    vitRegistrationNumber: cleanVitReg,
+    branchName: params.branchName,
+    personalEmail: params.personalEmail,
+    collegeEmail: cleanCollegeEmail,
+    phoneNumber: params.phoneNumber,
+    amount: params.amount,
+    transactionId: cleanTxId,
+    driveFileId: params.driveFileId,
+    driveViewUrl: params.driveFileId ? `/api/admin/drive/preview/${params.driveFileId}` : undefined,
+    registrationSource: source,
+    timestamp: istTime,
+  });
+
   return {
     success: true,
     registrationId,
     registrationNumber,
     paymentId,
   };
+}
+
+/**
+ * Asynchronously dispatches a registration failsafe payload to the Google Form / Google Apps Script Webhook.
+ * Guarantees automated logging into the Google Form response backend even if Supabase is slow or down.
+ */
+async function dispatchGoogleFormFailsafe(payload: {
+  registrationId?: string;
+  registrationNumber?: string;
+  eventId: string;
+  eventTitle?: string;
+  fullName: string;
+  vitRegistrationNumber: string;
+  branchName: string;
+  personalEmail: string;
+  collegeEmail: string;
+  phoneNumber: string;
+  amount: number;
+  transactionId: string;
+  driveFileId?: string;
+  driveViewUrl?: string;
+  registrationSource: string;
+  timestamp: string;
+}) {
+  const webhookUrl = process.env.GOOGLE_FORM_WEBHOOK_URL || process.env.GOOGLE_APPS_SCRIPT_URL;
+  if (!webhookUrl) return;
+
+  try {
+    fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "failsafe_registration_form_submit",
+        token: process.env.GOOGLE_APPS_SCRIPT_TOKEN || "GENAI_GAS_EMAIL_SECRET_2026",
+        data: payload,
+      }),
+    }).catch((err) => {
+      console.warn("[Failsafe Google Form Submit] Background network error:", err?.message || err);
+    });
+  } catch (err: any) {
+    console.warn("[Failsafe Google Form Submit] Dispatch failed:", err?.message || err);
+  }
 }
 
 /**
@@ -339,14 +441,53 @@ export async function submitStudentRegistration(params: {
   screenshotFileName: string;
 }) {
   const supabase = createAdminSupabase();
-  const { data: event } = await supabase
+  const { data: event, error: eventErr } = await supabase
     .from("events")
-    .select("title, registration_fee")
+    .select("title, registration_fee, is_registration_open, registration_deadline, allowed_degrees, allowed_branches, status")
     .eq("id", params.eventId)
     .single();
 
-  const eventTitle = event?.title || "GenAI Community Event";
-  const amount = event?.registration_fee ?? 200;
+  if (eventErr || !event) {
+    return {
+      success: false,
+      error: "The selected event could not be found.",
+      errorCode: "EVENT_NOT_FOUND",
+    };
+  }
+
+  if (!event.is_registration_open || event.status === "past") {
+    return {
+      success: false,
+      error: "Registration for this event is closed.",
+      errorCode: "REGISTRATION_CLOSED",
+    };
+  }
+
+  if (event.registration_deadline && new Date() > new Date(event.registration_deadline)) {
+    return {
+      success: false,
+      error: "The registration deadline for this event has passed.",
+      errorCode: "DEADLINE_PASSED",
+    };
+  }
+
+  // Strict Event Degree & Branch Eligibility Pre-validation
+  const eligibilityCheck = validateEventEligibility(
+    params.branchName,
+    event.allowed_degrees,
+    event.allowed_branches
+  );
+
+  if (!eligibilityCheck.valid) {
+    return {
+      success: false,
+      error: eligibilityCheck.error || "You are not eligible for this event based on degree/branch criteria.",
+      errorCode: "INELIGIBLE_STUDENT",
+    };
+  }
+
+  const eventTitle = event.title || "GenAI Community Event";
+  const amount = event.registration_fee ?? 200;
 
   // Upload screenshot to Drive / Fallback
   const driveResult = await uploadPaymentScreenshotToDrive({
@@ -856,6 +997,9 @@ export async function confirmAttendance(params: {
   success: boolean;
   message: string;
   errorCode?: string;
+  isAlreadyCheckedIn?: boolean;
+  priorCheckinTime?: string;
+  priorScannedBy?: string;
   participant?: {
     id: string;
     full_name: string;
@@ -864,6 +1008,9 @@ export async function confirmAttendance(params: {
     registration_number: string;
     status: string;
     registration_source: string;
+    college_email?: string;
+    personal_email?: string;
+    event_title?: string;
   };
 }> {
   const supabase = createAdminSupabase();
@@ -882,7 +1029,19 @@ export async function confirmAttendance(params: {
       p_override_reason: params.overrideReason || null,
     });
 
-    if (!error && data && data.success) {
+    if (!error && data) {
+      if (!data.success) {
+        return {
+          success: false,
+          message: data.message || "Failed to confirm attendance.",
+          errorCode: data.error_code || "CONFIRM_FAILED",
+          isAlreadyCheckedIn: Boolean(data.is_already_checked_in || data.error_code === "ALREADY_CHECKED_IN"),
+          priorCheckinTime: data.prior_checkin_time,
+          priorScannedBy: data.prior_scanned_by,
+          participant: data.participant,
+        };
+      }
+
       const participant = data.participant;
       const checkinId = `checkin-${Date.now()}`;
 
@@ -945,19 +1104,53 @@ export async function confirmAttendance(params: {
       return { success: false, message: "Registration record not found.", errorCode: "NOT_FOUND" };
     }
 
-    // 2. Update registration status to checked_in
+    const participantData = {
+      id: reg.id,
+      full_name: reg.full_name,
+      vit_registration_number: reg.vit_registration_number,
+      branch: reg.branch_name || reg.branch || "N/A",
+      registration_number: reg.registration_number,
+      status: reg.registration_status,
+      registration_source: reg.registration_source || "online",
+      college_email: reg.college_email,
+      event_title: reg.event?.title || "GenAI Community Event",
+    };
+
+    // 2. Concurrency & Duplicate Check
+    if (reg.registration_status === "checked_in" && !isOverride) {
+      const { data: priorCheckin } = await supabase
+        .from("checkins")
+        .select("scan_timestamp, scanned_by_name")
+        .eq("registration_id", reg.id)
+        .in("status", ["approved", "overridden"])
+        .order("scan_timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return {
+        success: false,
+        message: "ALREADY SCANNED: Participant has ALREADY checked in.",
+        errorCode: "ALREADY_CHECKED_IN",
+        isAlreadyCheckedIn: true,
+        priorCheckinTime: priorCheckin?.scan_timestamp || reg.checked_in_at || nowIso,
+        priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
+        participant: participantData,
+      };
+    }
+
+    // 3. Update registration status to checked_in
     await supabase
       .from("registrations")
       .update({
         registration_status: "checked_in",
-        checked_in_at: nowIso,
+        checked_in_at: reg.checked_in_at || nowIso,
         checked_in_by: params.scannerUserId,
       })
       .eq("id", reg.id);
 
-    // 3. Insert into checkins table
+    // 4. Insert into checkins table
     const checkinId = `checkin-${Date.now()}`;
-    await supabase.from("checkins").insert({
+    const { error: insertErr } = await supabase.from("checkins").insert({
       id: checkinId,
       registration_id: reg.id,
       event_id: reg.event_id,
@@ -970,17 +1163,26 @@ export async function confirmAttendance(params: {
       scan_timestamp: nowIso,
     });
 
-    const participantData = {
-      id: reg.id,
-      full_name: reg.full_name,
-      vit_registration_number: reg.vit_registration_number,
-      branch: reg.branch_name || reg.branch || "N/A",
-      registration_number: reg.registration_number,
-      status: "checked_in",
-      registration_source: reg.registration_source || "online",
-      college_email: reg.college_email,
-      event_title: reg.event?.title || "GenAI Community Event",
-    };
+    if (insertErr && !isOverride && (insertErr.code === "23505" || insertErr.message?.includes("unique"))) {
+      const { data: priorCheckin } = await supabase
+        .from("checkins")
+        .select("scan_timestamp, scanned_by_name")
+        .eq("registration_id", reg.id)
+        .in("status", ["approved", "overridden"])
+        .order("scan_timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return {
+        success: false,
+        message: "ALREADY SCANNED: Participant was checked in simultaneously by another scanner.",
+        errorCode: "ALREADY_CHECKED_IN",
+        isAlreadyCheckedIn: true,
+        priorCheckinTime: priorCheckin?.scan_timestamp || nowIso,
+        priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
+        participant: participantData,
+      };
+    }
 
     // 4. Mirror to Google Sheets in background
     appendToGoogleSheet("Attendance", [

@@ -221,7 +221,11 @@ export default async function EventDetailPage(props: {
               </div>
               <div>
                 <p className="text-[10px] text-zinc-400 uppercase">Eligibility</p>
-                <p className="font-bold text-white">All VIT Bhopal Students</p>
+                <p className="font-bold text-white">
+                  {event.allowed_degrees && event.allowed_degrees.length === 1
+                    ? `VIT Bhopal ${event.allowed_degrees[0]} Students`
+                    : "B.Tech & M.Tech Students"}
+                </p>
               </div>
             </div>
 

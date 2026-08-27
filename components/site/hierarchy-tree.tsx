@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
 
 export interface HierarchyMember {
+  id?: string;
   name: string;
   roleTitle: string;
   secondaryRole?: string;
@@ -34,6 +35,10 @@ export interface HierarchyMember {
   email: string;
   caption: string;
   avatarUrl?: string | null;
+  rawRole?: string;
+  primaryTeam?: string;
+  primaryPosition?: string;
+  tier?: "president" | "panel" | "lead" | "core";
 }
 
 export function HierarchyAvatar({
@@ -604,6 +609,117 @@ const TREE_BRANCHES: TreeBranch[] = [
   },
 ];
 
+function findMatchingDbMember(
+  staticMember: HierarchyMember,
+  dbMembers?: HierarchyMember[] | null
+): HierarchyMember | undefined {
+  if (!dbMembers || dbMembers.length === 0) return undefined;
+
+  const staticEmail = (staticMember.email || "").toLowerCase().trim();
+  const staticName = (staticMember.name || "").toLowerCase().trim();
+  const staticRole = (staticMember.roleTitle || "").toLowerCase().trim();
+
+  // 1. Direct match by ID or Email
+  const byEmail = dbMembers.find((m) => {
+    if (m.id && staticMember.id && m.id === staticMember.id) return true;
+    const dbEmail = (m.email || "").toLowerCase().trim();
+    return dbEmail === staticEmail;
+  });
+  if (byEmail) return byEmail;
+
+  // 2. Direct match by name
+  const byName = dbMembers.find((m) => {
+    const dbName = (m.name || "").toLowerCase().trim();
+    return dbName === staticName || (staticName.includes(dbName) && dbName.length > 3) || (dbName.includes(staticName) && staticName.length > 3);
+  });
+  if (byName) return byName;
+
+  // 3. Known Roster Email / Alias match
+  const byAlias = dbMembers.find((m) => {
+    const dbEmail = (m.email || "").toLowerCase().trim();
+    if (staticEmail.startsWith("aiml.lead") && (dbEmail.includes("lakshya") || dbEmail.includes("24bce10549"))) return true;
+    if (staticEmail.startsWith("aiml.co.lead") && (dbEmail.includes("aaditya") || dbEmail.includes("25bai10079"))) return true;
+    if (staticEmail.startsWith("president") && (dbEmail.includes("harshvardhan") || dbEmail.includes("24bce10511"))) return true;
+    if (staticEmail.startsWith("vice.president") && (dbEmail.includes("akshita") || dbEmail.includes("25bce10779"))) return true;
+    if (staticEmail.startsWith("tech.lead") && (dbEmail.includes("abhinav") || dbEmail.includes("24bsa10110"))) return true;
+    if (staticEmail.startsWith("tech.co.lead") && (dbEmail.includes("swetalina") || dbEmail.includes("24bce10419"))) return true;
+    if (staticEmail.startsWith("general.secretary") && (dbEmail.includes("aditya.gen") || dbEmail.includes("aditya.mishra"))) return true;
+    if (staticEmail.startsWith("gen.sec.provisional") && dbEmail.includes("anuj")) return true;
+    if (staticEmail.startsWith("joint.secretary") && dbEmail.includes("anvi")) return true;
+    if (staticEmail.startsWith("assistant.secretary") && dbEmail.includes("archita")) return true;
+    if (staticEmail.startsWith("student.coord.001") && dbEmail.includes("ishani")) return true;
+    if (staticEmail.startsWith("student.coord.002") && dbEmail.includes("prince")) return true;
+    if (staticEmail.startsWith("hr.lead") && dbEmail.includes("amritanshu")) return true;
+    if (staticEmail.startsWith("hr.co.lead") && dbEmail.includes("srishti")) return true;
+    if (staticEmail.startsWith("hr.coremember.001") && dbEmail.includes("nilansh")) return true;
+    if (staticEmail.startsWith("hr.coremember.002") && dbEmail.includes("aashka")) return true;
+    if (staticEmail.startsWith("event.lead") && dbEmail.includes("priyansh")) return true;
+    if (staticEmail.startsWith("event.co.lead") && dbEmail.includes("anya")) return true;
+    if (staticEmail.startsWith("event.coremember.001") && dbEmail.includes("shikha")) return true;
+    if (staticEmail.startsWith("event.coremember.002") && dbEmail.includes("shaurya")) return true;
+    if (staticEmail.startsWith("design.lead") && dbEmail.includes("agrim")) return true;
+    if (staticEmail.startsWith("design.co.lead") && dbEmail.includes("kushagra")) return true;
+    if (staticEmail.startsWith("design.coremember.001") && dbEmail.includes("ameeshi")) return true;
+    if (staticEmail.startsWith("aiml.coremember.001") && dbEmail.includes("rachit")) return true;
+    if (staticEmail.startsWith("aiml.coremember.002") && dbEmail.includes("suhani")) return true;
+    if (staticEmail.startsWith("aiml.coremember.003") && dbEmail.includes("sargam")) return true;
+    if (staticEmail.startsWith("aiml.coremember.004") && dbEmail.includes("aditya.24bce10697")) return true;
+    if (staticEmail.startsWith("tech.coremember.001") && dbEmail.includes("anushka")) return true;
+    if (staticEmail.startsWith("tech.coremember.002") && dbEmail.includes("rishab")) return true;
+    if (staticEmail.startsWith("tech.coremember.003") && dbEmail.includes("aaditi")) return true;
+    if (staticEmail.startsWith("tech.coremember.004") && dbEmail.includes("nitin")) return true;
+    if (staticEmail.startsWith("tech.coremember.005") && dbEmail.includes("nivedita")) return true;
+    if (staticEmail.startsWith("pr.lead") && dbEmail.includes("shashwat")) return true;
+    if (staticEmail.startsWith("pr.co.lead") && dbEmail.includes("drishti")) return true;
+    if (staticEmail.startsWith("pr.coremember.001") && dbEmail.includes("debasmita")) return true;
+    if (staticEmail.startsWith("pr.coremember.002") && dbEmail.includes("palak")) return true;
+    if (staticEmail.startsWith("pr.coremember.003") && dbEmail.includes("saanvi")) return true;
+    if (staticEmail.startsWith("pr.coremember.004") && dbEmail.includes("anjali")) return true;
+    if (staticEmail.startsWith("pr.coremember.005") && dbEmail.includes("pushkar")) return true;
+    if (staticEmail.startsWith("social.lead") && dbEmail.includes("jharna")) return true;
+    if (staticEmail.startsWith("social.co.lead") && dbEmail.includes("sakcham")) return true;
+    if (staticEmail.startsWith("social.coremember.001") && dbEmail.includes("arpan")) return true;
+    if (staticEmail.startsWith("social.coremember.002") && dbEmail.includes("ayesha")) return true;
+    if (staticEmail.startsWith("social.coremember.003") && dbEmail.includes("sanidhya")) return true;
+    if (staticEmail.startsWith("social.coremember.004") && dbEmail.includes("priyanshu")) return true;
+    if (staticEmail.startsWith("content.lead") && dbEmail.includes("muskan.25bce11431")) return true;
+    if (staticEmail.startsWith("content.co.lead") && dbEmail.includes("muskan.25bai10064")) return true;
+    if (staticEmail.startsWith("content.coremember.001") && dbEmail.includes("kaustubh")) return true;
+    if (staticEmail.startsWith("content.coremember.002") && dbEmail.includes("arsh")) return true;
+    if (staticEmail.startsWith("finance.lead") && dbEmail.includes("finance.lead")) return true;
+    if (staticEmail.startsWith("finance.coremember.001") && dbEmail.includes("finance.core")) return true;
+    return false;
+  });
+  if (byAlias) return byAlias;
+
+  // 4. Match by exact role title
+  if (staticRole) {
+    const byRole = dbMembers.find((m) => {
+      const dbRole = (m.roleTitle || "").toLowerCase().trim();
+      return dbRole === staticRole;
+    });
+    if (byRole) return byRole;
+  }
+
+  return undefined;
+}
+
+function hydrateMember(staticMember: HierarchyMember, dbMembers?: HierarchyMember[] | null): HierarchyMember {
+  if (!dbMembers) return staticMember;
+  const match = findMatchingDbMember(staticMember, dbMembers);
+  if (!match) return staticMember;
+
+  return {
+    ...staticMember,
+    id: match.id || staticMember.id,
+    name: match.name || staticMember.name,
+    roleTitle: staticMember.roleTitle || match.roleTitle,
+    avatarUrl: match.avatarUrl !== undefined ? match.avatarUrl : staticMember.avatarUrl,
+    email: match.email || staticMember.email,
+    secondaryRole: match.secondaryRole || staticMember.secondaryRole,
+  };
+}
+
 export function MemberHierarchyTree({
   initialMembers,
 }: {
@@ -612,32 +728,13 @@ export function MemberHierarchyTree({
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<HierarchyMember | null>(null);
 
+  // Dynamically hydrate all branches with database profiles and real-time avatars
   const branches = useMemo(() => {
-    if (!initialMembers || initialMembers.length < 10) {
-      return TREE_BRANCHES;
-    }
-
-    // Merge database members into branch template
-    return TREE_BRANCHES.map((b) => {
-      const dbLeads = initialMembers.filter(
-        (m) =>
-          m.teamName.toLowerCase().includes(b.name.toLowerCase().split(" ")[0]) &&
-          (m.roleTitle.toLowerCase().includes("lead") ||
-            m.roleTitle.toLowerCase().includes("secretary") ||
-            m.roleTitle.toLowerCase().includes("head"))
-      );
-      const dbCore = initialMembers.filter(
-        (m) =>
-          m.teamName.toLowerCase().includes(b.name.toLowerCase().split(" ")[0]) &&
-          !dbLeads.includes(m)
-      );
-
-      return {
-        ...b,
-        leads: dbLeads.length > 0 ? dbLeads : b.leads,
-        core: dbCore.length > 0 ? dbCore : b.core,
-      };
-    });
+    return TREE_BRANCHES.map((b) => ({
+      ...b,
+      leads: b.leads.map((lead) => hydrateMember(lead, initialMembers)),
+      core: b.core.map((coreMember) => hydrateMember(coreMember, initialMembers)),
+    }));
   }, [initialMembers]);
 
   // Dynamic total member count
@@ -646,25 +743,13 @@ export function MemberHierarchyTree({
     return branches.reduce((acc, b) => acc + b.leads.length + b.core.length, 2);
   }, [initialMembers, branches]);
 
-  // Find President & VP
+  // Dynamically hydrate President & Vice President with database profiles & photos
   const president = useMemo(() => {
-    if (!initialMembers) return PRESIDENT_MEMBER;
-    return (
-      initialMembers.find(
-        (m) =>
-          m.roleTitle.toLowerCase().includes("president") &&
-          !m.roleTitle.toLowerCase().includes("vice")
-      ) || PRESIDENT_MEMBER
-    );
+    return hydrateMember(PRESIDENT_MEMBER, initialMembers);
   }, [initialMembers]);
 
   const vp = useMemo(() => {
-    if (!initialMembers) return VP_MEMBER;
-    return (
-      initialMembers.find((m) =>
-        m.roleTitle.toLowerCase().includes("vice president")
-      ) || VP_MEMBER
-    );
+    return hydrateMember(VP_MEMBER, initialMembers);
   }, [initialMembers]);
 
   return (

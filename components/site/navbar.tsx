@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ClubIcon from "@/assets/ClubIcon.png";
-import { Trophy, Users, Calendar, FolderKanban, Info, Medal } from "lucide-react";
+import { Trophy, Users, Calendar, FolderKanban, Info, Medal, BookOpen } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "/winners", label: "Winners", icon: Medal },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/achievements", label: "Achievements", icon: Trophy },
+  { href: "/blogs", label: "Blogs", icon: BookOpen },
   { href: "/about", label: "About Us", icon: Info },
 ];
 

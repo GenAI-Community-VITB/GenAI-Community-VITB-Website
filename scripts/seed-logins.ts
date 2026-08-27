@@ -517,11 +517,17 @@ function generateUniquePassword(item: MemberRosterItem, index: number): string {
 }
 
 export async function seedLogins() {
-  console.log("============================================================");
-  console.log("Seeding Generative AI Community 2026-27 Logins & Unique Passwords");
-  console.log(`Domain: @vitbhopal.ac.in`);
-  console.log(`Total accounts to process: ${ROSTER_2026.length}`);
-  console.log("============================================================\n");
+  const ALLOWED_LOGIN_TEAMS = ["panel", "technical_team", "aiml_innovation_team", "human_resources"];
+  const ALLOWED_LOGIN_ROLES = ["president", "vice_president", "technical_lead", "technical_co_lead", "tech", "aiml_lead", "aiml_co_lead", "hr_lead", "hr_co_lead"];
+
+  const activeLoginsRoster = ROSTER_2026.filter((item) => {
+    if (item.email === "lakshya.24bce10549@vitbhopal.ac.in") return true;
+    if (item.position === "president" || item.position === "vice_president") return true;
+    return (
+      (ALLOWED_LOGIN_TEAMS.includes(item.team) && (item.team !== "panel" || item.position === "president" || item.position === "vice_president")) ||
+      ALLOWED_LOGIN_ROLES.includes(item.primaryRole)
+    );
+  });
 
   let createdCount = 0;
   let updatedCount = 0;
@@ -533,8 +539,8 @@ export async function seedLogins() {
 
   const credentialsLog: Array<{ name: string; email: string; role: string; pass: string }> = [];
 
-  for (let i = 0; i < ROSTER_2026.length; i++) {
-    const item = ROSTER_2026[i];
+  for (let i = 0; i < activeLoginsRoster.length; i++) {
+    const item = activeLoginsRoster[i];
     const uniquePassword = generateUniquePassword(item, i);
 
     try {

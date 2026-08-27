@@ -5,12 +5,10 @@ import { Footer } from "@/components/site/footer";
 import { ClubPillarsSection } from "@/components/site/club-pillars-section";
 import { ScrollTickerSection } from "@/components/site/scroll-ticker";
 import { QuotesSection } from "@/components/site/quotes-section";
-import { BlogSection } from "@/components/site/blog-section";
 import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/seo/json-ld";
 import { getUpcomingRegisterableEvent } from "@/lib/data/events";
 import { getAchievements } from "@/lib/data/achievements";
 import { getHierarchyMembers } from "@/lib/data/public";
-import { getBlogPosts } from "@/lib/data/blog";
 import Link from "next/link";
 import {
   Users,
@@ -21,6 +19,7 @@ import {
   Sparkles,
   Layers,
   Medal,
+  BookOpen,
 } from "lucide-react";
 
 export const revalidate = 60;
@@ -35,11 +34,10 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [upcomingEvent, achievements, hierarchyMembers, blogPosts] = await Promise.all([
+  const [upcomingEvent, achievements, hierarchyMembers] = await Promise.all([
     getUpcomingRegisterableEvent(30),
     getAchievements(),
     getHierarchyMembers(),
-    getBlogPosts(),
   ]);
 
   const memberCount = hierarchyMembers?.length || 51;
@@ -84,7 +82,7 @@ export default async function Home() {
               </p>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 max-w-7xl mx-auto">
               {/* Card 1: Meet Our Members */}
               <Link
                 href="/team"
@@ -184,12 +182,34 @@ export default async function Home() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               </Link>
+
+              {/* Card 5: Technical Blogs & Dispatches */}
+              <Link
+                href="/blogs"
+                className="group relative flex flex-col justify-between rounded-3xl border border-[#262015] bg-gradient-to-b from-[#14100b] to-[#0a0805] p-6 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-[#0a66c2] hover:shadow-[0_15px_40px_rgba(10,102,194,0.18)]"
+              >
+                <div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#0a66c2]/40 bg-[#0a66c2]/10 text-[#70b5f9] mb-5 group-hover:scale-105 transition">
+                    <BookOpen className="h-5 w-5" />
+                  </div>
+                  <span className="rounded-full bg-[#0a66c2]/20 px-2.5 py-0.5 text-[10px] font-bold text-[#70b5f9] font-mono">
+                    LinkedIn Blogs
+                  </span>
+                  <h3 className="text-lg font-extrabold text-white mt-3 group-hover:text-[#70b5f9] transition-colors">
+                    Community Blogs
+                  </h3>
+                  <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
+                    Technical deep-dives, workshop dispatches, and AI insights curated by our automated agent.
+                  </p>
+                </div>
+                <div className="mt-5 flex items-center gap-1.5 text-xs font-bold text-[#70b5f9] group-hover:underline">
+                  <span>Read Blogs</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+              </Link>
             </div>
           </div>
         </section>
-
-        {/* 6. AI-Powered LinkedIn Community Dispatches / Blog Section */}
-        <BlogSection posts={blogPosts} />
       </main>
       <Footer />
     </div>

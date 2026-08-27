@@ -9,6 +9,7 @@ const quickLinks = [
   { href: "/winners", label: "Event Winners" },
   { href: "/projects", label: "Research Projects" },
   { href: "/achievements", label: "Awards & Accolades" },
+  { href: "/blogs", label: "Community Blogs" },
   { href: "/about", label: "About Us" },
 ];
 

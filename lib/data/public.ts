@@ -136,8 +136,8 @@ export const getHierarchyMembers = cache(async () => {
       });
 
       const isPresident = p.role === "president" || (p.full_name && p.full_name.toLowerCase().includes("president") && !p.full_name.toLowerCase().includes("vice"));
-      const isPanel = !isPresident && (p.role === "vice_president" || p.full_name?.toLowerCase().includes("secretary") || p.full_name?.toLowerCase().includes("coordinator") || p.role.includes("panel"));
-      const isLead = !isPresident && !isPanel && (p.role.includes("lead") || p.full_name?.toLowerCase().includes("lead"));
+      const isPanel = !isPresident && (p.role === "vice_president" || p.full_name?.toLowerCase().includes("secretary") || p.full_name?.toLowerCase().includes("coordinator") || p.role?.includes("panel"));
+      const isLead = !isPresident && !isPanel && (p.role?.includes("lead") || p.full_name?.toLowerCase().includes("lead"));
       const tier = isPresident ? "president" : isPanel ? "panel" : isLead ? "lead" : "core";
 
       const primaryRoleObj = sortedRoles[0];
@@ -149,8 +149,12 @@ export const getHierarchyMembers = cache(async () => {
       const normalizedAvatar = normalizeDriveImageUrl(rawAvatar);
 
       return {
+        id: p.id,
         name: p.assigned_to_name || p.full_name,
         roleTitle: p.full_name,
+        rawRole: p.role,
+        primaryTeam: primaryRoleObj?.team || "",
+        primaryPosition: primaryRoleObj?.position || "",
         secondaryRole: hasVolunteer ? "Volunteer / Event Scanner" : "General Operations",
         teamName: teamFormatted,
         email: p.email,

@@ -98,7 +98,7 @@ export const APPROVED_BTECH_BRANCHES = [
 ] as const;
 
 /**
- * Approved M.Tech & Integrated M.Tech Branches for VIT Bhopal (from Schools List: SCSE, SEEE, SASL)
+ * Approved M.Tech & Integrated M.Tech Branches for VIT Bhopal (from Schools List: SCSE, SCAI, SEEE, SBE, SASL)
  */
 export const APPROVED_MTECH_BRANCHES = [
   "MTECH CSE (AI & Data Science)",
@@ -106,15 +106,102 @@ export const APPROVED_MTECH_BRANCHES = [
   "MTECH CSE (Computational & Data Science)",
   "MTECH VLSI Design",
   "Integrated MTECH CSE (AI & ML)",
-  "Integrated MTECH CSE (Cyber Security)",
+  "Integrated MTECH CSE (Cyber Security & Digital Forensics)",
   "Integrated MTECH CSE (Computational & Data Science)",
   "Integrated MTECH Software Engineering",
+  "Integrated MTECH AI & Bioinformatics",
 ] as const;
 
 export const ALL_APPROVED_BRANCHES = [
   ...APPROVED_BTECH_BRANCHES,
   ...APPROVED_MTECH_BRANCHES,
 ] as const;
+
+export function isBTechBranch(branchName: string): boolean {
+  const norm = (branchName || "").toLowerCase().trim();
+  return (
+    APPROVED_BTECH_BRANCHES.some((b) => b.toLowerCase() === norm) ||
+    norm.startsWith("btech") ||
+    norm.startsWith("b.tech")
+  );
+}
+
+export function isMTechBranch(branchName: string): boolean {
+  const norm = (branchName || "").toLowerCase().trim();
+  return (
+    APPROVED_MTECH_BRANCHES.some((b) => b.toLowerCase() === norm) ||
+    norm.startsWith("mtech") ||
+    norm.startsWith("m.tech") ||
+    norm.includes("integrated mtech") ||
+    norm.includes("integrated m.tech")
+  );
+}
+
+/**
+ * Strict server-side and client-side Event Eligibility Validator
+ */
+export function validateEventEligibility(
+  branchName: string,
+  allowedDegrees?: string[] | null,
+  allowedBranches?: string[] | null
+): { valid: boolean; error?: string } {
+  const cleanBranch = (branchName || "").trim();
+  if (!cleanBranch) {
+    return { valid: false, error: "Please select an eligible branch." };
+  }
+
+  // 1. Check if branch is recognized in VIT Bhopal official branches list
+  const isRecognized = ALL_APPROVED_BRANCHES.some(
+    (b) => b.toLowerCase() === cleanBranch.toLowerCase()
+  );
+  if (!isRecognized) {
+    return {
+      valid: false,
+      error: `The branch "${cleanBranch}" is not a recognized VIT Bhopal academic program.`,
+    };
+  }
+
+  // 2. Validate degree eligibility (default is both B.Tech and M.Tech if not specified)
+  const effectiveDegrees =
+    allowedDegrees && allowedDegrees.length > 0
+      ? allowedDegrees.map((d) => d.toLowerCase())
+      : ["b.tech", "m.tech", "btech", "mtech"];
+
+  const isBTech = isBTechBranch(cleanBranch);
+  const isMTech = isMTechBranch(cleanBranch);
+
+  const allowsBTech = effectiveDegrees.some((d) => d.includes("b.tech") || d.includes("btech"));
+  const allowsMTech = effectiveDegrees.some((d) => d.includes("m.tech") || d.includes("mtech"));
+
+  if (isBTech && !allowsBTech) {
+    return {
+      valid: false,
+      error: "This event is exclusively open to M.Tech & Integrated M.Tech students. B.Tech students are not eligible for this event.",
+    };
+  }
+
+  if (isMTech && !allowsMTech) {
+    return {
+      valid: false,
+      error: "This event is exclusively open to B.Tech students. M.Tech students are not eligible for this event.",
+    };
+  }
+
+  // 3. Validate specific branch whitelist if configured by admin
+  if (allowedBranches && allowedBranches.length > 0) {
+    const isBranchAllowed = allowedBranches.some(
+      (ab) => ab.toLowerCase() === cleanBranch.toLowerCase()
+    );
+    if (!isBranchAllowed) {
+      return {
+        valid: false,
+        error: `Your branch "${cleanBranch}" is not eligible for this specific event track.`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Student Registration Schema

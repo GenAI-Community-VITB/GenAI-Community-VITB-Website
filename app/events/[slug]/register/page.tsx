@@ -145,7 +145,11 @@ export default async function EventRegistrationPage(props: {
               <Tag className="h-4 w-4 text-[#f5b642] shrink-0" />
               <div className="min-w-0">
                 <span className="text-[10px] text-zinc-500 uppercase block font-semibold">Eligibility:</span>
-                <span className="text-white font-medium truncate block">VIT Bhopal B.Tech Students</span>
+                <span className="text-white font-medium truncate block">
+                  {event.allowed_degrees && event.allowed_degrees.length === 1
+                    ? `VIT Bhopal ${event.allowed_degrees[0]} Only`
+                    : "VIT Bhopal B.Tech & M.Tech"}
+                </span>
               </div>
             </div>
           </div>

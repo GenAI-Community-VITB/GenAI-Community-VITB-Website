@@ -54,6 +54,13 @@ function doPost(e) {
       ).setMimeType(ContentService.MimeType.JSON);
     }
 
+    // 3. Failsafe Automated Registration Google Form Logger
+    if (action === "failsafe_registration_form_submit") {
+      const result = handleFailsafeRegistrationFormSubmit(payload.data || payload);
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: "Unknown action: " + action })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -270,5 +277,69 @@ function syncTeamsDropdown() {
     }
   } catch (err) {
     Logger.log("Error in syncTeamsDropdown: " + err.toString());
+  }
+}
+
+/**
+ * Handles automated failsafe registration submission.
+ * Logs the full student registration directly into the active Google Sheet / Form Responses tab.
+ */
+function handleFailsafeRegistrationFormSubmit(regData) {
+  try {
+    if (!regData) {
+      return { success: false, error: "Missing registration payload" };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("Form Responses (Failsafe)") || ss.getSheetByName("Form Responses 1") || ss.getSheetByName("Registrations");
+
+    if (!sheet) {
+      sheet = ss.insertSheet("Form Responses (Failsafe)");
+      sheet.appendRow([
+        "Timestamp (IST)",
+        "Registration ID",
+        "Registration Number",
+        "Event Title",
+        "Full Name",
+        "VIT Reg Number",
+        "Branch",
+        "Personal Email",
+        "College Email",
+        "Phone Number",
+        "Amount (INR)",
+        "Transaction ID",
+        "Payment Proof Link",
+        "Source",
+      ]);
+    }
+
+    const row = [
+      regData.timestamp || Utilities.formatDate(new Date(), "Asia/Kolkata", "yyyy-MM-dd HH:mm:ss"),
+      regData.registrationId || "",
+      regData.registrationNumber || "",
+      regData.eventTitle || "",
+      regData.fullName || "",
+      regData.vitRegistrationNumber || "",
+      regData.branchName || "",
+      regData.personalEmail || "",
+      regData.collegeEmail || "",
+      regData.phoneNumber || "",
+      regData.amount || 0,
+      regData.transactionId || "",
+      regData.driveViewUrl || regData.driveFileId || "",
+      regData.registrationSource || "online",
+    ];
+
+    sheet.appendRow(row);
+    Logger.log("Failsafe registration logged: " + JSON.stringify(row));
+
+    return {
+      success: true,
+      message: "Registration successfully recorded into Google Form failsafe backup.",
+      registrationNumber: regData.registrationNumber,
+    };
+  } catch (err) {
+    Logger.log("Error in handleFailsafeRegistrationFormSubmit: " + err.toString());
+    return { success: false, error: err.toString() };
   }
 }

@@ -2,8 +2,8 @@ import { Footer } from "@/components/site/footer";
 import { Navbar } from "@/components/site/navbar";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Users } from "lucide-react";
-import { LinkedinIcon } from "@/components/ui/icons";
+import { ChevronLeft, Users, Mail } from "lucide-react";
+import { LinkedinIcon, GithubIcon } from "@/components/ui/icons";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -112,13 +112,14 @@ export default async function TeamMembersPage({ params }: TeamPageParams) {
   );
 }
 
-// ─── Member Card ──────────────────────────────────────────────────────────────
-
 interface MemberData {
   id: string;
   name: string;
   role: string;
   position: string;
+  official_email?: string | null;
+  email?: string | null;
+  github_url?: string | null;
   linkedin_url: string | null;
   image_url: string | null;
 }
@@ -133,63 +134,101 @@ function MemberCard({ member }: { member: MemberData }) {
     .toUpperCase();
 
   const normalizedImage = normalizeDriveImageUrl(member.image_url);
+  const vitEmail = (member.official_email || member.email || "").trim();
+  const hasVitEmail = vitEmail.endsWith("@vitbhopal.ac.in");
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#222] bg-[#0d0d0d] shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#f5b642]/40 hover:shadow-[0_12px_40px_rgba(245,182,66,0.10)]">
-      {/* Top shimmer on hover */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f5b642] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      />
+    <article className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#222] bg-[#0d0d0d] shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#f5b642]/40 hover:shadow-[0_12px_40px_rgba(245,182,66,0.10)]">
+      <div>
+        {/* Top shimmer on hover */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f5b642] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        />
 
-      {/* Photo / Avatar area */}
-      <div className="relative h-52 w-full overflow-hidden bg-[#111] border-b border-[#1e1e1e]">
-        {normalizedImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={normalizedImage}
-            alt={`${member.name} photo`}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          // Fallback avatar with initials
-          <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,_rgba(245,182,66,0.12),_transparent_65%),_#111]">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#f5b642]/30 bg-[#1a1710] text-2xl font-bold text-[#f5b642]">
-              {initials}
+        {/* Photo / Avatar area */}
+        <div className="relative h-52 w-full overflow-hidden bg-[#111] border-b border-[#1e1e1e]">
+          {normalizedImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={normalizedImage}
+              alt={`${member.name} photo`}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            // Fallback avatar with initials
+            <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,_rgba(245,182,66,0.12),_transparent_65%),_#111]">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#f5b642]/30 bg-[#1a1710] text-2xl font-bold text-[#f5b642]">
+                {initials}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-1 flex-col p-5 space-y-2">
+          {/* Name */}
+          <h2 className="text-lg font-semibold leading-snug text-white transition-colors duration-200 group-hover:text-[#f5b642]">
+            {member.name}
+          </h2>
+
+          {/* Role badge */}
+          <span className="inline-flex w-fit items-center rounded-full border border-[#f5b642]/20 bg-[#f5b642]/8 px-2.5 py-0.5 text-xs font-medium text-[#f5b642]">
+            {member.role}
+          </span>
+
+          {/* Position */}
+          <p className="text-xs font-medium text-[#bbb]">
+            {member.position}
+          </p>
+
+          {/* Official VIT Email (if present) */}
+          {hasVitEmail && (
+            <p className="text-[11px] text-zinc-400 font-mono flex items-center gap-1.5 pt-1 truncate" title={vitEmail}>
+              <Mail className="h-3.5 w-3.5 text-[#f5b642] shrink-0" />
+              <span className="truncate">{vitEmail}</span>
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-1 flex-col p-5">
-        {/* Name */}
-        <h2 className="text-lg font-semibold leading-snug text-white transition-colors duration-200 group-hover:text-[#f5b642]">
-          {member.name}
-        </h2>
+      {/* Social and Contact Links Footer */}
+      <div className="p-5 pt-0">
+        {(member.linkedin_url || member.github_url || hasVitEmail) && (
+          <div className="border-t border-[#1e1e1e] pt-3.5 flex items-center gap-2">
+            {hasVitEmail && (
+              <a
+                href={`mailto:${vitEmail}`}
+                className="inline-flex items-center justify-center rounded-xl bg-amber-500/10 p-2 text-amber-400 transition hover:bg-amber-500/20 hover:text-white"
+                title={`Email ${member.name} (${vitEmail})`}
+              >
+                <Mail className="h-4 w-4" />
+              </a>
+            )}
 
-        {/* Role badge */}
-        <span className="mt-2 inline-flex w-fit items-center rounded-full border border-[#f5b642]/20 bg-[#f5b642]/8 px-2.5 py-0.5 text-xs font-medium text-[#f5b642]">
-          {member.role}
-        </span>
+            {member.github_url && member.github_url.trim() !== "" && (
+              <a
+                href={member.github_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-xl bg-zinc-800/80 p-2 text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
+                title="GitHub Profile"
+              >
+                <GithubIcon className="h-4 w-4" />
+              </a>
+            )}
 
-        {/* Position */}
-        <p className="mt-2 text-sm font-medium text-[#bbb]">
-          {member.position}
-        </p>
-
-        {/* LinkedIn URL */}
-        {member.linkedin_url && (
-          <div className="mt-4 border-t border-[#1e1e1e] pt-4">
-            <a
-              href={member.linkedin_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-xl bg-[#0077b5]/10 p-2 text-[#0077b5] transition hover:bg-[#0077b5]/20 hover:text-white"
-              title="LinkedIn Profile"
-            >
-              <LinkedinIcon className="h-4 w-4 text-[#0077b5]" />
-            </a>
+            {member.linkedin_url && member.linkedin_url.trim() !== "" && (
+              <a
+                href={member.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-xl bg-[#0077b5]/10 p-2 text-[#0077b5] transition hover:bg-[#0077b5]/20 hover:text-white"
+                title="LinkedIn Profile"
+              >
+                <LinkedinIcon className="h-4 w-4 text-[#0077b5]" />
+              </a>
+            )}
           </div>
         )}
       </div>

@@ -636,11 +636,11 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                       : scanState.stage === "verified_pending_approval"
                         ? "VERIFIED — READY TO CONFIRM"
                         : scanState.isAlreadyCheckedIn
-                          ? "DUPLICATE ENTRY"
+                          ? "ALREADY SCANNED"
                           : "PASS INVALID"}
                   </span>
                   <h3 className="text-base font-extrabold text-white leading-tight mt-0.5">
-                    {scanState.message}
+                    {scanState.isAlreadyCheckedIn ? "ALREADY SCANNED: Pass Already Checked In" : scanState.message}
                   </h3>
                 </div>
               </div>

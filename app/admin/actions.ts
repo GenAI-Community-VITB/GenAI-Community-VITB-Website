@@ -608,6 +608,31 @@ export async function upsertEvent(formData: FormData) {
   const supabase = createAdminSupabase();
   const eventPayload: Record<string, unknown> = { ...parsed.data };
 
+  // Parse allowed degrees & branches for event eligibility
+  const allowedDegreesRaw = formString(formData, "allowed_degrees");
+  if (allowedDegreesRaw) {
+    try {
+      const parsedDegs = JSON.parse(allowedDegreesRaw);
+      eventPayload.allowed_degrees = Array.isArray(parsedDegs) && parsedDegs.length > 0
+        ? parsedDegs
+        : ["B.Tech", "M.Tech"];
+    } catch {
+      const splitDegs = allowedDegreesRaw.split(",").map((d) => d.trim()).filter(Boolean);
+      eventPayload.allowed_degrees = splitDegs.length > 0 ? splitDegs : ["B.Tech", "M.Tech"];
+    }
+  } else {
+    eventPayload.allowed_degrees = ["B.Tech", "M.Tech"];
+  }
+
+  const allowedBranchesRaw = formString(formData, "allowed_branches");
+  if (allowedBranchesRaw) {
+    try {
+      eventPayload.allowed_branches = JSON.parse(allowedBranchesRaw);
+    } catch {
+      eventPayload.allowed_branches = allowedBranchesRaw.split(",").map((b) => b.trim()).filter(Boolean);
+    }
+  }
+
   let result: any = null;
 
   if (isEdit) {
@@ -870,6 +895,7 @@ export async function updateUserProfileAvatarAction(formData: FormData) {
     }
   } catch {}
 
+  revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/users");
   revalidatePath("/team");

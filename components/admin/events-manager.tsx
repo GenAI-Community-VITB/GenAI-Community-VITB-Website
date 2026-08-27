@@ -110,6 +110,8 @@ export function EventsManager({
   const [upiId, setUpiId] = useState("genai.community@okaxis");
   const [registerUrl, setRegisterUrl] = useState("");
   const [guidelines, setGuidelines] = useState("");
+  const [allowBTech, setAllowBTech] = useState(true);
+  const [allowMTech, setAllowMTech] = useState(true);
   const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -147,6 +149,8 @@ export function EventsManager({
     setEventStartTime("");
     setEventEndTime("");
     setIsRegistrationOpen(true);
+    setAllowBTech(true);
+    setAllowMTech(true);
     setUpiId("genai.community@okaxis");
     setRegisterUrl("");
     setGuidelines("");
@@ -170,6 +174,13 @@ export function EventsManager({
     setEventStartTime(item.event_start_time || "");
     setEventEndTime(item.event_end_time || "");
     setIsRegistrationOpen(item.is_registration_open ?? true);
+
+    const degs = item.allowed_degrees && item.allowed_degrees.length > 0
+      ? item.allowed_degrees
+      : ["B.Tech", "M.Tech"];
+    setAllowBTech(degs.some((d) => d.toLowerCase().includes("b.tech") || d.toLowerCase().includes("btech")));
+    setAllowMTech(degs.some((d) => d.toLowerCase().includes("m.tech") || d.toLowerCase().includes("mtech")));
+
     setUpiId(item.upi_id || "genai.community@okaxis");
     setRegisterUrl(item.register_url || "");
     setGuidelines(
@@ -189,6 +200,11 @@ export function EventsManager({
     e.preventDefault();
     setMessage(null);
 
+    if (!allowBTech && !allowMTech) {
+      setMessage({ type: "error", text: "Please select at least one eligible degree (B.Tech or M.Tech)." });
+      return;
+    }
+
     startTransition(async () => {
       try {
         const fd = new FormData();
@@ -205,6 +221,7 @@ export function EventsManager({
         if (eventStartTime) fd.append("event_start_time", eventStartTime.trim());
         if (eventEndTime) fd.append("event_end_time", eventEndTime.trim());
         fd.append("is_registration_open", isRegistrationOpen ? "true" : "false");
+        fd.append("allowed_degrees", JSON.stringify([allowBTech && "B.Tech", allowMTech && "M.Tech"].filter(Boolean)));
         if (upiId) fd.append("upi_id", upiId.trim());
         if (registerUrl) fd.append("register_url", registerUrl.trim());
         if (guidelines) fd.append("guidelines", guidelines.trim());
@@ -715,6 +732,36 @@ export function EventsManager({
                     className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Degree Eligibility Configuration */}
+              <div className="rounded-2xl border border-[#332714] bg-[#16120b] p-3.5 space-y-2">
+                <label className="text-xs font-bold text-[#f5b642] block">
+                  Eligible Academic Degrees *
+                </label>
+                <div className="flex flex-wrap gap-5 text-xs text-zinc-200">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allowBTech}
+                      onChange={(e) => setAllowBTech(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-[#f5b642] focus:ring-[#f5b642] cursor-pointer"
+                    />
+                    <span>B.Tech Students</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allowMTech}
+                      onChange={(e) => setAllowMTech(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-[#f5b642] focus:ring-[#f5b642] cursor-pointer"
+                    />
+                    <span>M.Tech & Integrated M.Tech Students</span>
+                  </label>
+                </div>
+                <p className="text-[10.5px] text-zinc-500">
+                  Based on official VIT Bhopal Schools (SCSE, SCAI, SEEE, SBE, SASL). Registrations from unauthorized degrees are strictly blocked.
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-1">

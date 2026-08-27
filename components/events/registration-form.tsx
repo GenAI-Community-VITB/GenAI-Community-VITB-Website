@@ -2,8 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Branch, Event } from "@/lib/types";
-import { ALL_APPROVED_BRANCHES, APPROVED_BTECH_BRANCHES, APPROVED_MTECH_BRANCHES } from "@/lib/validation";
-import { AlertCircle, Check, CheckCircle2, ChevronDown, Clock, FileText, GraduationCap, Info, Loader2, ShieldCheck, Upload } from "lucide-react";
+import {
+  ALL_APPROVED_BRANCHES,
+  APPROVED_BTECH_BRANCHES,
+  APPROVED_MTECH_BRANCHES,
+  validateEventEligibility,
+  isBTechBranch,
+  isMTechBranch,
+} from "@/lib/validation";
+import { AlertCircle, Check, CheckCircle2, ChevronDown, Clock, FileText, GraduationCap, Info, Loader2, ShieldCheck, Upload, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 interface RegistrationFormProps {
@@ -32,6 +39,14 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
   const [transactionId, setTransactionId] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+
+  // Determine allowed degrees for this event
+  const allowedDegrees = event.allowed_degrees && event.allowed_degrees.length > 0
+    ? event.allowed_degrees
+    : ["B.Tech", "M.Tech"];
+
+  const allowsBTech = allowedDegrees.some((d) => d.toLowerCase().includes("b.tech") || d.toLowerCase().includes("btech"));
+  const allowsMTech = allowedDegrees.some((d) => d.toLowerCase().includes("m.tech") || d.toLowerCase().includes("mtech"));
 
   // Close branch dropdown on outside click
   useEffect(() => {
@@ -87,6 +102,23 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
     const cleanVit = vitReg.trim().toUpperCase();
     if (!/^[0-9]{2}[A-Za-z]{3}[0-9]{5}$/.test(cleanVit)) {
       setError("Please enter a valid VIT registration number such as 24XXX11111.");
+      return;
+    }
+
+    if (!branch) {
+      setError("Please select your academic branch / program.");
+      return;
+    }
+
+    // Strict Event Eligibility Check
+    const eligibilityCheck = validateEventEligibility(
+      branch,
+      event.allowed_degrees,
+      event.allowed_branches
+    );
+
+    if (!eligibilityCheck.valid) {
+      setError(eligibilityCheck.error || "You are not eligible for this event.");
       return;
     }
 
@@ -288,9 +320,24 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
           </div>
 
           <div className="space-y-2 relative" ref={dropdownRef}>
-            <label className="text-xs font-semibold tracking-wider text-zinc-300 uppercase" htmlFor="branch_name">
-              Branch (B.Tech & M.Tech Eligible) <span className="text-[#f5b642]">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold tracking-wider text-zinc-300 uppercase" htmlFor="branch_name">
+                Branch / Program <span className="text-[#f5b642]">*</span>
+              </label>
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                allowsBTech && allowsMTech
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                  : allowsBTech
+                    ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                    : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+              }`}>
+                {allowsBTech && allowsMTech
+                  ? "B.Tech & M.Tech Eligible"
+                  : allowsBTech
+                    ? "B.Tech Eligible Only"
+                    : "M.Tech Eligible Only"}
+              </span>
+            </div>
 
             {/* Custom Styled Branch Selector */}
             <div className="relative">
@@ -321,60 +368,82 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
               {branchDropdownOpen && (
                 <div className="absolute left-0 top-full mt-2 w-full max-h-64 overflow-y-auto rounded-2xl border-2 border-[#f5b642]/80 bg-[#120e09] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] z-50 divide-y divide-[#221c13]">
                   {/* B.Tech Section */}
-                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f5b642]/80 font-mono bg-black/40">
-                    B.Tech Programmes
-                  </div>
-                  {APPROVED_BTECH_BRANCHES.map((bName) => {
-                    const isSelected = branch === bName;
-                    return (
-                      <button
-                        key={bName}
-                        type="button"
-                        onClick={() => {
-                          setBranch(bName);
-                          setBranchDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-xs text-left transition font-mono ${
-                          isSelected
-                            ? "bg-[#2a2012] text-[#f5b642] font-bold"
-                            : "text-zinc-300 hover:bg-[#1a140d] hover:text-white"
-                        }`}
-                      >
-                        <span className="truncate">{bName}</span>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-[#f5b642] shrink-0 ml-2" />}
-                      </button>
-                    );
-                  })}
+                  {allowsBTech && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f5b642]/80 font-mono bg-black/40 flex items-center justify-between">
+                        <span>B.Tech Programmes</span>
+                        <span className="text-emerald-400 text-[9px]">Eligible</span>
+                      </div>
+                      {APPROVED_BTECH_BRANCHES.map((bName) => {
+                        const isSelected = branch === bName;
+                        return (
+                          <button
+                            key={bName}
+                            type="button"
+                            onClick={() => {
+                              setBranch(bName);
+                              setBranchDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-xs text-left transition font-mono ${
+                              isSelected
+                                ? "bg-[#2a2012] text-[#f5b642] font-bold"
+                                : "text-zinc-300 hover:bg-[#1a140d] hover:text-white"
+                            }`}
+                          >
+                            <span className="truncate">{bName}</span>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-[#f5b642] shrink-0 ml-2" />}
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
 
                   {/* M.Tech Section */}
-                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400/80 font-mono bg-black/40">
-                    M.Tech & Integrated Programmes
-                  </div>
-                  {APPROVED_MTECH_BRANCHES.map((bName) => {
-                    const isSelected = branch === bName;
-                    return (
-                      <button
-                        key={bName}
-                        type="button"
-                        onClick={() => {
-                          setBranch(bName);
-                          setBranchDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-xs text-left transition font-mono ${
-                          isSelected
-                            ? "bg-[#2a2012] text-[#f5b642] font-bold"
-                            : "text-zinc-300 hover:bg-[#1a140d] hover:text-white"
-                        }`}
-                      >
-                        <span className="truncate">{bName}</span>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-[#f5b642] shrink-0 ml-2" />}
-                      </button>
-                    );
-                  })}
+                  {allowsMTech && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400/80 font-mono bg-black/40 flex items-center justify-between">
+                        <span>M.Tech & Integrated Programmes</span>
+                        <span className="text-emerald-400 text-[9px]">Eligible</span>
+                      </div>
+                      {APPROVED_MTECH_BRANCHES.map((bName) => {
+                        const isSelected = branch === bName;
+                        return (
+                          <button
+                            key={bName}
+                            type="button"
+                            onClick={() => {
+                              setBranch(bName);
+                              setBranchDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-xs text-left transition font-mono ${
+                              isSelected
+                                ? "bg-[#2a2012] text-[#f5b642] font-bold"
+                                : "text-zinc-300 hover:bg-[#1a140d] hover:text-white"
+                            }`}
+                          >
+                            <span className="truncate">{bName}</span>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-[#f5b642] shrink-0 ml-2" />}
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {!allowsBTech && (
+                    <div className="px-3 py-2 text-[10px] text-zinc-500 italic bg-zinc-950/60">
+                      ℹ B.Tech programmes are not eligible for this event track.
+                    </div>
+                  )}
+
+                  {!allowsMTech && (
+                    <div className="px-3 py-2 text-[10px] text-zinc-500 italic bg-zinc-950/60">
+                      ℹ M.Tech programmes are not eligible for this event track.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <p className="text-[11px] text-zinc-500">Official recognized VIT Bhopal engineering branches (B.Tech & M.Tech).</p>
+            <p className="text-[11px] text-zinc-500">Official recognized VIT Bhopal engineering programs (B.Tech & M.Tech).</p>
           </div>
         </div>
 

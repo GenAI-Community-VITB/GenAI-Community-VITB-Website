@@ -24,6 +24,7 @@ import {
   Medal,
   Clock,
   UserCheck,
+  Share2,
 } from "lucide-react";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
 import { TeamsManager } from "@/components/admin/teams-manager";
@@ -40,7 +41,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type TabId = "teams" | "events" | "projects" | "achievements" | "winners";
 
-const tabs: { id: TabId; label: string; icon: typeof Network }[] = [
+const tabs: { id: TabId; label: string; icon: any }[] = [
   { id: "teams", label: "Teams", icon: Network },
   { id: "events", label: "Events", icon: Calendar },
   { id: "projects", label: "Projects", icon: FolderKanban },
