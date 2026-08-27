@@ -1162,19 +1162,62 @@ export async function exportAttendanceDataAction(eventId: string) {
 }
 
 /**
- * Fetches all active community staff members for volunteer assignment modal.
+ * Fetches all 50 active community club members for volunteer assignment modal.
  */
 export async function getAllStaffMembersAction(): Promise<{ success: boolean; members: UserProfile[] }> {
   try {
     const supabase = createAdminSupabase();
-    const { data, error } = await supabase
-      .from("user_profiles")
-      .select("id, email, full_name, assigned_to_name, role, is_active, avatar_url, roles:member_roles(team, position)")
-      .eq("is_active", true)
-      .order("assigned_to_name", { ascending: true });
+    const [profilesRes, membersRes] = await Promise.all([
+      supabase
+        .from("user_profiles")
+        .select("id, email, full_name, assigned_to_name, role, is_active, avatar_url, roles:member_roles(team, position)")
+        .order("assigned_to_name", { ascending: true }),
+      supabase
+        .from("members")
+        .select("id, name, role, position, official_email, team_id, teams(name, slug)")
+        .order("name", { ascending: true }),
+    ]);
 
-    if (error) throw error;
-    return { success: true, members: (data as any[]) || [] };
+    const profiles = (profilesRes.data as any[]) || [];
+    const members = (membersRes.data as any[]) || [];
+
+    const memberMap = new Map<string, UserProfile>();
+
+    // 1. Add all active user_profiles
+    profiles.forEach((p) => {
+      if (p.is_active !== false) {
+        memberMap.set(p.id, p);
+      }
+    });
+
+    // 2. Cross-reference with members table to ensure all 50 members are present
+    members.forEach((m) => {
+      // Find if already present by email or name
+      const existing = Array.from(memberMap.values()).find(
+        (p) =>
+          (p.email && m.official_email && p.email.toLowerCase() === m.official_email.toLowerCase()) ||
+          (p.assigned_to_name && p.assigned_to_name.toLowerCase() === m.name.toLowerCase()) ||
+          (p.full_name && p.full_name.toLowerCase() === m.name.toLowerCase())
+      );
+
+      if (!existing) {
+        memberMap.set(m.id, {
+          id: m.id,
+          email: m.official_email || `${m.name.toLowerCase().replace(/\s+/g, ".")}@vitbhopal.ac.in`,
+          full_name: m.name,
+          assigned_to_name: m.name,
+          role: m.role || "core_member",
+          is_active: true,
+          roles: [{ team: m.teams?.slug || "general", position: m.position || m.role || "Core Member" }],
+        } as any);
+      }
+    });
+
+    const result = Array.from(memberMap.values()).sort((a, b) =>
+      (a.assigned_to_name || a.full_name || "").localeCompare(b.assigned_to_name || b.full_name || "")
+    );
+
+    return { success: true, members: result };
   } catch (err: any) {
     console.error("Error fetching staff members for volunteer assignment:", err);
     return { success: false, members: [] };
