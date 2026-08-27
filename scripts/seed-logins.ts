@@ -517,25 +517,38 @@ function generateUniquePassword(item: MemberRosterItem, index: number): string {
 }
 
 export async function seedLogins() {
-  const ALLOWED_LOGIN_TEAMS = ["panel", "technical_team", "aiml_innovation_team", "human_resources"];
-  const ALLOWED_LOGIN_ROLES = ["president", "vice_president", "technical_lead", "technical_co_lead", "tech", "aiml_lead", "aiml_co_lead", "hr_lead", "hr_co_lead"];
+  const ALLOWED_LOGIN_TEAMS = ["technical_team", "aiml_innovation_team", "finance_team"];
+  const ALLOWED_LOGIN_ROLES = [
+    "president",
+    "vice_president",
+    "technical_lead",
+    "technical_co_lead",
+    "tech",
+    "aiml_lead",
+    "aiml_co_lead",
+    "finance_lead",
+    "finance_co_lead",
+    "finance",
+  ];
 
   const activeLoginsRoster = ROSTER_2026.filter((item) => {
     if (item.email === "lakshya.24bce10549@vitbhopal.ac.in") return true;
-    if (item.position === "president" || item.position === "vice_president") return true;
-    return (
-      (ALLOWED_LOGIN_TEAMS.includes(item.team) && (item.team !== "panel" || item.position === "president" || item.position === "vice_president")) ||
-      ALLOWED_LOGIN_ROLES.includes(item.primaryRole)
-    );
+    if (item.position === "president" || item.position === "vice_president" || item.primaryRole === "president" || item.primaryRole === "vice_president") return true;
+    if (ALLOWED_LOGIN_TEAMS.includes(item.team)) return true;
+    if (ALLOWED_LOGIN_ROLES.includes(item.primaryRole)) return true;
+    return false;
   });
 
-  let createdCount = 0;
-  let updatedCount = 0;
-  let errorCount = 0;
+  console.log(`Active login accounts to process (President, VP, Tech Team, AI/ML Team, Finance Team): ${activeLoginsRoster.length}`);
+  console.log("============================================================\n");
 
   // Fetch all existing users with large perPage to cover entire roster
   const { data: existingUsersRes } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const existingUsers = existingUsersRes?.users || [];
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let errorCount = 0;
 
   const credentialsLog: Array<{ name: string; email: string; role: string; pass: string }> = [];
 

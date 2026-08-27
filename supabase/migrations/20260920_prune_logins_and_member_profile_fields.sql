@@ -2,7 +2,8 @@
 -- Migration: 20260920_prune_logins_and_member_profile_fields.sql
 -- Description:
 -- 1. Add official_email and github_url to public.members table.
--- 2. Restrict active admin login accounts strictly to President, VP, Technical, AIML, and HR.
+-- 2. Restrict active admin login accounts strictly to President, VP, Technical Team,
+--    AI/ML Innovation Team, and Finance Team (excludes HR and all other non-technical/non-finance roles).
 --    (Preserves all 51 team members in public.members for the website).
 -- ============================================================================
 
@@ -11,7 +12,7 @@ ALTER TABLE public.members
 ADD COLUMN IF NOT EXISTS official_email text,
 ADD COLUMN IF NOT EXISTS github_url text;
 
--- 2. Prune login roles for users outside President, VP, Tech, AIML, and HR
+-- 2. Prune login roles for users outside President, VP, Tech, AIML, and Finance
 DELETE FROM public.member_roles
 WHERE user_id IN (
   SELECT id FROM public.user_profiles
@@ -23,9 +24,9 @@ WHERE user_id IN (
     'tech',
     'aiml_lead',
     'aiml_co_lead',
-    'hr_lead',
-    'hr_co_lead',
-    'human_resources'
+    'finance_lead',
+    'finance_co_lead',
+    'finance'
   )
   AND email NOT IN (
     'lakshya.24bce10549@vitbhopal.ac.in',
@@ -34,7 +35,7 @@ WHERE user_id IN (
   )
 );
 
--- 3. Prune user_profiles for users outside President, VP, Tech, AIML, and HR
+-- 3. Prune user_profiles for users outside President, VP, Tech, AIML, and Finance
 DELETE FROM public.user_profiles
 WHERE role NOT IN (
   'president',
@@ -44,9 +45,9 @@ WHERE role NOT IN (
   'tech',
   'aiml_lead',
   'aiml_co_lead',
-  'hr_lead',
-  'hr_co_lead',
-  'human_resources'
+  'finance_lead',
+  'finance_co_lead',
+  'finance'
 )
 AND email NOT IN (
   'lakshya.24bce10549@vitbhopal.ac.in',
