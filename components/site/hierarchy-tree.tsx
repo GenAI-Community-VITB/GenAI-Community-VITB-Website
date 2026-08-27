@@ -746,6 +746,33 @@ export function MemberHierarchyTree({
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<HierarchyMember | null>(null);
 
+  // Lock body scroll and touch gestures when member modal is opened
+  useEffect(() => {
+    if (selectedMember) {
+      const originalOverflow = document.body.style.overflow;
+      const originalPaddingRight = document.body.style.paddingRight;
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+      document.body.style.overflow = "hidden";
+      if (scrollBarWidth > 0) {
+        document.body.style.paddingRight = `${scrollBarWidth}px`;
+      }
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setSelectedMember(null);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.paddingRight = originalPaddingRight;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [selectedMember]);
+
   // Dynamically hydrate all branches with database profiles and real-time avatars
   const branches = useMemo(() => {
     return TREE_BRANCHES.map((b) => ({
@@ -771,7 +798,7 @@ export function MemberHierarchyTree({
   }, [initialMembers]);
 
   return (
-    <section id="members" className="relative border-b border-[#1e1e1e] py-8 sm:py-12 bg-[#080808] overflow-visible">
+    <section id="members" className={`relative border-b border-[#1e1e1e] py-8 sm:py-12 bg-[#080808] overflow-visible ${activeTeamId ? "z-50" : "z-0"}`}>
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2 h-[700px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_center,_rgba(245,182,66,0.08),_transparent_70%)] blur-3xl" />
 
@@ -861,7 +888,7 @@ export function MemberHierarchyTree({
           {/* ══════════════════════════════════════════════════════════════════════
               DEPARTMENTAL TEAMS GRID WITH CLICK/HOVER RETRACTING MENUS
           ══════════════════════════════════════════════════════════════════════ */}
-          <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative z-10 overflow-visible pt-2">
+          <div className={`w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative overflow-visible pt-2 ${activeTeamId ? "z-[200]" : "z-10"}`}>
             {branches.map((branch, index) => {
               const Icon = branch.icon;
               const isOpen = activeTeamId === branch.id;
@@ -877,7 +904,7 @@ export function MemberHierarchyTree({
               return (
                 <div
                   key={branch.id}
-                  className={`relative flex flex-col transition-all ${isOpen ? "z-[60]" : "z-10"}`}
+                  className={`relative flex flex-col transition-all ${isOpen ? "z-[999]" : "z-10"}`}
                   onMouseEnter={() => setActiveTeamId(branch.id)}
                   onMouseLeave={() => setActiveTeamId(null)}
                 >
@@ -892,7 +919,7 @@ export function MemberHierarchyTree({
                     onClick={() => setActiveTeamId((prev) => (prev === branch.id ? null : branch.id))}
                     className={`group relative flex flex-col justify-between rounded-3xl border p-5 transition-all duration-200 cursor-pointer ${
                       isOpen
-                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-[60]"
+                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-[999]"
                         : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl z-10"
                     }`}
                   >
@@ -943,7 +970,7 @@ export function MemberHierarchyTree({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.98 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
-                        className={`absolute top-full mt-2 w-[290px] sm:w-[330px] max-w-[calc(100vw-2rem)] rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-[100] overflow-hidden flex flex-col ${alignClass}`}
+                        className={`absolute top-full mt-2 w-[290px] sm:w-[330px] max-w-[calc(100vw-2rem)] rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-[1000] overflow-hidden flex flex-col ${alignClass}`}
                       >
                         {/* Header of Pop-out with Close/Retract Button */}
                         <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#221c13] bg-[#120e09] shrink-0">
@@ -1026,14 +1053,16 @@ export function MemberHierarchyTree({
       {/* ── FULL PROFILE MODAL (TRIGGERS ON CLICK) ── */}
       <AnimatePresence>
         {selectedMember && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 overflow-hidden select-none"
+            onClick={() => setSelectedMember(null)}
+          >
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: "linear" }}
-              onClick={() => setSelectedMember(null)}
               className="absolute inset-0 bg-black/85 backdrop-blur-md will-change-[opacity]"
             />
 
@@ -1043,19 +1072,20 @@ export function MemberHierarchyTree({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-full max-w-lg rounded-3xl border-2 border-[#f5b642] bg-[#0d0a07] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.25)] space-y-6 will-change-[transform,opacity] overflow-hidden max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+              className="relative z-10 w-full max-w-lg rounded-3xl border-2 border-[#f5b642] bg-[#0d0a07] p-6 sm:p-7 shadow-[0_30px_100px_rgba(245,182,66,0.35)] space-y-4 will-change-[transform,opacity] overflow-hidden"
             >
               {/* Header Profile Summary with Prominently Enlarged Card Avatar */}
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
                 <HierarchyAvatar
                   name={selectedMember.name}
                   avatarUrl={selectedMember.avatarUrl}
-                  className="h-36 w-36 sm:h-44 sm:w-44 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_35px_rgba(245,182,66,0.45)] shrink-0"
-                  fallbackClassName="flex h-36 w-36 sm:h-44 sm:w-44 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
-                  initialsClassName="font-black text-4xl text-[#f5b642]"
+                  className="h-32 w-32 sm:h-36 sm:w-36 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_35px_rgba(245,182,66,0.45)] shrink-0"
+                  fallbackClassName="flex h-32 w-32 sm:h-36 sm:w-36 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
+                  initialsClassName="font-black text-3xl text-[#f5b642]"
                 />
 
-                <div className="space-y-2 min-w-0 flex-1 break-words">
+                <div className="space-y-1.5 min-w-0 flex-1 break-words">
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-0.5 text-xs font-bold text-amber-300 font-mono uppercase">
                     {selectedMember.teamName}
                   </div>
@@ -1091,7 +1121,7 @@ export function MemberHierarchyTree({
               </div>
 
               {/* Mission Statement */}
-              <div className="rounded-2xl border border-[#2e2618] bg-[#14100b] p-4 text-xs sm:text-sm text-zinc-200 leading-relaxed">
+              <div className="rounded-2xl border border-[#2e2618] bg-[#14100b] p-3.5 text-xs sm:text-sm text-zinc-200 leading-relaxed">
                 <span className="text-[#f5b642] font-bold text-[10px] uppercase block tracking-wider mb-1 font-mono">
                   Focus & Mission Statement:
                 </span>
@@ -1100,13 +1130,13 @@ export function MemberHierarchyTree({
 
               {/* Roles Breakdown */}
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3">
+                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-2.5">
                   <span className="text-zinc-400 block text-[9px] uppercase font-bold">Primary Designation:</span>
-                  <span className="font-bold text-amber-300 block mt-1">{selectedMember.roleTitle}</span>
+                  <span className="font-bold text-amber-300 block mt-0.5">{selectedMember.roleTitle}</span>
                 </div>
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/80 p-3">
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/80 p-2.5">
                   <span className="text-zinc-400 block text-[9px] uppercase font-bold">Secondary Capacity:</span>
-                  <span className="font-semibold text-zinc-200 block mt-1">{selectedMember.secondaryRole || "Volunteer Staff"}</span>
+                  <span className="font-semibold text-zinc-200 block mt-0.5">{selectedMember.secondaryRole || "Volunteer Staff"}</span>
                 </div>
               </div>
 
