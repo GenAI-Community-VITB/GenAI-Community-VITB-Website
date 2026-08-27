@@ -101,16 +101,16 @@ export const getBlogPosts = cache(async (): Promise<BlogPost[]> => {
       .order("published_at", { ascending: false });
 
     if (error || !posts || posts.length === 0) {
-      cachedBlogPosts = { data: AUTHENTIC_PAST_POSTS, timestamp: Date.now() };
-      return AUTHENTIC_PAST_POSTS;
+      cachedBlogPosts = { data: [], timestamp: Date.now() };
+      return [];
     }
 
     const result = posts as BlogPost[];
     cachedBlogPosts = { data: result, timestamp: Date.now() };
     return result;
   } catch {
-    cachedBlogPosts = { data: AUTHENTIC_PAST_POSTS, timestamp: Date.now() };
-    return AUTHENTIC_PAST_POSTS;
+    cachedBlogPosts = { data: [], timestamp: Date.now() };
+    return [];
   }
 });
 
