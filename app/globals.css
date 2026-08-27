@@ -98,10 +98,21 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+section, main, footer {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 600px;
+}
+
 .will-gpu {
-  transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   perspective: 1000px;
+}
+
+/* Reduce composite layer repaint overhead */
+.card, [role="dialog"] {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 @keyframes marquee {

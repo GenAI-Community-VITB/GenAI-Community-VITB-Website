@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, memo } from "react";
 import {
   Crown, Mail,
   Shield,
@@ -41,7 +41,7 @@ export interface HierarchyMember {
   tier?: "president" | "panel" | "lead" | "core";
 }
 
-export function HierarchyAvatar({
+export const HierarchyAvatar = memo(function HierarchyAvatar({
   name,
   avatarUrl,
   className,
@@ -73,6 +73,7 @@ export function HierarchyAvatar({
         className={className || "h-full w-full object-cover"}
         onError={() => setHasError(true)}
         loading="lazy"
+        decoding="async"
       />
     );
   }
@@ -82,7 +83,7 @@ export function HierarchyAvatar({
       <span className={initialsClassName}>{initials}</span>
     </div>
   );
-}
+});
 
 // ── PRESIDENT (ROOT NODE) ──
 const PRESIDENT_MEMBER: HierarchyMember = {
@@ -1048,7 +1049,7 @@ export function MemberHierarchyTree({
 }
 
 // ── PURE HIERARCHY NODE CARD (Idle: Name + Designation | Click: Full Profile Modal) ──
-function TreeNodeCard({
+const TreeNodeCard = memo(function TreeNodeCard({
   member,
   color = "#f5b642",
   badgeText = "Member",
@@ -1143,4 +1144,4 @@ function TreeNodeCard({
       </div>
     </div>
   );
-}
+});

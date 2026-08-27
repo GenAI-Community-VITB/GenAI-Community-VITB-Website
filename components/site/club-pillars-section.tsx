@@ -1,5 +1,6 @@
 "use client";
 
+import React, { memo } from "react";
 import { motion } from "framer-motion";
 import { Lightbulb, Target, Users, Code, Zap } from "lucide-react";
 
@@ -41,14 +42,20 @@ const activities = [
     icon: Code,
   },
   {
-    title: "Hackathons & Technical Events",
-    body: "Competitive multi-tier hackathons, hands-on masterclasses, and keynote sessions challenging students to build enterprise-grade generative systems.",
-    tag: "Hackathons & Sprints",
+    title: "Flagship Hackathons & Competitions",
+    body: "Hosting high-stakes hackathons, competitive sprint tracks, and ideathons bringing together over 1,000+ builders to solve real-world problem statements.",
+    tag: "Technical Events",
     icon: Zap,
+  },
+  {
+    title: "Masterclasses & Architecture Bootcamps",
+    body: "Intensive, practical hands-on workshops breaking down transformer mathematics, RAG pipelines, fine-tuning techniques, and deployment strategies.",
+    tag: "Workshops",
+    icon: Lightbulb,
   },
 ] as const;
 
-export function ClubPillarsSection() {
+export const ClubPillarsSection = memo(function ClubPillarsSection() {
   return (
     <section className="relative overflow-hidden">
       <div className="container-wrap relative space-y-16">
@@ -116,8 +123,8 @@ export function ClubPillarsSection() {
           </p>
         </div>
 
-        {/* Activity Cards: Clean 2-Column Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 max-w-4xl mx-auto">
+        {/* Activity Cards: Clean 3-Column Grid */}
+        <div className="grid gap-6 sm:grid-cols-3 max-w-6xl mx-auto">
           {activities.map(({ title, body, tag, icon: Icon }, i) => (
             <motion.div
               key={title}
@@ -147,4 +154,4 @@ export function ClubPillarsSection() {
       </div>
     </section>
   );
-}
+});

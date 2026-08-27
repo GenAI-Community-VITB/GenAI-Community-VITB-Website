@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { memo, useState, useEffect } from "react";
 import { Sparkles, Quote, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface QuoteItem {
@@ -61,7 +61,7 @@ const VISIONARY_QUOTES: QuoteItem[] = [
   },
 ];
 
-export function QuotesSection() {
+export const QuotesSection = memo(function QuotesSection() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
 
@@ -187,4 +187,4 @@ export function QuotesSection() {
       </div>
     </section>
   );
-}
+});
