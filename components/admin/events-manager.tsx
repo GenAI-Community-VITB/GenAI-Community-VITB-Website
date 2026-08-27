@@ -109,6 +109,7 @@ export function EventsManager({
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
   const [upiId, setUpiId] = useState("genai.community@okaxis");
   const [registerUrl, setRegisterUrl] = useState("");
+  const [googleFormUrl, setGoogleFormUrl] = useState("");
   const [guidelines, setGuidelines] = useState("");
   const [allowBTech, setAllowBTech] = useState(true);
   const [allowMTech, setAllowMTech] = useState(true);
@@ -153,6 +154,7 @@ export function EventsManager({
     setAllowMTech(true);
     setUpiId("genai.community@okaxis");
     setRegisterUrl("");
+    setGoogleFormUrl("");
     setGuidelines("");
     setImageUrl("");
     setImageFile(null);
@@ -183,6 +185,7 @@ export function EventsManager({
 
     setUpiId(item.upi_id || "genai.community@okaxis");
     setRegisterUrl(item.register_url || "");
+    setGoogleFormUrl(item.google_form_url || "");
     setGuidelines(
       Array.isArray(item.guidelines)
         ? item.guidelines.join("\n")
@@ -224,6 +227,7 @@ export function EventsManager({
         fd.append("allowed_degrees", JSON.stringify([allowBTech && "B.Tech", allowMTech && "M.Tech"].filter(Boolean)));
         if (upiId) fd.append("upi_id", upiId.trim());
         if (registerUrl) fd.append("register_url", registerUrl.trim());
+        if (googleFormUrl) fd.append("google_form_url", googleFormUrl.trim());
         if (guidelines) fd.append("guidelines", guidelines.trim());
         if (imageUrl) fd.append("image_url", imageUrl.trim());
         if (imageFile) fd.append("image_file", imageFile);
@@ -802,6 +806,22 @@ export function EventsManager({
                   placeholder="Bring your own laptop&#10;Teams of 2-4 members&#10;Valid VIT Bhopal ID card mandatory"
                   className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none resize-y"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                  Google Form Backup & Direct Form Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={googleFormUrl}
+                  onChange={(e) => setGoogleFormUrl(e.target.value)}
+                  placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                  className="w-full rounded-xl border border-[#332714] bg-[#18140d] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
+                />
+                <p className="text-[10.5px] text-zinc-500 mt-1">
+                  If provided, an alternative direct Google Form link is shown on the event page alongside the automatic site failsafe.
+                </p>
               </div>
 
               <div className="space-y-2">

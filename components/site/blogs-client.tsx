@@ -104,21 +104,36 @@ export function BlogsClient({ posts }: BlogsClientProps) {
 
       {/* Posts Grid */}
       {filteredPosts.length === 0 ? (
-        <div className="rounded-3xl border border-[#2a2216] bg-[#100d08] p-12 text-center space-y-3 max-w-md mx-auto">
-          <BookOpen className="h-10 w-10 text-zinc-600 mx-auto" />
-          <h3 className="text-base font-bold text-white">No Articles Found</h3>
-          <p className="text-xs text-zinc-400">
-            No matching dispatches found for &quot;{searchQuery}&quot;. Try adjusting your search query or filter.
+        <div className="rounded-3xl border border-[#2a2216] bg-[#100d08] p-12 text-center space-y-4 max-w-lg mx-auto shadow-2xl">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#f5b642]/30 bg-amber-500/10 text-[#f5b642]">
+            <LinkedinIcon className="h-7 w-7 fill-current text-[#0077b5]" />
+          </div>
+          <h3 className="text-lg font-extrabold text-white">Live LinkedIn Stream Connected</h3>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            New posts published on the official Generative AI Community LinkedIn channel are automatically summarized and broadcasted here by Google Gemini AI.
           </p>
-          <button
-            onClick={() => {
-              setSearchQuery("");
-              setSelectedTag("All");
-            }}
-            className="mt-2 inline-flex rounded-xl border border-[#f5b642]/40 bg-[#1f170b] px-4 py-2 text-xs font-bold text-[#f5b642] hover:bg-[#2c200e] transition"
-          >
-            Reset Filters
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <a
+              href="https://www.linkedin.com/company/generative-ai-community-vit-bhopal/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0077b5] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#005582] shadow-md"
+            >
+              <LinkedinIcon className="h-3.5 w-3.5 fill-current" />
+              Visit Official LinkedIn Page
+            </a>
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedTag("All");
+                }}
+                className="inline-flex rounded-xl border border-[#f5b642]/40 bg-[#1f170b] px-4 py-2.5 text-xs font-bold text-[#f5b642] hover:bg-[#2c200e] transition"
+              >
+                Reset Search
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">

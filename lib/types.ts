@@ -214,6 +214,7 @@ export interface Event {
   status: EventStatus;
   image_url: string | null;
   register_url: string | null;
+  google_form_url?: string | null;
   upi_id?: string | null;
   upi_qr_image_url?: string | null;
   guidelines?: string[] | string | null;

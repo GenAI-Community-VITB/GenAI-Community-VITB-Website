@@ -18,6 +18,7 @@ import {
   AlertCircle,
   FileText,
   Share2,
+  ExternalLink,
 } from "lucide-react";
 
 export const revalidate = 60;
@@ -178,13 +179,30 @@ export default async function EventDetailPage(props: {
               </div>
 
               {isOpen ? (
-                <Link
-                  href={`/events/${cleanSlug}/register`}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#f5b642] py-3 text-sm font-extrabold text-black shadow-[0_0_20px_rgba(245,182,66,0.4)] transition-all duration-200 hover:bg-[#ffd06a] hover:scale-[1.02]"
-                >
-                  <span>Register for Event</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                <div className="space-y-2.5">
+                  <Link
+                    href={`/events/${cleanSlug}/register`}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#f5b642] py-3 text-sm font-extrabold text-black shadow-[0_0_20px_rgba(245,182,66,0.4)] transition-all duration-200 hover:bg-[#ffd06a] hover:scale-[1.02]"
+                  >
+                    <span>Register for Event</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  {event.google_form_url && (
+                    <a
+                      href={event.google_form_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900/90 py-2 text-xs font-semibold text-zinc-300 transition hover:border-[#f5b642] hover:text-[#f5b642]"
+                    >
+                      <span>Direct Google Form (Backup)</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  <p className="text-[10px] text-emerald-400/90 font-mono flex items-center justify-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" />
+                    <span>Automated Google Form Failsafe Active</span>
+                  </p>
+                </div>
               ) : (
                 <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 py-3 text-xs font-semibold text-zinc-400 font-mono">
                   Registration Closed

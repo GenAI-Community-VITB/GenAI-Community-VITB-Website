@@ -600,6 +600,7 @@ export async function upsertEvent(formData: FormData) {
     is_registration_open: isRegistrationOpen,
     image_url: uploaded ?? (formString(formData, "image_url") || null),
     register_url: formString(formData, "register_url") || null,
+    google_form_url: formString(formData, "google_form_url") || null,
     upi_id: formString(formData, "upi_id") || "genai.community@okaxis",
     upi_qr_image_url: formString(formData, "upi_qr_image_url") || null,
     guidelines: guidelines && guidelines.length > 0 ? guidelines : undefined,

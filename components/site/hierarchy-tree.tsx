@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import {
-  Crown,
+  Crown, Mail,
   Shield,
   BrainCircuit,
   Cpu,
@@ -32,7 +32,7 @@ export interface HierarchyMember {
   roleTitle: string;
   secondaryRole?: string;
   teamName: string;
-  email: string;
+  email?: string;
   caption: string;
   avatarUrl?: string | null;
   rawRole?: string;
@@ -90,7 +90,7 @@ const PRESIDENT_MEMBER: HierarchyMember = {
   roleTitle: "Club President",
   secondaryRole: "Volunteer / Strategic Operations",
   teamName: "Executive Panel",
-  email: "president@genai.community",
+  email: "harshvardhan.24bce10511@vitbhopal.ac.in",
   caption: "Spearheading community vision, strategic partnerships, and multi-vertical technical innovation.",
 };
 
@@ -100,7 +100,7 @@ const VP_MEMBER: HierarchyMember = {
   roleTitle: "Vice President",
   secondaryRole: "Volunteer / Cross-Team Coordination",
   teamName: "Executive Panel",
-  email: "vice.president@genai.community",
+  email: "akshita.25bce10779@vitbhopal.ac.in",
   caption: "Overseeing operations, leadership development programs, and inter-departmental technical execution.",
 };
 
@@ -126,7 +126,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "General Secretary",
         secondaryRole: "Volunteer / Administrative Operations",
         teamName: "Secretariat & Operations",
-        email: "general.secretary@genai.community",
         caption: "Managing institutional governance, university administrative alignment, and official approvals.",
       },
       {
@@ -134,7 +133,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "General Secretary (Provisional)",
         secondaryRole: "Volunteer / Strategy Support",
         teamName: "Secretariat & Operations",
-        email: "gen.sec.provisional@genai.community",
         caption: "Supporting organizational logistics, internal policies, and operational planning.",
       },
       {
@@ -142,7 +140,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Joint Secretary",
         secondaryRole: "Volunteer / Event Logistics",
         teamName: "Secretariat & Operations",
-        email: "joint.secretary@genai.community",
         caption: "Directing joint-vertical execution, workshop planning, and guest speaker engagements.",
       },
       {
@@ -150,7 +147,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Assistant Secretary",
         secondaryRole: "Volunteer / Documentation",
         teamName: "Secretariat & Operations",
-        email: "assistant.secretary@genai.community",
         caption: "Coordinating internal reporting, session registries, and member records.",
       },
     ],
@@ -160,7 +156,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Student Coordinator 01",
         secondaryRole: "Volunteer / Operations Support",
         teamName: "Secretariat & Operations",
-        email: "student.coord.001@genai.community",
         caption: "Liaison between executive leadership and student participant communities.",
       },
       {
@@ -168,7 +163,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Student Coordinator 02",
         secondaryRole: "Volunteer / Campus Outreach",
         teamName: "Secretariat & Operations",
-        email: "student.coord.002@genai.community",
+        email: "prince.25bai11117@vitbhopal.ac.in",
         caption: "Driving on-campus engagement, peer outreach, and workshop facilitation.",
       },
     ],
@@ -184,7 +179,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML & Innovation Lead",
         secondaryRole: "Volunteer / Technical Verifier",
         teamName: "AI/ML & Innovation",
-        email: "aiml.lead@genai.community",
+        email: "lakshya.24bce10549@vitbhopal.ac.in",
         caption: "Architecting autonomous agentic frameworks, multi-modal LLM pipelines, and AI masterclasses.",
       },
       {
@@ -192,7 +187,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML & Innovation Co-Lead",
         secondaryRole: "Volunteer / Research Facilitator",
         teamName: "AI/ML & Innovation",
-        email: "aiml.co.lead@genai.community",
         caption: "Co-directing research hackathons, neural architecture explorations, and hands-on bootcamps.",
       },
     ],
@@ -202,7 +196,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Lab Assistant",
         teamName: "AI/ML & Innovation",
-        email: "aiml.coremember.001@genai.community",
         caption: "Developing deep learning benchmark pipelines and hands-on AI demo modules.",
       },
       {
@@ -210,7 +203,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Research Member",
         teamName: "AI/ML & Innovation",
-        email: "aiml.coremember.002@genai.community",
         caption: "Building NLP sentiment classifiers, transformer experiments, and research benchmarks.",
       },
       {
@@ -218,7 +210,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Hackathon Mentor",
         teamName: "AI/ML & Innovation",
-        email: "aiml.coremember.003@genai.community",
         caption: "Assisting participants in computer vision and generative image models.",
       },
       {
@@ -226,7 +217,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Tech Support",
         teamName: "AI/ML & Innovation",
-        email: "aiml.coremember.004@genai.community",
         caption: "Implementing retrieval-augmented generation (RAG) knowledge retrieval systems.",
       },
     ],
@@ -242,7 +232,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Team Lead",
         secondaryRole: "Volunteer / System Admin",
         teamName: "Technical Team",
-        email: "tech.lead@genai.community",
         caption: "Managing full-stack web infrastructure, edge APIs, cloud deployments, and security auditing.",
       },
       {
@@ -250,7 +239,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Team Co-Lead",
         secondaryRole: "Volunteer / Platform Dev",
         teamName: "Technical Team",
-        email: "tech.co.lead@genai.community",
         caption: "Engineering frontend interfaces, automated build pipelines, and participant portals.",
       },
     ],
@@ -260,7 +248,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Frontend Dev",
         teamName: "Technical Team",
-        email: "tech.coremember.001@genai.community",
         caption: "Building responsive web pages, React components, and interactive user interfaces.",
       },
       {
@@ -268,7 +255,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Backend Dev",
         teamName: "Technical Team",
-        email: "tech.coremember.002@genai.community",
         caption: "Developing serverless API endpoints, database query optimization, and webhook listeners.",
       },
       {
@@ -276,7 +262,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / QA & Testing",
         teamName: "Technical Team",
-        email: "tech.coremember.003@genai.community",
         caption: "Performing platform stress tests, cross-browser validation, and bug triaging.",
       },
       {
@@ -284,7 +269,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Cloud Dev",
         teamName: "Technical Team",
-        email: "tech.coremember.004@genai.community",
         caption: "Configuring containerized microservices and automated CI/CD deployment routines.",
       },
       {
@@ -292,7 +276,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Frontend Dev",
         teamName: "Technical Team",
-        email: "tech.coremember.005@genai.community",
         caption: "Crafting accessible UI animations, dark-mode themes, and dynamic data tables.",
       },
     ],
@@ -308,7 +291,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Design Team Lead",
         secondaryRole: "Volunteer / UI/UX Design",
         teamName: "Design Team",
-        email: "design.lead@genai.community",
         caption: "Crafting visual brand identities, graphic collateral, event posters, and design systems.",
       },
       {
@@ -316,7 +298,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Design Team Co-Lead",
         secondaryRole: "Volunteer / Motion Graphics",
         teamName: "Design Team",
-        email: "design.co.lead@genai.community",
         caption: "Creating 3D digital art, typography animations, and digital media assets.",
       },
     ],
@@ -326,7 +307,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Design Core Member",
         secondaryRole: "Volunteer / Graphic Designer",
         teamName: "Design Team",
-        email: "design.coremember.001@genai.community",
         caption: "Designing creative social media banners, event flyers, and vector illustrations.",
       },
     ],
@@ -342,7 +322,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Lead",
         secondaryRole: "Volunteer / Stage & Audio",
         teamName: "Event Management",
-        email: "event.lead@genai.community",
         caption: "Directing auditorium logistics, hackathon staging, and real-time event operations.",
       },
       {
@@ -350,7 +329,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Co-Lead",
         secondaryRole: "Volunteer / Participant Flow",
         teamName: "Event Management",
-        email: "event.co.lead@genai.community",
         caption: "Overseeing check-in checkpoints, volunteer dispatch, and participant hospitality.",
       },
     ],
@@ -360,7 +338,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Core",
         secondaryRole: "Volunteer / Hospitality",
         teamName: "Event Management",
-        email: "event.coremember.001@genai.community",
         caption: "Coordinating hall setup, attendee welcome desks, and schedule transitions.",
       },
       {
@@ -368,7 +345,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Core",
         secondaryRole: "Volunteer / Floor Coordinator",
         teamName: "Event Management",
-        email: "event.coremember.002@genai.community",
         caption: "Managing on-spot participant queueing, badge handovers, and physical security.",
       },
     ],
@@ -384,7 +360,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "HR Team Lead",
         secondaryRole: "Volunteer / Talent Operations",
         teamName: "Human Resources",
-        email: "hr.lead@genai.community",
         caption: "Managing internal team culture, member recruitment, onboarding, and performance tracking.",
       },
       {
@@ -392,7 +367,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "HR Team Co-Lead",
         secondaryRole: "Volunteer / Member Relations",
         teamName: "Human Resources",
-        email: "hr.co.lead@genai.community",
         caption: "Coordinating member welfare, engagement initiatives, and leadership mentorship sessions.",
       },
     ],
@@ -402,7 +376,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "HR Core Member",
         secondaryRole: "Volunteer / Staff Coordinator",
         teamName: "Human Resources",
-        email: "hr.coremember.001@genai.community",
         caption: "Handling member check-ins, internal comms channels, and meeting arrangements.",
       },
       {
@@ -410,7 +383,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "HR Core Member",
         secondaryRole: "Volunteer / Member Relations",
         teamName: "Human Resources",
-        email: "hr.coremember.002@genai.community",
         caption: "Facilitating peer feedback surveys and team building workshop activities.",
       },
     ],
@@ -426,7 +398,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR & Outreach Lead",
         secondaryRole: "Volunteer / Corporate Relations",
         teamName: "PR & Outreach",
-        email: "pr.lead@genai.community",
         caption: "Leading industry sponsorships, press releases, tech community outreach, and external relations.",
       },
       {
@@ -434,7 +405,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR & Outreach Co-Lead",
         secondaryRole: "Volunteer / Media Relations",
         teamName: "PR & Outreach",
-        email: "pr.co.lead@genai.community",
         caption: "Managing sponsor communications, speaker invitations, and inter-university marketing.",
       },
     ],
@@ -444,7 +414,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Campus Ambassador",
         teamName: "PR & Outreach",
-        email: "pr.coremember.001@genai.community",
         caption: "Promoting community initiatives across departmental student clubs and hostels.",
       },
       {
@@ -452,7 +421,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Outreach Executive",
         teamName: "PR & Outreach",
-        email: "pr.coremember.002@genai.community",
         caption: "Handling speaker logistics, travel support, and hospitality greetings.",
       },
       {
@@ -460,7 +428,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Sponsorship Liaison",
         teamName: "PR & Outreach",
-        email: "pr.coremember.003@genai.community",
         caption: "Preparing sponsorship pitch decks and external partner follow-ups.",
       },
       {
@@ -468,7 +435,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Event Media",
         teamName: "PR & Outreach",
-        email: "pr.coremember.004@genai.community",
         caption: "Documenting on-ground community engagements and participant testimonials.",
       },
       {
@@ -476,7 +442,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Public Relations",
         teamName: "PR & Outreach",
-        email: "pr.coremember.005@genai.community",
         caption: "Distributing marketing materials and coordinating cross-college registrations.",
       },
     ],
@@ -492,7 +457,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Lead",
         secondaryRole: "Volunteer / Content Strategy",
         teamName: "Social Media",
-        email: "social.lead@genai.community",
         caption: "Curating digital marketing campaigns, LinkedIn & Instagram outreach, and technical reels.",
       },
       {
@@ -500,7 +464,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Co-Lead",
         secondaryRole: "Volunteer / Social Engagement",
         teamName: "Social Media",
-        email: "social.co.lead@genai.community",
         caption: "Designing high-engagement viral tech content, community updates, and event broadcasts.",
       },
     ],
@@ -510,7 +473,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Video Editor",
         teamName: "Social Media",
-        email: "social.coremember.001@genai.community",
         caption: "Producing cinematic event highlight recaps, reels, and video teasers.",
       },
       {
@@ -518,7 +480,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Copy Creator",
         teamName: "Social Media",
-        email: "social.coremember.002@genai.community",
         caption: "Drafting engaging captions, Twitter threads, and event broadcast reminders.",
       },
       {
@@ -526,7 +487,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Community Mod",
         teamName: "Social Media",
-        email: "social.coremember.003@genai.community",
         caption: "Managing Discord community channels, announcements, and tech discussion threads.",
       },
       {
@@ -534,7 +494,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Media Analytics",
         teamName: "Social Media",
-        email: "social.coremember.004@genai.community",
         caption: "Tracking post impressions, engagement metrics, and audience demographics.",
       },
     ],
@@ -550,7 +509,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Team Lead",
         secondaryRole: "Volunteer / Editorial Head",
         teamName: "Content & Writing Team",
-        email: "content.lead@genai.community",
         caption: "Writing technical blog publications, event scripts, newsletter issues, and research summaries.",
       },
       {
@@ -558,7 +516,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Team Co-Lead",
         secondaryRole: "Volunteer / Technical Writer",
         teamName: "Content & Writing Team",
-        email: "content.co.lead@genai.community",
         caption: "Co-authoring tutorial articles, workshop documentation, and event promo copy.",
       },
     ],
@@ -568,7 +525,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Core Member",
         secondaryRole: "Volunteer / Documentation",
         teamName: "Content & Writing Team",
-        email: "content.coremember.002@genai.community",
         caption: "Documenting open-source project repositories, README files, and FAQs.",
       },
       {
@@ -576,7 +532,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Core Member",
         secondaryRole: "Volunteer / Article Writer",
         teamName: "Content & Writing Team",
-        email: "content.coremember.001@genai.community",
         caption: "Writing in-depth articles on generative diffusion models and transformer attention.",
       },
     ],
@@ -592,7 +547,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Finance Team Lead",
         secondaryRole: "Volunteer / Treasury Head",
         teamName: "Finance Team",
-        email: "finance.lead@genai.community",
         caption: "Managing budget allocations, ticket revenue verification, audits, and vendor disbursements.",
       },
     ],
@@ -602,7 +556,6 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Finance Core Member",
         secondaryRole: "Volunteer / Accounts Assistant",
         teamName: "Finance Team",
-        email: "finance.coremember.001@genai.community",
         caption: "Assisting with fee verification, balance ledger records, and purchase receipts.",
       },
     ],

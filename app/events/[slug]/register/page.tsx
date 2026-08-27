@@ -18,6 +18,8 @@ import {
   Ticket,
   FileCheck2,
   Phone,
+  Mail,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -233,27 +235,21 @@ export default async function EventRegistrationPage(props: {
                 Facing issues with payment upload or pass confirmation? Contact:
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                {/* Coordinator 1 */}
+                {/* Support Desk */}
                 <div className="rounded-xl border border-[#2a2215] bg-[#120e09] p-2.5 space-y-1 hover:border-[#f5b642]/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-[11px]">Ishani Verma</span>
+                    <span className="font-bold text-white text-[11px]">Executive Secretariat</span>
                     <span className="text-[8px] font-bold uppercase font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                      Coord
+                      Official
                     </span>
                   </div>
                   <span className="text-[9.5px] text-zinc-400 font-mono block">Operations & Reg</span>
                   <a
-                    href="mailto:student.coord.001@genai.community"
-                    className="text-[9.5px] text-[#f5b642] hover:underline font-mono break-all block font-medium leading-tight"
+                    href="mailto:genaicommunityvitbofficial@gmail.com"
+                    className="text-[9.5px] text-[#f5b642] hover:underline font-mono break-all block font-medium leading-tight flex items-center gap-1"
                   >
-                    student.coord.001@genai.community
-                  </a>
-                  <a
-                    href="tel:+919876543210"
-                    className="inline-flex items-center gap-1 text-[9.5px] text-zinc-300 hover:text-[#f5b642] font-mono mt-0.5"
-                  >
-                    <Phone className="h-2.5 w-2.5 text-[#f5b642]" />
-                    <span>+91 98765 43210</span>
+                    <Mail className="h-2.5 w-2.5 text-[#f5b642] shrink-0" />
+                    <span>genaicommunityvitbofficial@gmail.com</span>
                   </a>
                 </div>
 
@@ -267,21 +263,38 @@ export default async function EventRegistrationPage(props: {
                   </div>
                   <span className="text-[9.5px] text-zinc-400 font-mono block">Campus Support</span>
                   <a
-                    href="mailto:student.coord.002@genai.community"
-                    className="text-[9.5px] text-[#f5b642] hover:underline font-mono break-all block font-medium leading-tight"
+                    href="mailto:prince.25bai11117@vitbhopal.ac.in"
+                    className="text-[9.5px] text-[#f5b642] hover:underline font-mono break-all block font-medium leading-tight flex items-center gap-1"
                   >
-                    student.coord.002@genai.community
-                  </a>
-                  <a
-                    href="tel:+919876543211"
-                    className="inline-flex items-center gap-1 text-[9.5px] text-zinc-300 hover:text-[#f5b642] font-mono mt-0.5"
-                  >
-                    <Phone className="h-2.5 w-2.5 text-[#f5b642]" />
-                    <span>+91 98765 43211</span>
+                    <Mail className="h-2.5 w-2.5 text-[#f5b642] shrink-0" />
+                    <span>prince.25bai11117@vitbhopal.ac.in</span>
                   </a>
                 </div>
               </div>
             </div>
+
+            {/* 5. Google Form Failsafe Box */}
+            {event.google_form_url && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Direct Google Form Available
+                  </span>
+                  <a
+                    href={event.google_form_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#f5b642] px-2.5 py-1 text-[11px] font-black text-black hover:bg-[#ffd06a] transition"
+                  >
+                    <span>Open Form</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <p className="text-[10.5px] text-zinc-300 leading-relaxed">
+                  You can register directly below, or alternatively use the official Google Form backup if you prefer Google sign-in.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Right Column: High-Impact Registration Form */}
@@ -290,7 +303,7 @@ export default async function EventRegistrationPage(props: {
               <div className="border-b border-[#221c13] pb-4">
                 <h3 className="text-2xl font-extrabold text-white">Participant Registration Form</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Please provide accurate information for pass generation and certificate issuance.
+                  Please provide accurate information for pass generation and certificate issuance. All entries are backed up via Google Forms failsafe.
                 </p>
               </div>
 

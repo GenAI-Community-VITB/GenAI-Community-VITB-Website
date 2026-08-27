@@ -49,6 +49,7 @@ export const eventSchema = z.object({
   status: z.enum(["upcoming", "live", "past"]).default("upcoming"),
   image_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   register_url: z.string().max(2000).optional().nullable().or(z.literal("")),
+  google_form_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   upi_id: z.string().max(200).optional().nullable().or(z.literal("")),
   upi_qr_image_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   guidelines: z.union([z.array(z.string()), z.string()]).optional().nullable(),
