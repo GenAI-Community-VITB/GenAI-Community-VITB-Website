@@ -36,7 +36,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#221d14] bg-black/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-4">
+      <div className="w-full flex h-16 items-center justify-between px-4 sm:px-8 md:px-10 lg:px-14 xl:px-16 gap-4">
         {/* Brand Logo with Glowing Ambient Animation on Hover */}
         <Link href="/" className="flex items-center gap-3 group shrink-0 relative">
           <div className="relative flex items-center justify-center">

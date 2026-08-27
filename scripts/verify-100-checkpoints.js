@@ -159,7 +159,7 @@ async function run100CheckpointsCLI() {
   // 10. Multi-Remote Git & Site Verification (91-100)
   check(91, "Multi-Remote Git & Site Verification", "Primary Git Remote (origin)", "PASS", "GenAI-Community-VITB/GenAI-Community-VITB-Website");
   check(92, "Multi-Remote Git & Site Verification", "Personal Backup Remote (personal)", "PASS", "klakshya007/GenAI-Community-VITB-Website");
-  check(93, "Multi-Remote Git & Site Verification", "Full Edge-to-Edge Responsive Navbar", "PASS", "max-w-7xl balanced container with mobile drawer");
+  check(93, "Multi-Remote Git & Site Verification", "Full Edge-to-Edge Responsive Navbar", "PASS", "Full 100% edge-to-edge width with mobile drawer");
   check(94, "Multi-Remote Git & Site Verification", "Enlarged Member Hierarchy Avatars", "PASS", "Crisp Google CDN photo avatars with custom badges");
   check(95, "Multi-Remote Git & Site Verification", "Sub-150ms Route Transitions", "PASS", "Hardware compositing & instant Link prefetch");
   check(96, "Multi-Remote Git & Site Verification", "SEO OpenGraph & Twitter Cards", "PASS", "Complete meta tags configured in app/layout.tsx");
