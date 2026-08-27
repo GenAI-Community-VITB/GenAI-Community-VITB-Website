@@ -185,6 +185,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Student Coordinator 01",
         secondaryRole: "Volunteer / Operations Support",
         teamName: "Secretariat & Operations",
+        email: "ishani.25boe10013@vitbhopal.ac.in",
         caption: "Liaison between executive leadership and student participant communities.",
       },
       {
@@ -216,6 +217,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML & Innovation Co-Lead",
         secondaryRole: "Volunteer / Research Facilitator",
         teamName: "AI/ML & Innovation",
+        email: "aaditya.25bai10079@vitbhopal.ac.in",
         caption: "Co-directing research hackathons, neural architecture explorations, and hands-on bootcamps.",
       },
     ],
@@ -225,6 +227,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Lab Assistant",
         teamName: "AI/ML & Innovation",
+        email: "rachit.25bsa10113@vitbhopal.ac.in",
         caption: "Developing deep learning benchmark pipelines and hands-on AI demo modules.",
       },
       {
@@ -232,6 +235,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Research Member",
         teamName: "AI/ML & Innovation",
+        email: "suhani.25bai10011@vitbhopal.ac.in",
         caption: "Building NLP sentiment classifiers, transformer experiments, and research benchmarks.",
       },
       {
@@ -239,6 +243,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Hackathon Mentor",
         teamName: "AI/ML & Innovation",
+        email: "sargam.24mip10155@vitbhopal.ac.in",
         caption: "Assisting participants in computer vision and generative image models.",
       },
       {
@@ -246,6 +251,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Tech Support",
         teamName: "AI/ML & Innovation",
+        email: "aditya.24bce10697@vitbhopal.ac.in",
         caption: "Implementing retrieval-augmented generation (RAG) knowledge retrieval systems.",
       },
     ],
@@ -261,6 +267,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Team Lead",
         secondaryRole: "Volunteer / System Admin",
         teamName: "Technical Team",
+        email: "abhinav.24bsa10110@vitbhopal.ac.in",
         caption: "Managing full-stack web infrastructure, edge APIs, cloud deployments, and security auditing.",
       },
       {
@@ -268,6 +275,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Team Co-Lead",
         secondaryRole: "Volunteer / Platform Dev",
         teamName: "Technical Team",
+        email: "swetalina.24bce10419@vitbhopal.ac.in",
         caption: "Engineering frontend interfaces, automated build pipelines, and participant portals.",
       },
     ],
@@ -277,6 +285,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Frontend Dev",
         teamName: "Technical Team",
+        email: "anushka.25bce10312@vitbhopal.ac.in",
         caption: "Building responsive web pages, React components, and interactive user interfaces.",
       },
       {
@@ -284,6 +293,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Backend Dev",
         teamName: "Technical Team",
+        email: "rishab.25bce10989@vitbhopal.ac.in",
         caption: "Developing serverless API endpoints, database query optimization, and webhook listeners.",
       },
       {
@@ -291,6 +301,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / QA & Testing",
         teamName: "Technical Team",
+        email: "aaditi.25bcy10019@vitbhopal.ac.in",
         caption: "Performing platform stress tests, cross-browser validation, and bug triaging.",
       },
       {
@@ -298,6 +309,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Cloud Dev",
         teamName: "Technical Team",
+        email: "nitin.25bai11122@vitbhopal.ac.in",
         caption: "Configuring containerized microservices and automated CI/CD deployment routines.",
       },
       {
@@ -305,6 +317,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Frontend Dev",
         teamName: "Technical Team",
+        email: "nivedita.25mim10038@vitbhopal.ac.in",
         caption: "Crafting accessible UI animations, dark-mode themes, and dynamic data tables.",
       },
     ],
@@ -320,6 +333,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Design Team Lead",
         secondaryRole: "Volunteer / UI/UX Design",
         teamName: "Design Team",
+        email: "agrim.24bcg10060@vitbhopal.ac.in",
         caption: "Crafting visual brand identities, graphic collateral, event posters, and design systems.",
       },
       {
@@ -327,6 +341,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Design Team Co-Lead",
         secondaryRole: "Volunteer / Motion Graphics",
         teamName: "Design Team",
+        email: "kushagra.25bai11055@vitbhopal.ac.in",
         caption: "Creating 3D digital art, typography animations, and digital media assets.",
       },
     ],
@@ -351,6 +366,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Lead",
         secondaryRole: "Volunteer / Stage & Audio",
         teamName: "Event Management",
+        email: "priyansh.24bcy10117@vitbhopal.ac.in",
         caption: "Directing auditorium logistics, hackathon staging, and real-time event operations.",
       },
       {
@@ -358,6 +374,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Co-Lead",
         secondaryRole: "Volunteer / Participant Flow",
         teamName: "Event Management",
+        email: "anya.25bai11254@vitbhopal.ac.in",
         caption: "Overseeing check-in checkpoints, volunteer dispatch, and participant hospitality.",
       },
     ],
@@ -367,6 +384,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Core",
         secondaryRole: "Volunteer / Hospitality",
         teamName: "Event Management",
+        email: "shikha.24bai10244@vitbhopal.ac.in",
         caption: "Coordinating hall setup, attendee welcome desks, and schedule transitions.",
       },
       {
@@ -374,6 +392,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Event Management Core",
         secondaryRole: "Volunteer / Floor Coordinator",
         teamName: "Event Management",
+        email: "shaurya.24bce10339@vitbhopal.ac.in",
         caption: "Managing on-spot participant queueing, badge handovers, and physical security.",
       },
     ],
@@ -427,6 +446,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR & Outreach Lead",
         secondaryRole: "Volunteer / Corporate Relations",
         teamName: "PR & Outreach",
+        email: "shashwat.25bai10233@vitbhopal.ac.in",
         caption: "Leading industry sponsorships, press releases, tech community outreach, and external relations.",
       },
       {
@@ -434,6 +454,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR & Outreach Co-Lead",
         secondaryRole: "Volunteer / Media Relations",
         teamName: "PR & Outreach",
+        email: "drishti.25boe10138@vitbhopal.ac.in",
         caption: "Managing sponsor communications, speaker invitations, and inter-university marketing.",
       },
     ],
@@ -443,6 +464,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Campus Ambassador",
         teamName: "PR & Outreach",
+        email: "debasmita.25boe10075@vitbhopal.ac.in",
         caption: "Promoting community initiatives across departmental student clubs and hostels.",
       },
       {
@@ -450,6 +472,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Outreach Executive",
         teamName: "PR & Outreach",
+        email: "palak.25bhi10116@vitbhopal.ac.in",
         caption: "Handling speaker logistics, travel support, and hospitality greetings.",
       },
       {
@@ -457,6 +480,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Sponsorship Liaison",
         teamName: "PR & Outreach",
+        email: "saanvi.25bce10473@vitbhopal.ac.in",
         caption: "Preparing sponsorship pitch decks and external partner follow-ups.",
       },
       {
@@ -464,6 +488,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Event Media",
         teamName: "PR & Outreach",
+        email: "anjali.25bai10296@vitbhopal.ac.in",
         caption: "Documenting on-ground community engagements and participant testimonials.",
       },
       {
@@ -471,6 +496,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Public Relations",
         teamName: "PR & Outreach",
+        email: "pushkar.25bet10028@vitbhopal.ac.in",
         caption: "Distributing marketing materials and coordinating cross-college registrations.",
       },
     ],
@@ -486,6 +512,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Lead",
         secondaryRole: "Volunteer / Content Strategy",
         teamName: "Social Media",
+        email: "jharna.25bai10557@vitbhopal.ac.in",
         caption: "Curating digital marketing campaigns, LinkedIn & Instagram outreach, and technical reels.",
       },
       {
@@ -493,6 +520,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Co-Lead",
         secondaryRole: "Volunteer / Social Engagement",
         teamName: "Social Media",
+        email: "sakcham.25mei10005@vitbhopal.ac.in",
         caption: "Designing high-engagement viral tech content, community updates, and event broadcasts.",
       },
     ],
@@ -502,6 +530,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Video Editor",
         teamName: "Social Media",
+        email: "arpan.25bai10112@vitbhopal.ac.in",
         caption: "Producing cinematic event highlight recaps, reels, and video teasers.",
       },
       {
@@ -509,6 +538,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Copy Creator",
         teamName: "Social Media",
+        email: "ayesha.25bai10998@vitbhopal.ac.in",
         caption: "Drafting engaging captions, Twitter threads, and event broadcast reminders.",
       },
       {
@@ -516,6 +546,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Community Mod",
         teamName: "Social Media",
+        email: "sanidhya.24bai10494@vitbhopal.ac.in",
         caption: "Managing Discord community channels, announcements, and tech discussion threads.",
       },
       {
@@ -523,6 +554,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Media Analytics",
         teamName: "Social Media",
+        email: "priyanshu.25bce10710@vitbhopal.ac.in",
         caption: "Tracking post impressions, engagement metrics, and audience demographics.",
       },
     ],
@@ -538,6 +570,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Team Lead",
         secondaryRole: "Volunteer / Editorial Head",
         teamName: "Content & Writing Team",
+        email: "muskan.25bce11431@vitbhopal.ac.in",
         caption: "Writing technical blog publications, event scripts, newsletter issues, and research summaries.",
       },
       {
@@ -545,6 +578,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Team Co-Lead",
         secondaryRole: "Volunteer / Technical Writer",
         teamName: "Content & Writing Team",
+        email: "muskan.25bai10064@vitbhopal.ac.in",
         caption: "Co-authoring tutorial articles, workshop documentation, and event promo copy.",
       },
     ],
@@ -554,6 +588,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Core Member",
         secondaryRole: "Volunteer / Documentation",
         teamName: "Content & Writing Team",
+        email: "arsh.25bai10482@vitbhopal.ac.in",
         caption: "Documenting open-source project repositories, README files, and FAQs.",
       },
       {
@@ -561,6 +596,7 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Core Member",
         secondaryRole: "Volunteer / Article Writer",
         teamName: "Content & Writing Team",
+        email: "kaustubh.25bce10722@vitbhopal.ac.in",
         caption: "Writing in-depth articles on generative diffusion models and transformer attention.",
       },
     ],
