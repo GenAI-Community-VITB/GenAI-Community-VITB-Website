@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CursorGlow } from "@/components/site/cursor-glow";
 import { TopLeftLoadingBanner } from "@/components/site/top-left-loading-banner";
 import { BetaBadge } from "@/components/site/beta-badge";
@@ -131,6 +132,7 @@ export default function RootLayout({
         </Suspense>
         <CursorGlow />
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
