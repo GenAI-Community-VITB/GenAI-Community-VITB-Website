@@ -10,6 +10,7 @@ import {
   checkIdempotency,
   saveIdempotencyRecord,
 } from "@/lib/security/idempotency";
+import { verifyCloudflareTurnstile } from "@/lib/security/turnstile";
 
 // 30-second hard timeout guard: prevents stalled Drive uploads from holding connection slots.
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -29,6 +30,22 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
+    const turnstileToken = String(
+      formData.get("cf_turnstile_response") || formData.get("turnstile_token") || ""
+    ).trim();
+
+    // ── CLOUDFLARE TURNSTILE BOT DEFENSE ──
+    const turnstileResult = await verifyCloudflareTurnstile(turnstileToken, ip);
+    if (!turnstileResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: turnstileResult.error || "Security verification failed. Please complete the Cloudflare challenge.",
+        },
+        { status: 400 }
+      );
+    }
+
     const eventId = String(formData.get("event_id") || formData.get("eventId") || "").trim();
     const fullName = String(formData.get("full_name") || formData.get("fullName") || "").trim();
     const vitRegNumber = String(formData.get("vit_registration_number") || formData.get("vitRegistrationNumber") || "").trim();

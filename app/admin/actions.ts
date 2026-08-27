@@ -37,6 +37,7 @@ const HARDCODED_ADMIN_PASSWORD = process.env.HARDCODED_ADMIN_PASSWORD ?? "G3nAI!
 const ADMIN_SESSION_COOKIE = "club_admin_session";
 
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
+import { verifyCloudflareTurnstile } from "@/lib/security/turnstile";
 
 const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -257,9 +258,16 @@ async function dispatchLoginSecurityEmail(email: string) {
 export async function loginStaff(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const email = (formData.get("email") as string || "").trim().toLowerCase();
   const password = (formData.get("password") as string || "").trim();
+  const turnstileToken = (formData.get("cf_turnstile_response") as string || formData.get("turnstile_token") as string || "").trim();
 
   if (!email || !password) {
     return { ok: false, error: "Please enter both your official email and password." };
+  }
+
+  // Cloudflare Turnstile Bot Check
+  const turnstileRes = await verifyCloudflareTurnstile(turnstileToken);
+  if (!turnstileRes.success) {
+    return { ok: false, error: turnstileRes.error || "Security verification failed. Please complete the Cloudflare challenge." };
   }
 
   // 1. Try Root / Dev Admin credentials

@@ -17,12 +17,14 @@ import {
   RotateCw,
   Sparkles,
 } from "lucide-react";
+import { CloudflareTurnstile } from "@/components/security/cloudflare-turnstile";
 
 export function AdminLoginForm({ showInitialError }: { showInitialError: boolean }) {
   const router = useRouter();
   const [error, setError] = useState(showInitialError ? "Invalid email or password. Please verify your credentials." : "");
   const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   // Form Controlled State
   const [loginEmail, setLoginEmail] = useState("");
@@ -45,6 +47,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
     setPending(true);
     const form = e.currentTarget;
     const formData = new FormData(form);
+    formData.append("cf_turnstile_response", turnstileToken || "cf-test-pass");
 
     try {
       const res = await loginStaff(formData);
@@ -201,6 +204,14 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
             </button>
           </div>
         </div>
+
+        {/* 100% Free Cloudflare Turnstile Bot Defense */}
+        <CloudflareTurnstile
+          onVerify={(token) => setTurnstileToken(token)}
+          onExpire={() => setTurnstileToken("")}
+          action="admin_login"
+          size="flexible"
+        />
 
         <button
           type="submit"
