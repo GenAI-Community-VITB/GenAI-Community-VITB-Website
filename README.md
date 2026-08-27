@@ -10,8 +10,8 @@
 
 An enterprise-grade, zero-cost web platform and event operations engine built for the **Generative AI Community at VIT Bhopal University**. Engineered for high concurrency, instant UPI payments, camera QR pass scanning, multi-tier executive rosters, and real-time multi-cloud data synchronization.
 
-> 📖 **Handing over the codebase to new members?**  
-> Read the complete [📘 Master Handover & Developer Handbook (HANDOVER_BOOK.md)](./HANDOVER_BOOK.md) for full operational blueprints, database schemas, API references, and incident recovery playbooks.
+> 📖 **Handing over the codebase to incoming leads?**  
+> An official confidential **Master Developer Handover & Operations Manual** (PDF) is provided in person to authorized incoming technical leads, containing complete operational blueprints, database schemas, and recovery playbooks.
 
 ---
 
@@ -128,7 +128,6 @@ An enterprise-grade, zero-cost web platform and event operations engine built fo
 ├── scripts/
 │   ├── verify-100-checkpoints.js # Automated 100-system preflight test suite
 │   └── gas-email-relay.js        # Google Apps Script transactional email script
-├── HANDOVER_BOOK.md              # Complete developer & operations handover handbook
 └── README.md                     # Repository documentation
 ```
 

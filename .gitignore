@@ -83,3 +83,8 @@ next-env.d.ts
 .system_generated/
 .gemini/
 scratch/
+
+# --- Confidential Internal Handover Documentation ---
+HANDOVER_BOOK.md
+*.pdf
+scripts/generate_pdf_handbook.py
