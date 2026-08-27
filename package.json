@@ -10,6 +10,7 @@
     "preflight": "node scripts/verify-100-checkpoints.js",
     "test:diagnostics": "node scripts/verify-100-checkpoints.js",
     "seed:logins": "npx tsx scripts/seed-logins.ts",
+    "sync:linkedin": "npx tsx scripts/sync-linkedin.ts",
     "null-invalid-emails": "npx tsx scripts/null-invalid-member-emails.ts",
     "send-testing-emails": "npx tsx scripts/send-testing-credentials-email.ts"
   },

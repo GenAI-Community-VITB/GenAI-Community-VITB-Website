@@ -136,7 +136,7 @@ export function BlogsClient({ posts }: BlogsClientProps) {
           </div>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto">
           {filteredPosts.map((post) => (
             <article
               key={post.id}

@@ -22,7 +22,9 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  ExternalLink,
 } from "lucide-react";
+import { GithubIcon } from "@/components/ui/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
 
@@ -33,6 +35,7 @@ export interface HierarchyMember {
   secondaryRole?: string;
   teamName: string;
   email?: string;
+  githubUrl?: string | null;
   caption: string;
   avatarUrl?: string | null;
   rawRole?: string;
@@ -1001,9 +1004,28 @@ export function MemberHierarchyTree({
                   <p className="text-sm font-bold text-[#f5b642]">
                     {selectedMember.roleTitle}
                   </p>
-                  <p className="text-xs text-zinc-400 font-mono break-all">
-                    {selectedMember.email}
-                  </p>
+                  {selectedMember.email && selectedMember.email.endsWith("@vitbhopal.ac.in") && (
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-300 font-mono">
+                      <Mail className="h-3.5 w-3.5 text-[#f5b642] shrink-0" />
+                      <a href={`mailto:${selectedMember.email}`} className="hover:text-amber-300 transition-colors underline underline-offset-2">
+                        {selectedMember.email}
+                      </a>
+                    </div>
+                  )}
+                  {selectedMember.githubUrl && (
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-300 pt-0.5">
+                      <GithubIcon className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                      <a
+                        href={selectedMember.githubUrl.startsWith("http") ? selectedMember.githubUrl : `https://github.com/${selectedMember.githubUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-zinc-300 hover:text-white font-mono transition-colors underline underline-offset-2"
+                      >
+                        <span>GitHub Profile</span>
+                        <ExternalLink className="h-3 w-3 text-zinc-500" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1125,22 +1147,36 @@ const TreeNodeCard = memo(function TreeNodeCard({
           </div>
         </div>
 
-        {/* Proper Designation Tag */}
-        <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold transition ${
-            badgeText === "President"
-              ? "border-amber-500/50 bg-amber-500/20 text-amber-300"
-              : badgeText === "Vice President"
-              ? "border-sky-500/50 bg-sky-500/20 text-sky-300"
-              : badgeText === "Lead"
-              ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
-              : badgeText === "Co-Lead"
-              ? "border-sky-500/40 bg-sky-500/15 text-sky-300"
-              : "border-[#2e2618] bg-[#14110b] text-zinc-400 group-hover:text-zinc-200"
-          }`}
-        >
-          {badgeText}
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {member.githubUrl && (
+            <a
+              href={member.githubUrl.startsWith("http") ? member.githubUrl : `https://github.com/${member.githubUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 rounded-lg border border-zinc-800 bg-[#16120b] text-zinc-400 hover:text-white hover:border-[#f5b642] transition"
+              title="GitHub Profile"
+            >
+              <GithubIcon className="h-3 w-3" />
+            </a>
+          )}
+          {/* Proper Designation Tag */}
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[9px] font-bold transition ${
+              badgeText === "President"
+                ? "border-amber-500/50 bg-amber-500/20 text-amber-300"
+                : badgeText === "Vice President"
+                ? "border-sky-500/50 bg-sky-500/20 text-sky-300"
+                : badgeText === "Lead"
+                ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
+                : badgeText === "Co-Lead"
+                ? "border-sky-500/40 bg-sky-500/15 text-sky-300"
+                : "border-[#2e2618] bg-[#14110b] text-zinc-400 group-hover:text-zinc-200"
+            }`}
+          >
+            {badgeText}
+          </span>
+        </div>
       </div>
     </div>
   );

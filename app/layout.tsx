@@ -28,13 +28,13 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://www.genaiclubvitb.in"),
   title: {
-    default: "GENAI Community VIT Bhopal | Generative AI Club",
-    template: "%s | GENAI Community VIT Bhopal",
+    default: "GenAI Community VIT Bhopal | Generative AI Club",
+    template: "%s | GenAI Community VIT Bhopal",
   },
   description:
-    "Official website of the Generative AI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, open-source AI projects, and student passes.",
+    "Official website of the GenAI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, open-source AI projects, and student passes.",
   keywords: [
-    "GENAI Community VIT Bhopal",
+    "GenAI Community VIT Bhopal",
     "Generative AI Club VIT Bhopal",
     "AI Club VIT Bhopal",
     "AI Events VIT Bhopal",
@@ -44,8 +44,8 @@ export const metadata: Metadata = {
     "VIT Bhopal Technical Clubs",
     "Machine Learning Community Bhopal",
   ],
-  authors: [{ name: "GENAI Community VIT Bhopal", url: "https://www.genaiclubvitb.in" }],
-  creator: "GENAI Community Technical Team",
+  authors: [{ name: "GenAI Community VIT Bhopal", url: "https://www.genaiclubvitb.in" }],
+  creator: "GenAI Community Technical Team",
   publisher: "VIT Bhopal University",
   alternates: {
     canonical: "/",
@@ -54,10 +54,10 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_IN",
     url: "https://www.genaiclubvitb.in",
-    siteName: "GENAI Community VIT Bhopal",
-    title: "GENAI Community VIT Bhopal | Generative AI Club",
+    siteName: "GenAI Community VIT Bhopal",
+    title: "GenAI Community VIT Bhopal | Generative AI Club",
     description:
-      "Official website of the Generative AI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, and student passes.",
+      "Official website of the GenAI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, and student passes.",
     images: [
       {
         url: "/ClubIcon.png",

@@ -377,7 +377,7 @@ export function normalizeDriveImageUrl(url?: string | null): string | null {
     trimmed.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
 
   if (fileIdMatch && fileIdMatch[1]) {
-    return `/api/drive/asset/${fileIdMatch[1]}`;
+    return `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}=s260`;
   }
 
   return trimmed;

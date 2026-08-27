@@ -44,7 +44,7 @@ export function Navbar() {
 
           <div className="leading-tight">
             <p className="text-sm sm:text-base font-extrabold text-white transition-all duration-300 group-hover:text-[#ffd06a] group-hover:drop-shadow-[0_0_12px_rgba(245,182,66,0.5)]">
-              Generative AI Community
+              GenAI Community
             </p>
             <p className="text-[10px] text-[#b8a98a] font-mono transition-colors duration-300 group-hover:text-amber-200/90">
               From Prompts to Production

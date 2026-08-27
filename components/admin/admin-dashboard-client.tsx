@@ -117,7 +117,7 @@ export function AdminDashboardClient(props: {
   }, [userName, userRole]);
 
   return (
-    <div style={{ zoom: "115%" }} className="min-h-screen bg-[#070707] text-white">
+    <div className="min-h-screen bg-[#070707] text-white">
       {/* Top Command Center Header */}
       <div className="border-b border-[#221c12] bg-[#0c0a08]/90 backdrop-blur-xl sticky top-0 z-40">
         <div className="container-wrap flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -159,7 +159,7 @@ export function AdminDashboardClient(props: {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap">
             {tab !== null && (
               <button
                 type="button"

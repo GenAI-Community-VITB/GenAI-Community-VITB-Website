@@ -115,9 +115,8 @@ export const getHierarchyMembers = cache(async () => {
     const admin = createAdminSupabase();
     const { data: profiles } = await admin
       .from("user_profiles")
-      .select("id, email, full_name, assigned_to_name, avatar_url, drive_file_id, role, is_voided, roles:member_roles(team, position)")
-      .eq("is_active", true)
-      .eq("is_voided", false);
+      .select("id, email, full_name, assigned_to_name, avatar_url, drive_file_id, role, is_voided, github_url, official_email, roles:member_roles(team, position)")
+      .order("created_at", { ascending: true });
 
     if (!profiles || profiles.length === 0) {
       return null;
@@ -148,6 +147,9 @@ export const getHierarchyMembers = cache(async () => {
       const rawAvatar = p.avatar_url || (p.drive_file_id ? `/api/drive/asset/${p.drive_file_id}` : null);
       const normalizedAvatar = normalizeDriveImageUrl(rawAvatar);
 
+      const authenticEmail = (p.official_email || p.email || "")?.toLowerCase().trim();
+      const validEmail = authenticEmail.endsWith("@vitbhopal.ac.in") ? authenticEmail : undefined;
+
       return {
         id: p.id,
         name: p.assigned_to_name || p.full_name,
@@ -157,7 +159,8 @@ export const getHierarchyMembers = cache(async () => {
         primaryPosition: primaryRoleObj?.position || "",
         secondaryRole: hasVolunteer ? "Volunteer / Event Scanner" : "General Operations",
         teamName: teamFormatted,
-        email: p.email,
+        email: validEmail,
+        githubUrl: (p as any).github_url || null,
         tier: tier as "president" | "panel" | "lead" | "core",
         caption: `Contributing to ${teamFormatted} operations and community technical innovation.`,
         avatarUrl: normalizedAvatar || null,
