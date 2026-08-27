@@ -207,18 +207,29 @@ git push personal main
 
 ---
 
-## 👥 Official Club Leadership
+## 👥 Official Club Leadership (2026–2027)
 
-- **President**: Harshvardhan Om
-- **Vice President**: Akshita Singh
-- **AI/ML & Innovation Lead**: Lakshya Kant
-- **Technical Lead**: Abhinav Kumar
-- **Design Lead**: Agrim Mathur
-- **Events Lead**: Priyansh Upadhyay
-- **HR Lead**: Amritanshu Gupta
-- **PR & Outreach Lead**: Shashwat Mishra
-- **Social Media Lead**: Jharna Gupta
-- **Content Lead**: Muskan Jha
+- **President**: Harshvardhan Om (`harshvardhan.24bce10511@vitbhopal.ac.in`)
+- **Vice President**: Akshita Singh (`akshita.25bce10779@vitbhopal.ac.in`)
+- **AI/ML & Innovation Lead**: Lakshya Kant (`lakshya.24bce10549@vitbhopal.ac.in`)
+- **Technical Lead**: Abhinav Kumar (`abhinav.24bsa10110@vitbhopal.ac.in`)
+- **Design Lead**: Agrim Mathur (`agrim.24bcg10060@vitbhopal.ac.in`)
+- **Event Management Lead**: Priyansh Upadhyay (`priyansh.24bcy10117@vitbhopal.ac.in`)
+- **PR & Outreach Lead**: Shashwat Mishra (`shashwat.25bai10233@vitbhopal.ac.in`)
+- **Social Media Lead**: Jharna Gupta (`jharna.25bai10557@vitbhopal.ac.in`)
+- **Content & Writing Lead**: Muskan Jha (`muskan.25bce11431@vitbhopal.ac.in`)
+
+---
+
+## 🏗️ Platform System Architects & Handover Lineage
+
+| Edition | System Architect | Role & Contact Information |
+| :--- | :--- | :--- |
+| **Edition 3.0** *(Current Production)* | **Lakshya Kant** | **Lead System Architect & Core Author**<br/>• AI/ML & Innovation Lead, Core Platform Architect<br/>• Personal: `lakshyakant007@gmail.com`<br/>• College: `lakshya.24bce10549@vitbhopal.ac.in`<br/>• GitHub: [`github.com/klakshya007`](https://github.com/klakshya007) |
+| **Edition 1.0 & 2.0** *(Foundational)* | **Ayush Mishra** | **Founding Architect & Platform Pioneer**<br/>• Founding Web Lead & Core Platform Architect<br/>• Personal: `ayushmishra2005.official@gmail.com`<br/>• College: `ayush.24bce10224@vitbhopal.ac.in`<br/>• Original Next.js 14 Setup & Supabase Architecture |
+| **Edition 4.0+** *(Future Cohort)* | **Incoming Successor** | *To be authored, updated, and signed by incoming technical leadership during formal handover.* |
+
+> 📘 **Master Developer Handover Manual**: A private 22-page operations manual (`GenAI_Community_Master_Handover_Book.pdf`) is provided directly in person to incoming technical leads, containing complete PostgreSQL schemas, Google Cloud failover topologies, HMAC ticket verification algorithms, and disaster recovery playbooks.
 
 ---
 
@@ -227,3 +238,4 @@ git push personal main
 Distributed under the **MIT License**. See `LICENSE` for details.
 
 *Engineered with ⚡ by the GenAI Community Technical Core Team at VIT Bhopal University.*
+

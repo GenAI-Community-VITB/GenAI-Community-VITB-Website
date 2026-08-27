@@ -187,6 +187,9 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
       } catch (err: any) {
         setMessage({ type: "error", text: err.message || "Failed to delete post." });
       }
+    });
+  }
+
   async function handleInstantOneClickPublish(e: React.FormEvent) {
     e.preventDefault();
     if (!quickRawContent.trim()) {
@@ -569,6 +572,22 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
                   disabled={isPending}
                   className="flex-1 rounded-xl bg-[#f5b642] py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition cursor-pointer disabled:opacity-50 shadow-sm"
                 >
+                  {isPending ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
+                    </span>
+                  ) : editingItem ? (
+                    "Update Post"
+                  ) : (
+                    "Publish Post"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── 1-CLICK INSTANT AI INGEST MODAL ── */}
       {showQuickModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
