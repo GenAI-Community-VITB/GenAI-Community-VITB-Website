@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, memo } from "react";
+import { useState, useMemo, useRef, useEffect, memo } from "react";
 import {
   Crown, Mail,
   Shield,
@@ -57,24 +57,49 @@ export const HierarchyAvatar = memo(function HierarchyAvatar({
   fallbackClassName?: string;
   initialsClassName?: string;
 }) {
-  const [hasError, setHasError] = useState(false);
-  const normalized = normalizeDriveImageUrl(avatarUrl);
-  const initials =
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "GA";
+  const normalized = useMemo(() => normalizeDriveImageUrl(avatarUrl), [avatarUrl]);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(normalized);
+  const [hasFailed, setHasFailed] = useState(false);
 
-  if (normalized && !hasError) {
+  useEffect(() => {
+    setCurrentSrc(normalizeDriveImageUrl(avatarUrl));
+    setHasFailed(false);
+  }, [avatarUrl]);
+
+  const initials = useMemo(() => {
+    return (
+      name
+        .split(" ")
+        .map((n) => n[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "GA"
+    );
+  }, [name]);
+
+  function handleError() {
+    // If external Google CDN failed or got throttled, try local streaming proxy
+    const fileIdMatch =
+      avatarUrl?.match(/[?&]id=([a-zA-Z0-9_-]{20,})/) ||
+      avatarUrl?.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/) ||
+      avatarUrl?.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{20,})/) ||
+      avatarUrl?.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+
+    if (fileIdMatch && fileIdMatch[1] && currentSrc !== `/api/drive/asset/${fileIdMatch[1]}`) {
+      setCurrentSrc(`/api/drive/asset/${fileIdMatch[1]}`);
+    } else {
+      setHasFailed(true);
+    }
+  }
+
+  if (currentSrc && !hasFailed) {
     return (
       <img
-        src={normalized}
+        src={currentSrc}
         alt={name}
         className={className || "h-full w-full object-cover"}
-        onError={() => setHasError(true)}
+        onError={handleError}
         loading="lazy"
         decoding="async"
       />
@@ -816,7 +841,7 @@ export function MemberHierarchyTree({
               return (
                 <div
                   key={branch.id}
-                  className="relative flex flex-col"
+                  className={`relative flex flex-col transition-all ${isOpen ? "z-[60]" : "z-10"}`}
                   onMouseEnter={() => setActiveTeamId(branch.id)}
                   onMouseLeave={() => setActiveTeamId(null)}
                 >
@@ -831,8 +856,8 @@ export function MemberHierarchyTree({
                     onClick={() => setActiveTeamId((prev) => (prev === branch.id ? null : branch.id))}
                     className={`group relative flex flex-col justify-between rounded-3xl border p-5 transition-all duration-200 cursor-pointer ${
                       isOpen
-                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-30"
-                        : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl"
+                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-[60]"
+                        : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl z-10"
                     }`}
                   >
                     <div>
@@ -882,7 +907,7 @@ export function MemberHierarchyTree({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.98 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
-                        className={`absolute top-full mt-2 w-[290px] sm:w-[320px] max-w-[calc(100vw-2rem)] rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-50 overflow-hidden flex flex-col ${alignClass}`}
+                        className={`absolute top-full mt-2 w-[290px] sm:w-[330px] max-w-[calc(100vw-2rem)] rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-[100] overflow-hidden flex flex-col ${alignClass}`}
                       >
                         {/* Header of Pop-out with Close/Retract Button */}
                         <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#221c13] bg-[#120e09] shrink-0">
