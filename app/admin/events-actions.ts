@@ -400,18 +400,43 @@ export async function upsertStaffUserAction(formData: FormData) {
     });
   }
 
-  // Sync avatar and name to public members table if matching record exists
+  // Sync to public members table for seamless 2-way reflection across admin and website
   try {
-    const effectiveAvatar = avatarUrl;
     const matchName = assignedToName || fullName;
-    if (effectiveAvatar) {
-      await supabase
-        .from("members")
-        .update({ image_url: effectiveAvatar })
-        .or(`email.ilike.${email},name.ilike.${matchName}`);
+    const primaryRole = assignedRoles[0];
+    const teamSlug = primaryRole?.team ? primaryRole.team.replace(/_/g, "-") : undefined;
+
+    let resolvedTeamId: string | undefined = undefined;
+    if (teamSlug) {
+      const { data: teamRec } = await supabase
+        .from("teams")
+        .select("id")
+        .or(`slug.eq.${teamSlug},name.ilike.%${primaryRole.team.replace(/_/g, " ")}%`)
+        .maybeSingle();
+      if (teamRec) resolvedTeamId = teamRec.id;
+    }
+
+    const { data: existingMember } = await supabase
+      .from("members")
+      .select("id")
+      .or(`official_email.ilike.${email},name.ilike.${matchName}`)
+      .maybeSingle();
+
+    if (existingMember) {
+      const memberUpdate: Record<string, unknown> = {
+        name: matchName,
+        role: fullName || staffRole,
+        position: primaryRole?.position ? primaryRole.position.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Core Member",
+        official_email: email.endsWith("@vitbhopal.ac.in") ? email : undefined,
+        status: isActive ? "active" : "pending",
+      };
+      if (avatarUrl) memberUpdate.image_url = avatarUrl;
+      if (resolvedTeamId) memberUpdate.team_id = resolvedTeamId;
+
+      await supabase.from("members").update(memberUpdate).eq("id", existingMember.id);
     }
   } catch (syncErr) {
-    console.warn("Public member record avatar sync skipped:", syncErr);
+    console.warn("Public member sync notice:", syncErr);
   }
 
   revalidatePath("/admin/users");

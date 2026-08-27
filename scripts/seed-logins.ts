@@ -539,7 +539,7 @@ export async function seedLogins() {
     return false;
   });
 
-  console.log(`Active login accounts to process (President, VP, Tech Team, AI/ML Team, Finance Team): ${activeLoginsRoster.length}`);
+  console.log(`Total roster members to seed in Admin Directory: ${ROSTER_2026.length}`);
   console.log("============================================================\n");
 
   // Fetch all existing users with large perPage to cover entire roster
@@ -550,11 +550,20 @@ export async function seedLogins() {
   let updatedCount = 0;
   let errorCount = 0;
 
-  const credentialsLog: Array<{ name: string; email: string; role: string; pass: string }> = [];
+  const credentialsLog: Array<{ name: string; email: string; role: string; pass: string; status: string }> = [];
 
-  for (let i = 0; i < activeLoginsRoster.length; i++) {
-    const item = activeLoginsRoster[i];
-    const uniquePassword = generateUniquePassword(item, i);
+  for (let i = 0; i < ROSTER_2026.length; i++) {
+    const item = ROSTER_2026[i];
+    const isAuthorizedLogin =
+      item.email === "lakshya.24bce10549@vitbhopal.ac.in" ||
+      item.position === "president" ||
+      item.position === "vice_president" ||
+      item.primaryRole === "president" ||
+      item.primaryRole === "vice_president" ||
+      ALLOWED_LOGIN_TEAMS.includes(item.team) ||
+      ALLOWED_LOGIN_ROLES.includes(item.primaryRole);
+
+    const uniquePassword = isAuthorizedLogin ? generateUniquePassword(item, i) : "";
 
     try {
       // Look up existing user strictly by new email, then legacy email, then assignedToName
@@ -574,23 +583,24 @@ export async function seedLogins() {
 
       if (existingUser) {
         userId = existingUser.id;
-        // In-place edit of existing user email, unique password, and metadata
-        await supabase.auth.admin.updateUserById(userId, {
-          email: item.email,
-          password: uniquePassword,
-          user_metadata: {
-            full_name: item.fullName,
-            assigned_to_name: item.assignedToName,
-            role: item.primaryRole,
-          },
-          email_confirm: true,
-        });
+        if (isAuthorizedLogin) {
+          await supabase.auth.admin.updateUserById(userId, {
+            email: item.email,
+            password: uniquePassword,
+            user_metadata: {
+              full_name: item.fullName,
+              assigned_to_name: item.assignedToName,
+              role: item.primaryRole,
+            },
+            email_confirm: true,
+          });
+        }
         updatedCount++;
       } else {
         try {
           const { data: newUser, error: createAuthError } = await supabase.auth.admin.createUser({
             email: item.email,
-            password: uniquePassword,
+            password: isAuthorizedLogin ? uniquePassword : `VOID_${crypto.randomUUID()}_2026!`,
             email_confirm: true,
             user_metadata: {
               full_name: item.fullName,
@@ -610,15 +620,17 @@ export async function seedLogins() {
           const found = listRes?.users?.find((u) => u.email?.toLowerCase() === item.email.toLowerCase());
           if (found) {
             userId = found.id;
-            await supabase.auth.admin.updateUserById(userId, {
-              password: uniquePassword,
-              user_metadata: {
-                full_name: item.fullName,
-                assigned_to_name: item.assignedToName,
-                role: item.primaryRole,
-              },
-              email_confirm: true,
-            });
+            if (isAuthorizedLogin) {
+              await supabase.auth.admin.updateUserById(userId, {
+                password: uniquePassword,
+                user_metadata: {
+                  full_name: item.fullName,
+                  assigned_to_name: item.assignedToName,
+                  role: item.primaryRole,
+                },
+                email_confirm: true,
+              });
+            }
             updatedCount++;
           } else {
             throw createErr;
@@ -626,17 +638,17 @@ export async function seedLogins() {
         }
       }
 
-      // Upsert user_profiles in-place with password for database fallback
+      // Upsert user_profiles in-place (voided = true for non-authorized teams)
       const { error: profileError } = await supabase.from("user_profiles").upsert(
         {
           id: userId,
           email: item.email,
-          password: uniquePassword,
+          password: isAuthorizedLogin ? uniquePassword : "",
           full_name: item.fullName,
           assigned_to_name: item.assignedToName,
           role: item.primaryRole,
-          is_active: true,
-          is_voided: false,
+          is_active: isAuthorizedLogin,
+          is_voided: !isAuthorizedLogin,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },
@@ -661,9 +673,10 @@ export async function seedLogins() {
         email: item.email,
         role: item.primaryRole,
         pass: uniquePassword,
+        status: isAuthorizedLogin ? "Active Login" : "Login Voided",
       });
 
-      console.log(`✅ [OK] ${item.email.padEnd(42)} -> ${item.assignedToName.padEnd(20)} | Pass: ${uniquePassword}`);
+      console.log(`✅ [OK] ${item.email.padEnd(42)} -> ${item.assignedToName.padEnd(20)} | ${isAuthorizedLogin ? `Pass: ${uniquePassword}` : "Login Voided"}`);
     } catch (err: any) {
       console.error(`❌ [ERROR] ${item.email}:`, err.message || err);
       errorCount++;
