@@ -12,7 +12,7 @@ export const ScrollTickerSection = memo(function ScrollTickerSection() {
     <div
       aria-hidden
       style={{ contain: "content" }}
-      className="select-none overflow-hidden border-y border-[#1a1a1a] bg-black py-4 space-y-2"
+      className="select-none overflow-hidden border-y border-[#1a1a1a] bg-black py-5 sm:py-6 space-y-2.5 my-2 sm:my-4"
     >
       {LINES.map((line, index) => (
         <div key={`${line.text}-${index}`} className="overflow-hidden whitespace-nowrap flex py-0.5">

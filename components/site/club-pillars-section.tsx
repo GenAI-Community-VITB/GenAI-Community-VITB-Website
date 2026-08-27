@@ -57,10 +57,10 @@ const activities = [
 
 export const ClubPillarsSection = memo(function ClubPillarsSection() {
   return (
-    <section className="relative overflow-hidden">
-      <div className="container-wrap relative space-y-16">
+    <section className="relative overflow-hidden py-16 sm:py-24 md:py-28">
+      <div className="container-wrap relative space-y-20 sm:space-y-24">
         {/* Top Pillars Grid with Continuous & Hover Glow Borders */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3 pt-4 sm:pt-8">
           {pillarCards.map(({ icon: Icon, title, body, accentGlow, borderIdle, borderHover, iconColor }, i) => (
             <motion.div
               key={title}
