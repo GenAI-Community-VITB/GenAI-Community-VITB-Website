@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://www.genaiclubvitb.in"),
   title: {
-    default: "GenAI Community VIT Bhopal | Generative AI Club",
+    default: "GenAI Community VIT Bhopal",
     template: "%s | GenAI Community VIT Bhopal",
   },
   description:
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     locale: "en_IN",
     url: "https://www.genaiclubvitb.in",
     siteName: "GenAI Community VIT Bhopal",
-    title: "GenAI Community VIT Bhopal | Generative AI Club",
+    title: "GenAI Community VIT Bhopal",
     description:
       "Official website of the GenAI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, and student passes.",
     images: [
@@ -63,13 +63,13 @@ export const metadata: Metadata = {
         url: "/ClubIcon.png",
         width: 512,
         height: 512,
-        alt: "GENAI Community VIT Bhopal Official Club Icon",
+        alt: "GenAI Community VIT Bhopal Official Club Icon",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GENAI Community VIT Bhopal | Generative AI Club",
+    title: "GenAI Community VIT Bhopal",
     description:
       "Official portal of Generative AI Community at VIT Bhopal University. Explore hackathons, workshops, and AI research projects.",
     images: ["/ClubIcon.png"],

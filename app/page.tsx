@@ -25,7 +25,7 @@ import {
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "GENAI Community VIT Bhopal | Generative AI Club",
+  title: "GenAI Community VIT Bhopal",
   description:
     "Official website of the Generative AI Community at VIT Bhopal University. Explore upcoming AI hackathons, technical workshops, open-source AI projects, and student passes.",
   alternates: {
