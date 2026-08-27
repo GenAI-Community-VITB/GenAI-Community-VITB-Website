@@ -60,6 +60,14 @@ export function FinanceQueue({
   const [isPending, startTransition] = useTransition();
   const [showOnSpotModal, setShowOnSpotModal] = useState(false);
 
+  useEffect(() => {
+    setRegistrations(initialRegistrations);
+  }, [initialRegistrations]);
+
+  useEffect(() => {
+    setDeletedRegistrations(initialDeletedRegistrations);
+  }, [initialDeletedRegistrations]);
+
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [showArchivedTab, setShowArchivedTab] = useState(false);

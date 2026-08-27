@@ -66,6 +66,10 @@ export function EventsManager({
   const [events, setEvents] = useState<Event[]>(initialEvents);
 
   useEffect(() => {
+    setEvents(initialEvents);
+  }, [initialEvents]);
+
+  useEffect(() => {
     onEventsChange?.(events);
   }, [events, onEventsChange]);
   const [showModal, setShowModal] = useState(false);

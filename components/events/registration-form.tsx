@@ -521,14 +521,14 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
         {/* Screenshot Upload */}
         <div className="space-y-2">
           <label className="text-xs font-semibold tracking-wider text-zinc-300 uppercase" htmlFor="screenshot_file">
-            Payment Screenshot Proof (JPG, PNG, WEBP &le; 2 MB) <span className="text-[#f5b642]">*</span>
+            Payment Screenshot Proof (JPG, PNG, WEBP, HEIC &le; 10 MB) <span className="text-[#f5b642]">*</span>
           </label>
-          <div className="relative rounded-2xl border-2 border-dashed border-[#333333] bg-[#141414] p-6 text-center hover:border-[#f5b642]/50 transition">
+          <div className="relative rounded-2xl border-2 border-dashed border-[#333333] bg-[#141414] p-6 text-center hover:border-[#f5b642]/50 transition cursor-pointer">
             <input
               id="screenshot_file"
               type="file"
               required
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/*"
               onChange={handleFileChange}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
@@ -537,7 +537,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
               <p className="mt-2 text-sm font-medium text-white">
                 {screenshot ? screenshot.name : "Click or drag & drop payment screenshot here"}
               </p>
-              <p className="text-xs text-zinc-500 mt-1">Maximum file size: 2 MB</p>
+              <p className="text-xs text-zinc-500 mt-1">Maximum file size: 10 MB</p>
             </div>
           </div>
 

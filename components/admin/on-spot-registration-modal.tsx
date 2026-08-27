@@ -320,14 +320,14 @@ export function OnSpotRegistrationModal({
 
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
-                Payment Screenshot / Desk Receipt *
+                Payment Screenshot / Desk Receipt (JPG, PNG, WEBP &le; 10 MB) *
               </label>
               <input
                 type="file"
                 required
-                accept="image/png,image/jpeg,image/webp,application/pdf"
+                accept="image/*,image/png,image/jpeg,image/webp"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-[#f5b642]/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#f5b642] hover:file:bg-[#f5b642]/30"
+                className="w-full text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-[#f5b642]/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#f5b642] hover:file:bg-[#f5b642]/30 cursor-pointer"
               />
             </div>
 
