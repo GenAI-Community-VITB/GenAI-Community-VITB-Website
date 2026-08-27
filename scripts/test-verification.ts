@@ -14,7 +14,7 @@ console.assert(t1.valid === true, "Test 1 Failed: B.Tech on B.Tech-only event sh
 console.log("✓ Test 1 Passed: B.Tech on B.Tech-only event");
 
 // Test 2: M.Tech branch with B.Tech only event (MUST FAIL)
-const t2 = validateEventEligibility("MTECH CSE (AI & Data Science)", ["B.Tech"]);
+const t2 = validateEventEligibility("MTECH and ALLIED Branches", ["B.Tech"]);
 console.assert(t2.valid === false, "Test 2 Failed: M.Tech on B.Tech-only event must be rejected");
 console.assert(
   t2.error?.includes("exclusively open to B.Tech"),
@@ -23,12 +23,12 @@ console.assert(
 console.log("✓ Test 2 Passed: M.Tech rejected on B.Tech-only event with error:", t2.error);
 
 // Test 3: M.Tech branch with B.Tech + M.Tech event (MUST PASS)
-const t3 = validateEventEligibility("MTECH CSE (Cyber Security & Digital Forensics)", ["B.Tech", "M.Tech"]);
+const t3 = validateEventEligibility("MTECH and ALLIED Branches", ["B.Tech", "M.Tech"]);
 console.assert(t3.valid === true, "Test 3 Failed: M.Tech on B.Tech+M.Tech event should pass");
 console.log("✓ Test 3 Passed: M.Tech on B.Tech+M.Tech event");
 
 // Test 4: Integrated M.Tech on B.Tech + M.Tech event (MUST PASS)
-const t4 = validateEventEligibility("Integrated MTECH Software Engineering", ["B.Tech", "M.Tech"]);
+const t4 = validateEventEligibility("MTECH and ALLIED Branches", ["B.Tech", "M.Tech"]);
 console.assert(t4.valid === true, "Test 4 Failed: Integrated M.Tech on B.Tech+M.Tech event should pass");
 console.log("✓ Test 4 Passed: Integrated M.Tech on B.Tech+M.Tech event");
 

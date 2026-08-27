@@ -370,14 +370,14 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
               {/* Dropdown Options Menu */}
               {branchDropdownOpen && (
                 <div className="absolute left-0 top-full mt-2 w-full max-h-64 overflow-y-auto rounded-2xl border-2 border-[#f5b642]/80 bg-[#120e09] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] z-50 divide-y divide-[#221c13]">
-                  {/* B.Tech Section */}
-                  {allowsBTech && (
+                  {/* M.Tech Section (Top Option) */}
+                  {allowsMTech && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f5b642]/80 font-mono bg-black/40 flex items-center justify-between">
-                        <span>B.Tech Programmes</span>
+                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400/90 font-mono bg-black/40 flex items-center justify-between">
+                        <span>M.Tech & Allied Programmes</span>
                         <span className="text-emerald-400 text-[9px]">Eligible</span>
                       </div>
-                      {APPROVED_BTECH_BRANCHES.map((bName) => {
+                      {APPROVED_MTECH_BRANCHES.map((bName) => {
                         const isSelected = branch === bName;
                         return (
                           <button
@@ -401,14 +401,14 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
                     </>
                   )}
 
-                  {/* M.Tech Section */}
-                  {allowsMTech && (
+                  {/* B.Tech Section */}
+                  {allowsBTech && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400/80 font-mono bg-black/40 flex items-center justify-between">
-                        <span>M.Tech & Integrated Programmes</span>
+                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f5b642]/80 font-mono bg-black/40 flex items-center justify-between">
+                        <span>B.Tech Programmes</span>
                         <span className="text-emerald-400 text-[9px]">Eligible</span>
                       </div>
-                      {APPROVED_MTECH_BRANCHES.map((bName) => {
+                      {APPROVED_BTECH_BRANCHES.map((bName) => {
                         const isSelected = branch === bName;
                         return (
                           <button

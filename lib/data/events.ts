@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { Event, Branch } from "@/lib/types";
+import { ALL_APPROVED_BRANCHES } from "@/lib/validation";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -186,7 +187,7 @@ export const getEventBySlugOrId = cache(
 );
 
 /**
- * Fetches all approved VIT Bhopal B.Tech branches.
+ * Fetches all approved VIT Bhopal branches (M.Tech at top, followed by B.Tech).
  */
 export const getActiveBranches = cache(async (): Promise<Branch[]> => {
   try {
@@ -207,20 +208,26 @@ export const getActiveBranches = cache(async (): Promise<Branch[]> => {
       data = res.data;
     }
 
-    return (data as Branch[]) ?? [];
+    if (data && data.length > 0) {
+      return data as Branch[];
+    }
+
+    return ALL_APPROVED_BRANCHES.map((name, i) => ({
+      id: `branch-${i}`,
+      name,
+      code: name.slice(0, 10).toUpperCase(),
+      is_active: true,
+      display_order: i,
+    })) as Branch[];
   } catch (err) {
     console.error("Error fetching branches:", err);
-    try {
-      const adminSupabase = createAdminSupabase();
-      const res = await adminSupabase
-        .from("branches")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true });
-      return (res.data as Branch[]) ?? [];
-    } catch {
-      return [];
-    }
+    return ALL_APPROVED_BRANCHES.map((name, i) => ({
+      id: `branch-${i}`,
+      name,
+      code: name.slice(0, 10).toUpperCase(),
+      is_active: true,
+      display_order: i,
+    })) as Branch[];
   }
 });
 

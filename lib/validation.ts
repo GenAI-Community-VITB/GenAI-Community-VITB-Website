@@ -99,23 +99,15 @@ export const APPROVED_BTECH_BRANCHES = [
 ] as const;
 
 /**
- * Approved M.Tech & Integrated M.Tech Branches for VIT Bhopal (from Schools List: SCSE, SCAI, SEEE, SBE, SASL)
+ * Approved M.Tech & Integrated M.Tech Branches for VIT Bhopal (Unified Single Option at Top)
  */
 export const APPROVED_MTECH_BRANCHES = [
-  "MTECH CSE (AI & Data Science)",
-  "MTECH CSE (Cyber Security & Digital Forensics)",
-  "MTECH CSE (Computational & Data Science)",
-  "MTECH VLSI Design",
-  "Integrated MTECH CSE (AI & ML)",
-  "Integrated MTECH CSE (Cyber Security & Digital Forensics)",
-  "Integrated MTECH CSE (Computational & Data Science)",
-  "Integrated MTECH Software Engineering",
-  "Integrated MTECH AI & Bioinformatics",
+  "MTECH and ALLIED Branches",
 ] as const;
 
 export const ALL_APPROVED_BRANCHES = [
-  ...APPROVED_BTECH_BRANCHES,
   ...APPROVED_MTECH_BRANCHES,
+  ...APPROVED_BTECH_BRANCHES,
 ] as const;
 
 export function isBTechBranch(branchName: string): boolean {
@@ -133,6 +125,7 @@ export function isMTechBranch(branchName: string): boolean {
     APPROVED_MTECH_BRANCHES.some((b) => b.toLowerCase() === norm) ||
     norm.startsWith("mtech") ||
     norm.startsWith("m.tech") ||
+    norm.includes("mtech and allied") ||
     norm.includes("integrated mtech") ||
     norm.includes("integrated m.tech")
   );
