@@ -750,7 +750,7 @@ export function MemberHierarchyTree({
               <Crown className="h-3.5 w-3.5 text-[#f5b642]" />
               President
             </div>
-            <div className="w-80 sm:w-96">
+            <div className="w-full max-w-[340px] sm:max-w-md">
               <TreeNodeCard
                 member={president}
                 color="#f5b642"
@@ -772,7 +772,7 @@ export function MemberHierarchyTree({
               <Shield className="h-3.5 w-3.5 text-sky-400" />
               Vice President
             </div>
-            <div className="w-80 sm:w-96">
+            <div className="w-full max-w-[340px] sm:max-w-md">
               <TreeNodeCard
                 member={vp}
                 color="#38bdf8"
@@ -1090,48 +1090,48 @@ const TreeNodeCard = memo(function TreeNodeCard({
         e.stopPropagation();
         onSelectMember?.(member);
       }}
-      className={`group relative rounded-2xl border transition-all duration-150 ${
+      className={`group relative rounded-2xl border transition-all duration-200 ${
         badgeText === "President"
-          ? "border-amber-500/70 bg-[#16120b] hover:border-[#f5b642] p-4 sm:p-5 shadow-lg"
+          ? "border-amber-500/70 bg-[#16120b] hover:border-[#f5b642] p-4 sm:p-5 shadow-xl hover:shadow-[0_0_30px_rgba(245,182,66,0.25)]"
           : badgeText === "Vice President"
-          ? "border-sky-500/60 bg-[#0e141a] hover:border-sky-400 p-4 sm:p-5 shadow-lg"
+          ? "border-sky-500/60 bg-[#0e141a] hover:border-sky-400 p-4 sm:p-5 shadow-xl hover:shadow-[0_0_30px_rgba(56,189,248,0.25)]"
           : badgeText === "Lead"
-          ? "border-amber-500/30 bg-[#130f0a] hover:border-[#f5b642] hover:bg-[#18130c] p-3"
+          ? "border-amber-500/35 bg-[#130f0a] hover:border-[#f5b642] hover:bg-[#18130c] p-3.5 sm:p-4 shadow-md"
           : badgeText === "Co-Lead"
-          ? "border-sky-500/30 bg-[#0e1217] hover:border-sky-400 hover:bg-[#121820] p-3"
-          : "border-[#221c13] bg-[#0e0c08] hover:border-[#f5b642] hover:bg-[#14100b] p-2.5"
-      } cursor-pointer hover:scale-[1.02]`}
+          ? "border-sky-500/35 bg-[#0e1217] hover:border-sky-400 hover:bg-[#121820] p-3.5 sm:p-4 shadow-md"
+          : "border-[#262015] bg-[#0e0c08] hover:border-[#f5b642] hover:bg-[#14100b] p-3 sm:p-3.5 shadow-sm"
+      } cursor-pointer hover:scale-[1.02] w-full`}
     >
       {/* Top subtle glow line on hover */}
       <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#f5b642] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
       {/* ── CARD CONTENT: AVATAR + NAME + FULL UNABBREVIATED DESIGNATION ── */}
-      <div className="flex items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          {/* Avatar Thumbnail */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Avatar Thumbnail with Enlarged Visual Footprint */}
           <div
-            className={`shrink-0 overflow-hidden rounded-xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
+            className={`shrink-0 overflow-hidden rounded-2xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
               badgeText === "President"
-                ? "h-11 w-11 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_12px_rgba(245,182,66,0.25)] text-sm"
+                ? "h-14 w-14 sm:h-16 sm:w-16 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_15px_rgba(245,182,66,0.3)] text-base"
                 : badgeText === "Vice President"
-                ? "h-11 w-11 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.25)] text-sm"
+                ? "h-14 w-14 sm:h-16 sm:w-16 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_15px_rgba(56,189,248,0.3)] text-base"
                 : badgeText === "Lead" || badgeText === "Co-Lead"
-                ? "h-9 w-9 border-[#382c16] bg-[#1a140c] text-[#f5b642] text-xs"
-                : "h-8 w-8 border-[#262015] bg-[#120f0a] text-zinc-400 text-[10px]"
+                ? "h-12 w-12 sm:h-13 sm:w-13 border-[#3d3018] bg-[#1a140c] text-[#f5b642] text-sm"
+                : "h-11 w-11 sm:h-12 sm:w-12 border-[#2b2417] bg-[#120f0a] text-zinc-300 text-xs"
             }`}
           >
             <HierarchyAvatar
               name={member.name}
               avatarUrl={member.avatarUrl}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover rounded-xl"
               fallbackClassName="flex h-full w-full items-center justify-center font-bold"
               initialsClassName="font-mono text-inherit"
             />
           </div>
 
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <h4 className="font-black text-white text-xs tracking-tight truncate group-hover:text-[#ffd06a] transition-colors">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h4 className="font-extrabold text-white text-xs sm:text-sm tracking-tight truncate group-hover:text-[#ffd06a] transition-colors">
                 {member.name}
               </h4>
               {badgeText === "President" && (
@@ -1139,7 +1139,7 @@ const TreeNodeCard = memo(function TreeNodeCard({
               )}
             </div>
             <p
-              className="font-bold text-[10.5px] truncate"
+              className="font-bold text-[11px] sm:text-xs truncate leading-snug"
               style={{ color }}
             >
               {member.roleTitle}
@@ -1154,15 +1154,15 @@ const TreeNodeCard = memo(function TreeNodeCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="p-1 rounded-lg border border-zinc-800 bg-[#16120b] text-zinc-400 hover:text-white hover:border-[#f5b642] transition"
+              className="p-1.5 rounded-xl border border-zinc-800 bg-[#16120b] text-zinc-400 hover:text-white hover:border-[#f5b642] transition"
               title="GitHub Profile"
             >
-              <GithubIcon className="h-3 w-3" />
+              <GithubIcon className="h-3.5 w-3.5" />
             </a>
           )}
           {/* Proper Designation Tag */}
           <span
-            className={`rounded-full border px-2 py-0.5 text-[9px] font-bold transition ${
+            className={`rounded-full border px-2.5 py-0.5 text-[9.5px] sm:text-[10px] font-bold transition shrink-0 ${
               badgeText === "President"
                 ? "border-amber-500/50 bg-amber-500/20 text-amber-300"
                 : badgeText === "Vice President"

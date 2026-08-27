@@ -5,6 +5,7 @@ import {
   upsertStaffUserAction,
   toggleStaffUserActiveAction,
   voidStaffUserAction,
+  unvoidStaffUserAction,
   resetStaffPasswordAction,
 } from "@/app/admin/events-actions";
 import {
@@ -219,6 +220,36 @@ export function UserManagement({
   // Void modal state
   const [voidTarget, setVoidTarget] = useState<UserProfile | null>(null);
   const [voidReason, setVoidReason] = useState("");
+
+  // Unvoid modal state & Random Password generator
+  const [unvoidTarget, setUnvoidTarget] = useState<UserProfile | null>(null);
+  const [unvoidPassword, setUnvoidPassword] = useState("");
+  const [unvoidResult, setUnvoidResult] = useState<{ email: string; password?: string } | null>(null);
+
+  function generateUnvoidRandomPassword() {
+    const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+    setUnvoidPassword(pw);
+  }
+
+  function handleConfirmUnvoid() {
+    if (!unvoidTarget) return;
+    startTransition(async () => {
+      try {
+        const res = await unvoidStaffUserAction(unvoidTarget.id, unvoidPassword);
+        setUnvoidResult({ email: res.email, password: res.newPassword });
+        setUserList((prev) =>
+          prev.map((u) =>
+            u.id === unvoidTarget.id
+              ? { ...u, is_voided: false, is_active: true, password: res.newPassword }
+              : u,
+          ),
+        );
+        setActionSuccess(`Successfully unvoided login credentials for ${res.email}`);
+      } catch (err: any) {
+        setActionError(err.message || "Failed to unvoid user.");
+      }
+    });
+  }
 
   // Password Reset Queries (Exec 6)
   const [resetQueries, setResetQueries] = useState<PasswordResetQuery[]>([]);
@@ -858,6 +889,22 @@ export function UserManagement({
 
                   {/* Actions */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap text-right">
+                    {isVoided && isTop6Admin(currentUserRole) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUnvoidTarget(u);
+                          const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+                          setUnvoidPassword(pw);
+                          setUnvoidResult(null);
+                        }}
+                        className="rounded-xl border border-emerald-500/50 bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-300 hover:bg-emerald-900/60 hover:text-white transition shadow cursor-pointer whitespace-nowrap inline-flex items-center gap-1"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <span>Unvoid & Re-issue Login</span>
+                      </button>
+                    )}
+
                     {!isVoided && (() => {
                       const isExec = isExecutiveAccount(u.role, u.roles);
                       const canEditTarget = !isExec || isSupremeLeader;
@@ -924,6 +971,112 @@ export function UserManagement({
           </tbody>
         </table>
       </div>
+
+      {/* UNVOID ACCOUNT MODAL */}
+      {unvoidTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-900/50 bg-[#09150f] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-emerald-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-950/80 border border-emerald-800/50">
+                <Sparkles className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-base">Unvoid Member & Re-issue Login</h3>
+                <p className="text-xs text-emerald-300">Restores active portal status & sets login credentials</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-300">
+              You are restoring login access for <strong className="text-white">{unvoidTarget.assigned_to_name || unvoidTarget.full_name}</strong> (
+              <span className="font-mono text-amber-300">{unvoidTarget.email}</span>).
+            </p>
+
+            {unvoidResult ? (
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 space-y-2.5">
+                <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Account Successfully Unvoided & Active!</span>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-black/70 px-3.5 py-2 text-xs">
+                  <div>
+                    <span className="text-zinc-400 font-mono text-[10px] block uppercase">New Login Password:</span>
+                    <span className="font-mono font-bold text-emerald-400 text-sm">{unvoidResult.password}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(unvoidResult.password || "");
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#f5b642] hover:underline cursor-pointer"
+                  >
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copied ? "Copied" : "Copy"}</span>
+                  </button>
+                </div>
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnvoidTarget(null);
+                      setUnvoidResult(null);
+                    }}
+                    className="w-full rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-zinc-400">
+                      Generated Login Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={generateUnvoidRandomPassword}
+                      className="text-[11px] font-bold text-[#f5b642] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>Random Password</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={unvoidPassword}
+                    onChange={(e) => setUnvoidPassword(e.target.value)}
+                    className="w-full rounded-xl border border-emerald-950 bg-black/60 px-3.5 py-2 font-mono text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnvoidTarget(null);
+                      setUnvoidResult(null);
+                    }}
+                    className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={handleConfirmUnvoid}
+                    className="flex-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    {isPending ? "Restoring..." : "Confirm & Unvoid"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* VOID ACCOUNT CONFIRMATION MODAL */}
       {voidTarget && (

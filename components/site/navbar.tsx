@@ -1,10 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ClubIcon from "@/assets/ClubIcon.png";
-import { Trophy, Users, Calendar, FolderKanban, Info, Medal, BookOpen } from "lucide-react";
+import {
+  Trophy,
+  Users,
+  Calendar,
+  FolderKanban,
+  Info,
+  Medal,
+  BookOpen,
+  Menu,
+  X,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -19,16 +32,17 @@ const NAV_LINKS = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#221d14] bg-black/85 backdrop-blur-xl">
-      <div className="container-wrap flex h-16 items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 w-full border-b border-[#221d14] bg-black/90 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-4">
         {/* Brand Logo with Glowing Ambient Animation on Hover */}
         <Link href="/" className="flex items-center gap-3 group shrink-0 relative">
           <div className="relative flex items-center justify-center">
             {/* Ambient Background Aura on Hover */}
             <div className="pointer-events-none absolute -inset-1.5 rounded-2xl bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] opacity-0 blur-md transition-all duration-500 group-hover:opacity-80 group-hover:blur-lg" />
-            
+
             {/* Icon Container Box */}
             <div className="relative overflow-hidden rounded-2xl border border-[#f5b642]/40 bg-[#16120b] p-1 transition-all duration-500 ease-out group-hover:scale-105 group-hover:border-[#f5b642] group-hover:shadow-[0_0_25px_rgba(245,182,66,0.65)]">
               <Image
@@ -72,7 +86,7 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Mobile Quick Action Link */}
+        {/* Mobile Hamburger & Quick Action */}
         <div className="flex items-center gap-2 md:hidden">
           <Link
             href="/events"
@@ -80,8 +94,43 @@ export function Navbar() {
           >
             Events
           </Link>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label="Toggle navigation menu"
+            className="p-1.5 rounded-xl border border-[#382c16] bg-[#14100b] text-zinc-300 hover:text-white hover:border-[#f5b642] transition"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5 text-[#f5b642]" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Dropdown Menu Drawer */}
+      {mobileMenuOpen && (
+        <div className="border-t border-[#221d14] bg-[#0c0906] p-4 md:hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="grid grid-cols-2 gap-2">
+            {NAV_LINKS.map((link) => {
+              const isActive = pathname === link.href;
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-2 rounded-2xl p-3 text-xs font-bold transition ${
+                    isActive
+                      ? "border border-[#f5b642]/60 bg-[#211a0e] text-[#f5b642] shadow-sm"
+                      : "border border-[#221d14] bg-[#14100b] text-zinc-300 hover:border-zinc-700 hover:text-white"
+                  }`}
+                >
+                  {Icon && <Icon className="h-4 w-4 text-[#f5b642] shrink-0" />}
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Mobile Horizontally Scrollable Navigation Ribbon */}
       <div className="flex w-full items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-2 border-t border-[#221d14]/70 md:hidden bg-[#0a0805]/95">

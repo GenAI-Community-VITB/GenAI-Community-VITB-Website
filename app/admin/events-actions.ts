@@ -519,6 +519,95 @@ export async function voidStaffUserAction(userId: string, reason: string) {
 }
 
 /**
+ * Top-6 only: Unvoids a previously voided member profile, restores active status, and assigns a new random password.
+ */
+export async function unvoidStaffUserAction(userId: string, customPassword?: string) {
+  const { user, profile, role } = await requireStaffRole("tech");
+  const supabase = createAdminSupabase();
+
+  const { data: targetProfile } = await supabase
+    .from("user_profiles")
+    .select("*, roles:member_roles(*)")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!targetProfile) {
+    throw new Error("Target user not found");
+  }
+
+  // Generate random strong password if none provided
+  const newPassword = customPassword && customPassword.trim().length >= 8
+    ? customPassword.trim()
+    : `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+
+  // Re-create or update Supabase Auth User
+  try {
+    const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
+      email: targetProfile.email,
+      password: newPassword,
+      email_confirm: true,
+      user_metadata: { full_name: targetProfile.full_name, role: targetProfile.role },
+    });
+
+    if (authErr && authErr.message.includes("already registered")) {
+      await supabase.auth.admin.updateUserById(userId, {
+        password: newPassword,
+        email_confirm: true,
+      });
+    }
+  } catch (err: any) {
+    console.warn("Auth unvoid notice:", err.message);
+  }
+
+  // Unvoid user profile
+  const { error: updateErr } = await supabase
+    .from("user_profiles")
+    .update({
+      is_active: true,
+      is_voided: false,
+      voided_at: null,
+      voided_reason: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (updateErr) throw new Error(updateErr.message);
+
+  // Restore default role if missing
+  const existingRoles = Array.isArray(targetProfile.roles) ? targetProfile.roles : [];
+  if (existingRoles.length === 0) {
+    await supabase.from("member_roles").insert({
+      user_id: userId,
+      team: "technical",
+      position: "core_member",
+    });
+  }
+
+  // Audit log
+  await logAuditEvent({
+    actorUserId: user.id,
+    actorEmail: profile.email || user.email,
+    actorRole: role,
+    action: "user_unvoided",
+    targetType: "user",
+    targetId: userId,
+    reason: "Account unvoided and login credentials re-issued by executive",
+    metadata: {
+      target_email: targetProfile.email,
+      target_name: targetProfile.full_name,
+      assigned_to_name: targetProfile.assigned_to_name,
+    },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin");
+  revalidatePath("/team");
+  revalidatePath("/");
+
+  return { success: true, newPassword, email: targetProfile.email };
+}
+
+/**
  * Tech-only: Soft-disables a staff user with safeguard for last tech lead and Top Executive accounts.
  */
 export async function toggleStaffUserActiveAction(userId: string, currentActive: boolean) {
