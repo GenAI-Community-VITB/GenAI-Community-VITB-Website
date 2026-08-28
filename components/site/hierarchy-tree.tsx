@@ -831,8 +831,8 @@ export function HierarchyTree({
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-         <div className="flex flex-col items-center space-y-0 relative max-w-5xl mx-auto overflow-visible">
+        {/* ── CONNECTED HIERARCHICAL TREE (PRESIDENT -> VP -> BRANCH DISTRIBUTOR) ── */}
+        <div className="flex flex-col items-center space-y-0 relative max-w-5xl mx-auto overflow-visible">
           {/* ── PRESIDENT NODE ── */}
           <div className="flex flex-col items-center relative z-40">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3.5 py-0.5 text-[11px] font-bold text-amber-300 mb-2 shadow-[0_0_15px_rgba(245,182,66,0.2)]">
@@ -984,7 +984,7 @@ export function HierarchyTree({
                 &ldquo;{selectedMember.caption}&rdquo;
               </div>
 
-              {/* Social Profiles: GitHub & LinkedIn */}
+              {/* Social Profiles: GitHub & LinkedIn (Redirect to GitHub & Feed) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {/* GitHub Profile */}
                 <div className="flex items-center justify-between rounded-2xl border border-[#2e2618] bg-[#14100b] p-3 gap-2">
@@ -995,22 +995,22 @@ export function HierarchyTree({
                     <div className="min-w-0">
                       <span className="text-[9px] font-bold uppercase text-zinc-400 block">GitHub</span>
                       <span className="text-xs font-mono text-zinc-300 truncate max-w-[110px] block">
-                        {selectedMember.githubUrl ? selectedMember.githubUrl.replace("https://github.com/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                        github.com
                       </span>
                     </div>
                   </div>
                   <a
-                    href={selectedMember.githubUrl || `https://github.com/${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                    href="https://github.com"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[#f5b642]/60 bg-[#f5b642]/10 px-2.5 py-1 text-xs font-bold text-[#f5b642] hover:bg-[#f5b642] hover:text-black transition cursor-pointer"
                   >
-                    <span>View</span>
+                    <span>Visit</span>
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
 
-                {/* LinkedIn Profile */}
+                {/* LinkedIn Feed */}
                 <div className="flex items-center justify-between rounded-2xl border border-[#1b2d42] bg-[#0c1622] p-3 gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0a1b2e] border border-sky-600/40 text-sky-400 shrink-0">
@@ -1019,17 +1019,17 @@ export function HierarchyTree({
                     <div className="min-w-0">
                       <span className="text-[9px] font-bold uppercase text-sky-400 block">LinkedIn</span>
                       <span className="text-xs font-mono text-zinc-300 truncate max-w-[110px] block">
-                        {selectedMember.linkedinUrl ? selectedMember.linkedinUrl.replace("https://www.linkedin.com/in/", "@").replace("https://linkedin.com/in/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                        Feed
                       </span>
                     </div>
                   </div>
                   <a
-                    href={selectedMember.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(selectedMember.name + " VIT Bhopal")}`}
+                    href="https://www.linkedin.com/feed/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-sky-500/60 bg-sky-500/10 px-2.5 py-1 text-xs font-bold text-sky-400 hover:bg-sky-500 hover:text-black transition cursor-pointer"
                   >
-                    <span>Connect</span>
+                    <span>Feed</span>
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
@@ -1328,7 +1328,7 @@ function BranchCard({
   );
 }
 
-// ── PURE HIERARCHY NODE CARD (Idle: Name + Designation + GitHub | Click: Full Profile Modal) ──
+// ── PURE HIERARCHY NODE CARD (Idle: Name + Designation + GitHub + LinkedIn | Click: Full Profile Modal) ──
 function TreeNodeCard({
   member,
   color = "#f5b642",
@@ -1342,7 +1342,8 @@ function TreeNodeCard({
   isCore?: boolean;
   onSelectMember?: (member: HierarchyMember) => void;
 }) {
-  const ghLink = member.githubUrl || `https://github.com/${member.name.toLowerCase().replace(/\s+/g, "")}`;
+  const ghLink = "https://github.com";
+  const linkedinLink = "https://www.linkedin.com/feed/";
 
   return (
     <div
@@ -1362,13 +1363,10 @@ function TreeNodeCard({
           : "border-[#221c13] bg-[#0e0c08] hover:border-[#f5b642] hover:bg-[#14100b] p-2.5"
       } cursor-pointer hover:scale-[1.02]`}
     >
-      {/* Top subtle glow line on hover */}
       <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#f5b642] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-      {/* ── CARD CONTENT: AVATAR + NAME + DESIGNATION + GITHUB LINK ── */}
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          {/* Avatar Thumbnail */}
           <div
             className={`shrink-0 overflow-hidden rounded-xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
               badgeText === "President"
@@ -1414,35 +1412,22 @@ function TreeNodeCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            title={`Visit ${member.name}'s GitHub Profile`}
+            title="GitHub (github.com)"
             className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#332b1d] bg-[#1a140b] text-zinc-400 hover:text-white hover:border-[#f5b642] hover:bg-[#2a1f0c] transition cursor-pointer"
           >
             <GithubIcon className="h-3 w-3" />
           </a>
 
-          {member.linkedinUrl ? (
-            <a
-              href={member.linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              title={`Visit ${member.name}'s LinkedIn Profile`}
-              className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#1b2d42] bg-[#0c1622] text-[#38bdf8] hover:text-white hover:border-[#38bdf8] hover:bg-[#13283d] transition cursor-pointer"
-            >
-              <LinkedinIcon className="h-3 w-3" />
-            </a>
-          ) : (
-            <a
-              href={`https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(member.name + " VIT Bhopal")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              title={`Search ${member.name} on LinkedIn`}
-              className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#222] bg-[#111] text-zinc-500 hover:text-[#38bdf8] hover:border-sky-500/50 hover:bg-[#0c1622] transition cursor-pointer opacity-70 hover:opacity-100"
-            >
-              <LinkedinIcon className="h-3 w-3" />
-            </a>
-          )}
+          <a
+            href={linkedinLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="LinkedIn Feed"
+            className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#1b2d42] bg-[#0c1622] text-[#38bdf8] hover:text-white hover:border-[#38bdf8] hover:bg-[#13283d] transition cursor-pointer"
+          >
+            <LinkedinIcon className="h-3 w-3" />
+          </a>
 
           {/* Proper Designation Tag */}
           <span

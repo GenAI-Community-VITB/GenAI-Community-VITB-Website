@@ -40,9 +40,10 @@ import type { Achievement } from "@/lib/types";
 import type { EventWinner } from "@/lib/data/winners";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Mail } from "lucide-react";
+import { EmailOperations } from "@/components/admin/email-operations";
 
-type TabId = "members" | "teams" | "events" | "projects" | "blogs" | "achievements" | "winners";
+type TabId = "members" | "teams" | "events" | "projects" | "blogs" | "achievements" | "winners" | "email";
 
 const tabs: { id: TabId; label: string; icon: any }[] = [
   { id: "members", label: "Members in the Hierarchy Tree", icon: Users },
@@ -50,6 +51,7 @@ const tabs: { id: TabId; label: string; icon: any }[] = [
   { id: "events", label: "Events", icon: Calendar },
   { id: "projects", label: "Projects", icon: FolderKanban },
   { id: "blogs", label: "Blogs & LinkedIn AI", icon: BookOpen },
+  { id: "email", label: "Email Relay & GAS Engine", icon: Mail },
   { id: "achievements", label: "Achievements", icon: Trophy },
   { id: "winners", label: "Event Winners", icon: Medal },
 ];
@@ -356,6 +358,7 @@ export function AdminDashboardClient(props: {
               else if (id === "achievements") count = achievements.length;
               else if (id === "winners") count = winners.length;
               else if (id === "blogs") count = 6;
+              else if (id === "email") count = 1;
 
               return (
                 <button
@@ -390,7 +393,7 @@ export function AdminDashboardClient(props: {
                         {label}
                       </span>
                       <span className="text-[10px] text-zinc-400 font-mono block">
-                        {id === "blogs" ? "AI Ingest" : `${count} ${count === 1 ? "item" : "items"}`}
+                        {id === "blogs" ? "AI Ingest" : id === "email" ? "Relay Ready" : `${count} ${count === 1 ? "item" : "items"}`}
                       </span>
                     </div>
                   </div>
@@ -465,7 +468,15 @@ export function AdminDashboardClient(props: {
                 />
               </div>
 
-              {/* ── 5. Achievements Management ── */}
+              {/* ── 5. Email Relay & Google Apps Script Management ── */}
+              <div className={tab === "email" ? "block space-y-8" : "hidden"}>
+                <EmailOperations
+                  eventId={currentEvents[0]?.id}
+                  activeEventTitle={currentEvents[0]?.title}
+                />
+              </div>
+
+              {/* ── 6. Achievements Management ── */}
               <div className={tab === "achievements" ? "block space-y-8" : "hidden"}>
                 <AchievementsManager
                   initialAchievements={achievements}
@@ -473,7 +484,7 @@ export function AdminDashboardClient(props: {
                 />
               </div>
 
-              {/* ── 6. Event Winners & Podium Management ── */}
+              {/* ── 7. Event Winners & Podium Management ── */}
               <div className={tab === "winners" ? "block space-y-8" : "hidden"}>
                 <WinnersManager
                   initialWinners={winners}

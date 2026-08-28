@@ -152,6 +152,73 @@ export class GoogleAppsScriptEmailClient {
       };
     }
   }
+
+  /**
+   * Diagnostic ping to test live connectivity and quota with the Google Apps Script Web App.
+   */
+  public async pingRelay(): Promise<{
+    configured: boolean;
+    connected: boolean;
+    latencyMs?: number;
+    quotaRemaining?: number | null;
+    message: string;
+    details?: any;
+  }> {
+    if (!this.isConfigured()) {
+      return {
+        configured: false,
+        connected: false,
+        message: "Google Apps Script endpoint is running in Development / Mock Mode (GOOGLE_APPS_SCRIPT_URL not configured).",
+      };
+    }
+
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      const response = await fetch(this.webAppUrl, {
+        method: "GET",
+        signal: controller.signal,
+        redirect: "follow",
+      });
+
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - start;
+
+      if (!response.ok) {
+        return {
+          configured: true,
+          connected: false,
+          latencyMs,
+          message: `Relay responded with HTTP ${response.status} (${response.statusText}).`,
+        };
+      }
+
+      const resData = await response.json().catch(() => null);
+
+      return {
+        configured: true,
+        connected: true,
+        latencyMs,
+        quotaRemaining: resData?.remainingDailyQuota ?? null,
+        message: "Successfully connected to Google Apps Script Web App Relay!",
+        details: resData,
+      };
+    } catch (err: any) {
+      const latencyMs = Date.now() - start;
+      const isTimeout = err.name === "AbortError";
+      return {
+        configured: true,
+        connected: false,
+        latencyMs,
+        message: isTimeout
+          ? "Connection timed out after 12 seconds."
+          : `Failed to connect: ${err.message || "Network error"}`,
+      };
+    }
+  }
 }
 
 export const googleAppsScriptClient = new GoogleAppsScriptEmailClient();
+

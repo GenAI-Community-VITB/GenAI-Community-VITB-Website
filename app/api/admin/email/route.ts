@@ -62,6 +62,39 @@ export async function POST(req: NextRequest) {
     const { action, eventId, registrationId, forceResend } = body;
     const supabase = createAdminSupabase();
 
+    // 0. Diagnostic Ping to Google Apps Script Web App
+    if (action === "test_relay_ping") {
+      const { googleAppsScriptClient } = await import("@/lib/email/google-apps-script");
+      const pingResult = await googleAppsScriptClient.pingRelay();
+      return NextResponse.json({ success: true, ping: pingResult });
+    }
+
+    // 0.1 Send Diagnostic Test Email
+    if (action === "send_test_email") {
+      const recipient = String(body.recipient || user.email || "").trim();
+      if (!recipient || !recipient.includes("@")) {
+        return NextResponse.json({ success: false, error: "Valid recipient email address is required." }, { status: 400 });
+      }
+
+      const sendResult = await EmailService.send({
+        to: recipient,
+        recipientName: profile.full_name || "Club Admin",
+        subject: "⚡ [Test Relay] GenAI Community VIT Bhopal Email Engine Diagnostic",
+        html: `<div style="font-family: sans-serif; background: #000; color: #fff; padding: 24px; border-radius: 12px; border: 1px solid #f5b642;">
+          <h2 style="color: #f5b642; margin-top: 0;">⚡ Google Apps Script Relay Active</h2>
+          <p>This is a real-time transactional test dispatch from the <strong>GenAI Community VIT Bhopal</strong> administrative dashboard.</p>
+          <p style="color: #a1a1aa; font-size: 12px;">Triggered by: <strong>${profile.full_name || user.email}</strong> (${role || "Staff"})</p>
+          <p style="color: #38bdf8; font-size: 12px; font-family: monospace;">Timestamp: ${new Date().toISOString()}</p>
+        </div>`,
+        emailType: "test_email",
+        senderId: user.id,
+        senderRole: role || undefined,
+        forceResend: true,
+      });
+
+      return NextResponse.json({ success: sendResult.success, sendResult });
+    }
+
     // 1. Retry failed emails
     if (action === "retry_failed") {
       const retryResult = await EmailService.retryFailed(eventId);
