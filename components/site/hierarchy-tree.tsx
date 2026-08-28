@@ -786,7 +786,7 @@ export function HierarchyTree({
   }, [branches]);
 
   return (
-    <section id="members" className="relative z-20 border-b border-[#1e1e1e] pt-8 sm:pt-12 pb-44 sm:pb-60 bg-[#080808] overflow-visible">
+    <section id="members" className="relative z-30 border-b border-[#1e1e1e] pt-8 sm:pt-12 pb-80 sm:pb-96 md:pb-[28rem] bg-[#080808] overflow-visible">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2 h-[700px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_center,_rgba(245,182,66,0.08),_transparent_70%)] blur-3xl" />
 
@@ -958,7 +958,7 @@ export function HierarchyTree({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.96 }}
                         transition={{ duration: 0.15 }}
-                        className={`absolute top-full mt-2 z-[70] w-80 sm:w-96 rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.98)] backdrop-blur-3xl space-y-4 ${alignClass}`}
+                        className={`absolute top-full mt-2 z-[100] w-80 sm:w-96 rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.98)] backdrop-blur-3xl space-y-4 ${alignClass}`}
                       >
                         {/* Drawer Header */}
                         <div className="flex items-center justify-between border-b border-[#221c13] pb-3">

@@ -34,7 +34,7 @@ export default async function TeamHierarchyPage() {
         ]}
       />
       <Navbar />
-      <main className="py-4 relative z-20 overflow-visible">
+      <main className="py-8 pb-32 relative z-30 overflow-visible">
         <MemberHierarchyTree initialMembers={hierarchyMembers} />
       </main>
       <Footer />
