@@ -268,6 +268,33 @@ export function checkPermission(profile: UserProfile | null | undefined, action:
 }
 
 /**
+ * Checks if a user has strictly volunteer scanner privileges only.
+ */
+export function isVolunteerOnly(
+  role?: UserRole | string | null,
+  roles?: MemberRoleAssignment[],
+): boolean {
+  if (!role) return false;
+  if (isTop6Admin(role, roles)) return false;
+  const normalized = role.toLowerCase().trim();
+  if (
+    normalized === "tech" ||
+    normalized === "finance" ||
+    normalized === "president" ||
+    normalized === "vice_president" ||
+    normalized === "technical_lead" ||
+    normalized === "aiml_lead"
+  ) {
+    return false;
+  }
+  return (
+    normalized === "volunteer" ||
+    normalized === "event_volunteer" ||
+    (Array.isArray(roles) && roles.length > 0 && roles.every((r) => (r.position || "").toLowerCase().includes("volunteer")))
+  );
+}
+
+/**
  * Retrieves the currently authenticated staff user, profile, and role.
  */
 export async function getAuthenticatedStaff(): Promise<{
@@ -313,6 +340,11 @@ export async function getAuthenticatedStaff(): Promise<{
       const { data: profile } = await query.maybeSingle();
 
       if (profile) {
+        // Enforce login disablement guard
+        if (profile.is_login_disabled || profile.is_voided || profile.is_active === false) {
+          return { user: null, profile: null, role: null, isTop6: false };
+        }
+
         const isTop6 = isTop6Admin(profile.role, profile.roles);
         return {
           user: user || { id: profile.id, email: profile.email },
@@ -402,7 +434,11 @@ export async function requireStaffRole(minimumRole: string = "volunteer"): Promi
   const role = staff.role!;
 
   if (!hasRole(role, minimumRole, profile.roles)) {
-    redirect("/admin");
+    if (isVolunteerOnly(role, profile.roles)) {
+      redirect("/admin/scanner");
+    } else {
+      redirect("/admin");
+    }
   }
 
   return {

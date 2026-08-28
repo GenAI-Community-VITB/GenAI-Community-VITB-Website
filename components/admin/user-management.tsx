@@ -4,10 +4,11 @@ import { useState, useTransition, useEffect } from "react";
 import {
   upsertStaffUserAction,
   toggleStaffUserActiveAction,
-  voidStaffUserAction,
-  unvoidStaffUserAction,
+  disableStaffLoginAction,
+  enableStaffLoginAction,
   resetStaffPasswordAction,
 } from "@/app/admin/events-actions";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 import {
   UserProfile,
   UserRole,
@@ -203,6 +204,7 @@ export function UserManagement({
   const [primaryRole, setPrimaryRole] = useState<UserRole>("volunteer");
   const [password, setPassword] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [githubUrl, setGithubUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [assignedRoles, setAssignedRoles] = useState<Array<{ team: ClubTeam; position: ClubPosition }>>([
@@ -217,45 +219,60 @@ export function UserManagement({
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Void modal state
-  const [voidTarget, setVoidTarget] = useState<UserProfile | null>(null);
-  const [voidReason, setVoidReason] = useState("");
+  // Disable Login modal state
+  const [disableLoginTarget, setDisableLoginTarget] = useState<UserProfile | null>(null);
+  const [disableLoginReason, setDisableLoginReason] = useState("");
 
-  // Unvoid modal state & Random Password generator
-  const [unvoidTarget, setUnvoidTarget] = useState<UserProfile | null>(null);
-  const [unvoidPassword, setUnvoidPassword] = useState("");
-  const [unvoidResult, setUnvoidResult] = useState<{ email: string; password?: string } | null>(null);
-
-  function generateUnvoidRandomPassword() {
-    const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
-    setUnvoidPassword(pw);
-  }
-
-  function handleConfirmUnvoid() {
-    if (!unvoidTarget) return;
-    startTransition(async () => {
-      try {
-        const res = await unvoidStaffUserAction(unvoidTarget.id, unvoidPassword);
-        setUnvoidResult({ email: res.email, password: res.newPassword });
-        setUserList((prev) =>
-          prev.map((u) =>
-            u.id === unvoidTarget.id
-              ? { ...u, is_voided: false, is_active: true, password: res.newPassword }
-              : u,
-          ),
-        );
-        setActionSuccess(`Successfully unvoided login credentials for ${res.email}`);
-      } catch (err: any) {
-        setActionError(err.message || "Failed to unvoid user.");
-      }
-    });
-  }
+  // Enable Login modal state & Random Password generator
+  const [enableLoginTarget, setEnableLoginTarget] = useState<UserProfile | null>(null);
+  const [enableLoginPassword, setEnableLoginPassword] = useState("");
+  const [enableLoginResult, setEnableLoginResult] = useState<{ email: string; password?: string } | null>(null);
 
   // Password Reset Queries (Exec 6)
   const [resetQueries, setResetQueries] = useState<PasswordResetQuery[]>([]);
   const [showResetQueriesModal, setShowResetQueriesModal] = useState(false);
   const [selectedQueryToApprove, setSelectedQueryToApprove] = useState<PasswordResetQuery | null>(null);
   const [approvedResult, setApprovedResult] = useState<{ email: string; password?: string } | null>(null);
+
+  // Global scroll lock for all modals in user management
+  useScrollLock(
+    showCreateModal ||
+      Boolean(disableLoginTarget) ||
+      Boolean(enableLoginTarget) ||
+      Boolean(generatedCredentials) ||
+      showResetQueriesModal,
+  );
+
+  function generateEnableLoginRandomPassword() {
+    const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+    setEnableLoginPassword(pw);
+  }
+
+  function handleConfirmEnableLogin() {
+    if (!enableLoginTarget) return;
+    startTransition(async () => {
+      try {
+        const res = await enableStaffLoginAction(enableLoginTarget.id, enableLoginPassword);
+        setEnableLoginResult({ email: res.email, password: res.newPassword });
+        setUserList((prev) =>
+          prev.map((u) =>
+            u.id === enableLoginTarget.id
+              ? {
+                  ...u,
+                  is_login_disabled: false,
+                  is_voided: false,
+                  is_active: true,
+                  password: res.newPassword,
+                }
+              : u,
+          ),
+        );
+        setActionSuccess(`Successfully enabled login credentials for ${res.email}`);
+      } catch (err: any) {
+        setActionError(err.message || "Failed to enable user login.");
+      }
+    });
+  }
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -307,6 +324,7 @@ export function UserManagement({
     setPrimaryRole("volunteer");
     setPassword("");
     setIsActive(true);
+    setGithubUrl("");
     setAvatarFile(null);
     setAvatarPreview(null);
     setAssignedRoles([{ team: "technical_team", position: "core_member" }]);
@@ -322,6 +340,7 @@ export function UserManagement({
     setPrimaryRole(u.role);
     setPassword("");
     setIsActive(u.is_active);
+    setGithubUrl(u.github_url || "");
     setAvatarFile(null);
     setAvatarPreview(u.avatar_url || null);
     const existing = (u.roles || []).map((r) => ({
@@ -407,6 +426,9 @@ export function UserManagement({
           fd.append("password", password.trim());
         }
         fd.append("is_active", String(isActive));
+        if (githubUrl) {
+          fd.append("github_url", githubUrl.trim());
+        }
         fd.append("roles_json", JSON.stringify(assignedRoles));
         if (avatarFile) {
           fd.append("avatar_file", avatarFile);
@@ -448,6 +470,7 @@ export function UserManagement({
                     password: finalPw,
                     role: primaryRole,
                     is_active: isActive,
+                    github_url: githubUrl.trim() || null,
                     roles: assignedRoles,
                   }
                 : u,
@@ -462,6 +485,7 @@ export function UserManagement({
                 password: finalPw,
                 role: primaryRole,
                 is_active: isActive,
+                github_url: githubUrl.trim() || null,
                 roles: assignedRoles,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -493,31 +517,32 @@ export function UserManagement({
     });
   }
 
-  function handleConfirmVoid() {
-    if (!voidTarget) return;
+  function handleConfirmDisableLogin() {
+    if (!disableLoginTarget) return;
 
     startTransition(async () => {
       try {
-        await voidStaffUserAction(voidTarget.id, voidReason);
+        await disableStaffLoginAction(disableLoginTarget.id, disableLoginReason);
         setUserList((prev) =>
           prev.map((u) =>
-            u.id === voidTarget.id
+            u.id === disableLoginTarget.id
               ? {
                   ...u,
                   is_active: false,
-                  is_voided: true,
-                  voided_at: new Date().toISOString(),
-                  voided_reason: voidReason || "Revoked by Executive Admin",
-                  roles: [],
+                  is_login_disabled: true,
+                  login_disabled_at: new Date().toISOString(),
+                  login_disabled_reason: disableLoginReason || "Login access disabled by Executive Admin",
                 }
               : u,
           ),
         );
-        setActionSuccess(`Account for ${voidTarget.email} (${voidTarget.assigned_to_name || voidTarget.full_name}) has been completely voided.`);
-        setVoidTarget(null);
-        setVoidReason("");
+        setActionSuccess(
+          `Login access disabled for ${disableLoginTarget.email} (${disableLoginTarget.assigned_to_name || disableLoginTarget.full_name}).`,
+        );
+        setDisableLoginTarget(null);
+        setDisableLoginReason("");
       } catch (err: any) {
-        setActionError(err.message || "Failed to void account.");
+        setActionError(err.message || "Failed to disable login access.");
       }
     });
   }
@@ -864,10 +889,10 @@ export function UserManagement({
 
                   {/* Status */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap">
-                    {isVoided ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-950/80 border border-red-800 px-2 py-0.5 text-[10px] font-bold text-red-300">
+                    {u.is_login_disabled || u.is_voided ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 border border-amber-800 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                         <Ban className="h-3 w-3" />
-                        Voided
+                        Login Disabled
                       </span>
                     ) : isExecutiveAccount(u.role, u.roles) ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 shadow-[0_0_10px_rgba(245,182,66,0.08)]" title="Protected Top Executive Account">
@@ -877,35 +902,35 @@ export function UserManagement({
                     ) : u.is_active ? (
                       <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs">
                         <UserCheck className="h-3.5 w-3.5" />
-                        Active
+                        Login Active
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-zinc-500 font-semibold text-xs">
                         <UserX className="h-3.5 w-3.5" />
-                        Disabled
+                        Login Disabled
                       </span>
                     )}
                   </td>
 
                   {/* Actions */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap text-right">
-                    {isVoided && isTop6Admin(currentUserRole) && (
+                    {(u.is_login_disabled || u.is_voided || !u.is_active) && isTop6Admin(currentUserRole) && (
                       <button
                         type="button"
                         onClick={() => {
-                          setUnvoidTarget(u);
+                          setEnableLoginTarget(u);
                           const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
-                          setUnvoidPassword(pw);
-                          setUnvoidResult(null);
+                          setEnableLoginPassword(pw);
+                          setEnableLoginResult(null);
                         }}
                         className="rounded-xl border border-emerald-500/50 bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-300 hover:bg-emerald-900/60 hover:text-white transition shadow cursor-pointer whitespace-nowrap inline-flex items-center gap-1"
                       >
                         <Sparkles className="h-3 w-3" />
-                        <span>Unvoid & Re-issue Login</span>
+                        <span>Enable Login</span>
                       </button>
                     )}
 
-                    {!isVoided && (() => {
+                    {!u.is_login_disabled && !u.is_voided && u.is_active && (() => {
                       const isExec = isExecutiveAccount(u.role, u.roles);
                       const canEditTarget = !isExec || isSupremeLeader;
 
@@ -932,33 +957,18 @@ export function UserManagement({
                             </button>
                           )}
 
-                          {/* Disable / Enable button ONLY rendered for NON-executive accounts */}
-                          {!isExec && (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleActive(u.id, u.is_active)}
-                              className={`rounded-xl px-2 py-1 text-xs font-semibold transition cursor-pointer ${
-                                u.is_active
-                                  ? "text-zinc-400 hover:bg-zinc-800"
-                                  : "text-emerald-400 hover:bg-emerald-950/40"
-                              }`}
-                            >
-                              {u.is_active ? "Disable" : "Enable"}
-                            </button>
-                          )}
-
-                          {/* Void button ONLY rendered for NON-executive accounts */}
+                          {/* Disable Login button ONLY rendered for NON-executive accounts */}
                           {!isExec && u.id !== currentUserId && (
                             <button
                               type="button"
                               onClick={() => {
-                                setVoidTarget(u);
-                                setVoidReason("");
+                                setDisableLoginTarget(u);
+                                setDisableLoginReason("");
                               }}
-                              title="Void account"
-                              className="rounded-xl p-1 text-red-500 hover:bg-red-950/40 transition cursor-pointer"
+                              title="Disable login access"
+                              className="rounded-xl px-2 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-950/40 transition cursor-pointer"
                             >
-                              <UserMinus className="h-3.5 w-3.5" />
+                              Disable Login
                             </button>
                           )}
                         </div>
@@ -972,8 +982,8 @@ export function UserManagement({
         </table>
       </div>
 
-      {/* UNVOID ACCOUNT MODAL */}
-      {unvoidTarget && (
+      {/* ENABLE LOGIN ACCOUNT MODAL */}
+      {enableLoginTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-3xl border border-emerald-900/50 bg-[#09150f] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-emerald-400">
@@ -981,31 +991,31 @@ export function UserManagement({
                 <Sparkles className="h-5 w-5 text-emerald-400" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-base">Unvoid Member & Re-issue Login</h3>
-                <p className="text-xs text-emerald-300">Restores active portal status & sets login credentials</p>
+                <h3 className="font-bold text-white text-base">Enable Member Login Access</h3>
+                <p className="text-xs text-emerald-300">Restores active portal login & synchronizes credentials</p>
               </div>
             </div>
 
             <p className="text-xs text-zinc-300">
-              You are restoring login access for <strong className="text-white">{unvoidTarget.assigned_to_name || unvoidTarget.full_name}</strong> (
-              <span className="font-mono text-amber-300">{unvoidTarget.email}</span>).
+              You are enabling login access for <strong className="text-white">{enableLoginTarget.assigned_to_name || enableLoginTarget.full_name}</strong> (
+              <span className="font-mono text-amber-300">{enableLoginTarget.email}</span>).
             </p>
 
-            {unvoidResult ? (
+            {enableLoginResult ? (
               <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 space-y-2.5">
                 <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
                   <CheckCircle2 className="h-4 w-4" />
-                  <span>Account Successfully Unvoided & Active!</span>
+                  <span>Login Successfully Enabled & Active!</span>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-black/70 px-3.5 py-2 text-xs">
                   <div>
-                    <span className="text-zinc-400 font-mono text-[10px] block uppercase">New Login Password:</span>
-                    <span className="font-mono font-bold text-emerald-400 text-sm">{unvoidResult.password}</span>
+                    <span className="text-zinc-400 font-mono text-[10px] block uppercase">Synchronized Password:</span>
+                    <span className="font-mono font-bold text-emerald-400 text-sm">{enableLoginResult.password}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(unvoidResult.password || "");
+                      navigator.clipboard.writeText(enableLoginResult.password || "");
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     }}
@@ -1019,8 +1029,8 @@ export function UserManagement({
                   <button
                     type="button"
                     onClick={() => {
-                      setUnvoidTarget(null);
-                      setUnvoidResult(null);
+                      setEnableLoginTarget(null);
+                      setEnableLoginResult(null);
                     }}
                     className="w-full rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] cursor-pointer"
                   >
@@ -1033,11 +1043,11 @@ export function UserManagement({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-zinc-400">
-                      Generated Login Password
+                      Login Password
                     </label>
                     <button
                       type="button"
-                      onClick={generateUnvoidRandomPassword}
+                      onClick={generateEnableLoginRandomPassword}
                       className="text-[11px] font-bold text-[#f5b642] hover:underline inline-flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className="h-3 w-3" />
@@ -1046,8 +1056,8 @@ export function UserManagement({
                   </div>
                   <input
                     type="text"
-                    value={unvoidPassword}
-                    onChange={(e) => setUnvoidPassword(e.target.value)}
+                    value={enableLoginPassword}
+                    onChange={(e) => setEnableLoginPassword(e.target.value)}
                     className="w-full rounded-xl border border-emerald-950 bg-black/60 px-3.5 py-2 font-mono text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -1056,8 +1066,8 @@ export function UserManagement({
                   <button
                     type="button"
                     onClick={() => {
-                      setUnvoidTarget(null);
-                      setUnvoidResult(null);
+                      setEnableLoginTarget(null);
+                      setEnableLoginResult(null);
                     }}
                     className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
                   >
@@ -1066,10 +1076,10 @@ export function UserManagement({
                   <button
                     type="button"
                     disabled={isPending}
-                    onClick={handleConfirmUnvoid}
+                    onClick={handleConfirmEnableLogin}
                     className="flex-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition cursor-pointer"
                   >
-                    {isPending ? "Restoring..." : "Confirm & Unvoid"}
+                    {isPending ? "Enabling..." : "Confirm & Enable Login"}
                   </button>
                 </div>
               </>
@@ -1078,53 +1088,53 @@ export function UserManagement({
         </div>
       )}
 
-      {/* VOID ACCOUNT CONFIRMATION MODAL */}
-      {voidTarget && (
+      {/* DISABLE LOGIN CONFIRMATION MODAL */}
+      {disableLoginTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl border border-red-900/50 bg-[#160b0b] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-red-400">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-950/80 border border-red-800/50">
+          <div className="w-full max-w-md rounded-3xl border border-amber-900/50 bg-[#16120b] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-950/80 border border-amber-800/50">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-base">Void Member Account</h3>
-                <p className="text-xs text-red-300">Permanently revokes portal access & invalidates email login</p>
+                <h3 className="font-bold text-white text-base">Disable Member Login</h3>
+                <p className="text-xs text-amber-300">Disables portal login without removing member record or password</p>
               </div>
             </div>
 
             <p className="text-xs text-zinc-300">
-              You are voiding the account for <strong className="text-white">{voidTarget.assigned_to_name || voidTarget.full_name}</strong> (
-              <span className="font-mono text-amber-300">{voidTarget.email}</span>). All team roles will be deleted and the password/login session will be terminated immediately.
+              You are disabling login access for <strong className="text-white">{disableLoginTarget.assigned_to_name || disableLoginTarget.full_name}</strong> (
+              <span className="font-mono text-amber-300">{disableLoginTarget.email}</span>). Their membership records, assigned roles, and password will remain preserved in the database.
             </p>
 
             <div>
               <label className="text-[11px] font-semibold text-zinc-400 block mb-1">
-                Reason for Revocation (Optional)
+                Reason for Disabling Login (Optional)
               </label>
               <input
                 type="text"
-                value={voidReason}
-                onChange={(e) => setVoidReason(e.target.value)}
-                placeholder="e.g. Tenure ended / Team reassignment"
-                className="w-full rounded-xl border border-red-950 bg-black/60 px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-red-500 focus:outline-none"
+                value={disableLoginReason}
+                onChange={(e) => setDisableLoginReason(e.target.value)}
+                placeholder="e.g. End of active operational cycle / Volunteer duty ended"
+                className="w-full rounded-xl border border-amber-950 bg-black/60 px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none"
               />
             </div>
 
             <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setVoidTarget(null)}
-                className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
+                onClick={() => setDisableLoginTarget(null)}
+                className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={isPending}
-                onClick={handleConfirmVoid}
-                className="flex-1 rounded-xl bg-red-600 py-2 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50 transition"
+                onClick={handleConfirmDisableLogin}
+                className="flex-1 rounded-xl bg-amber-600 py-2 text-xs font-bold text-black hover:bg-amber-500 disabled:opacity-50 transition cursor-pointer"
               >
-                {isPending ? "Voiding..." : "Confirm & Void"}
+                {isPending ? "Disabling..." : "Confirm & Disable Login"}
               </button>
             </div>
           </div>
@@ -1362,6 +1372,20 @@ export function UserManagement({
                     className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-zinc-300 block mb-1.5 flex items-center justify-between">
+                  <span>GitHub Profile Link (Optional)</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Admin Only</span>
+                </label>
+                <input
+                  type="url"
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/username"
+                  className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
+                />
               </div>
 
               <div>

@@ -7,6 +7,7 @@ import { upsertEvent, deleteEvent } from "@/app/admin/actions";
 import { EventVolunteersModal } from "@/components/admin/event-volunteers-modal";
 import { ParticipantImporterModal } from "@/components/admin/participant-importer-modal";
 import { exportAttendanceDataAction, getAllStaffMembersAction } from "@/app/admin/events-actions";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 import type { UserProfile } from "@/lib/types";
 import {
   Calendar,
@@ -24,6 +25,7 @@ import {
   UserCheck,
   FileSpreadsheet,
   Download,
+  Flame,
 } from "lucide-react";
 
 interface EventsManagerProps {
@@ -111,6 +113,9 @@ export function EventsManager({
   const [eventStartTime, setEventStartTime] = useState("");
   const [eventEndTime, setEventEndTime] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
+  const [isSpotlight, setIsSpotlight] = useState(true);
+  const [spotlightMessage, setSpotlightMessage] = useState("");
+  const [spotlightPriority, setSpotlightPriority] = useState<number>(1);
   const [upiId, setUpiId] = useState("genai.community@okaxis");
   const [registerUrl, setRegisterUrl] = useState("");
   const [googleFormUrl, setGoogleFormUrl] = useState("");
@@ -120,6 +125,9 @@ export function EventsManager({
   const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Global scroll lock for all modals in events manager
+  useScrollLock(showModal || Boolean(selectedVolunteerEvent) || Boolean(selectedImportEvent));
 
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -154,6 +162,9 @@ export function EventsManager({
     setEventStartTime("");
     setEventEndTime("");
     setIsRegistrationOpen(true);
+    setIsSpotlight(true);
+    setSpotlightMessage("");
+    setSpotlightPriority(1);
     setAllowBTech(true);
     setAllowMTech(true);
     setUpiId("genai.community@okaxis");
@@ -180,6 +191,9 @@ export function EventsManager({
     setEventStartTime(item.event_start_time || "");
     setEventEndTime(item.event_end_time || "");
     setIsRegistrationOpen(item.is_registration_open ?? true);
+    setIsSpotlight(item.is_spotlight ?? true);
+    setSpotlightMessage(item.spotlight_message || "");
+    setSpotlightPriority(item.spotlight_priority ?? 1);
 
     const degs = item.allowed_degrees && item.allowed_degrees.length > 0
       ? item.allowed_degrees
@@ -228,6 +242,9 @@ export function EventsManager({
         if (eventStartTime) fd.append("event_start_time", eventStartTime.trim());
         if (eventEndTime) fd.append("event_end_time", eventEndTime.trim());
         fd.append("is_registration_open", isRegistrationOpen ? "true" : "false");
+        fd.append("is_spotlight", isSpotlight ? "true" : "false");
+        if (spotlightMessage) fd.append("spotlight_message", spotlightMessage.trim());
+        fd.append("spotlight_priority", String(spotlightPriority));
         fd.append("allowed_degrees", JSON.stringify([allowBTech && "B.Tech", allowMTech && "M.Tech"].filter(Boolean)));
         if (upiId) fd.append("upi_id", upiId.trim());
         if (registerUrl) fd.append("register_url", registerUrl.trim());
@@ -267,6 +284,9 @@ export function EventsManager({
                     event_start_time: eventStartTime || null,
                     event_end_time: eventEndTime || null,
                     is_registration_open: isRegistrationOpen,
+                    is_spotlight: isSpotlight,
+                    spotlight_message: spotlightMessage.trim() || null,
+                    spotlight_priority: spotlightPriority,
                     upi_id: upiId || null,
                     register_url: registerUrl || null,
                     guidelines: guidelines ? guidelines.split("\n").filter(Boolean) : null,
@@ -783,6 +803,54 @@ export function EventsManager({
                 <label htmlFor="reg-open-toggle" className="text-xs font-semibold text-zinc-200 cursor-pointer">
                   Accept Registrations (Show active booking form to students)
                 </label>
+              </div>
+
+              {/* Homepage Spotlight News Ticker Controls */}
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-amber-300 flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isSpotlight}
+                      onChange={(e) => setIsSpotlight(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-[#f5b642] focus:ring-[#f5b642] cursor-pointer"
+                    />
+                    <span>Show on Homepage Spotlight News Ticker</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
+                    <Flame className="h-3 w-3" /> Live Ticker
+                  </span>
+                </div>
+
+                {isSpotlight && (
+                  <div className="grid gap-3 sm:grid-cols-3 pt-1">
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-semibold text-zinc-300 block mb-1">
+                        Custom Ticker Message (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={spotlightMessage}
+                        onChange={(e) => setSpotlightMessage(e.target.value)}
+                        placeholder="e.g. 🔥 Registrations Open: Prompt-to-Product HackSprint 2026"
+                        className="w-full rounded-xl border border-amber-500/30 bg-black/60 px-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-zinc-300 block mb-1">
+                        Ticker Priority (1-10)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={spotlightPriority}
+                        onChange={(e) => setSpotlightPriority(Number(e.target.value) || 1)}
+                        className="w-full rounded-xl border border-amber-500/30 bg-black/60 px-3 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

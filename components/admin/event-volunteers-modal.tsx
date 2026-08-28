@@ -20,6 +20,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface EventVolunteersModalProps {
   event: Event;
@@ -32,6 +33,7 @@ export function EventVolunteersModal({
   allMembers = [],
   onClose,
 }: EventVolunteersModalProps) {
+  useScrollLock(true);
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [memberList, setMemberList] = useState<UserProfile[]>(allMembers);
   const [loading, setLoading] = useState(true);

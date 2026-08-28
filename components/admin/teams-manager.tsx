@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Sparkles,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface TeamsManagerProps {
   initialTeams: Team[];
@@ -35,6 +36,7 @@ export function TeamsManager({ initialTeams, isAllowed = true }: TeamsManagerPro
     initialTeams.length > 0 ? initialTeams : defaultClubTeams,
   );
   const [showModal, setShowModal] = useState(false);
+  useScrollLock(showModal);
   const [editingItem, setEditingItem] = useState<Team | null>(null);
   const [isPending, startTransition] = useTransition();
 

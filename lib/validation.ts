@@ -53,6 +53,9 @@ export const eventSchema = z.object({
   upi_id: z.string().max(200).optional().nullable().or(z.literal("")),
   upi_qr_image_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   guidelines: z.union([z.array(z.string()), z.string()]).optional().nullable(),
+  is_spotlight: z.boolean().default(true),
+  spotlight_message: z.string().max(1000).optional().nullable().or(z.literal("")),
+  spotlight_priority: z.coerce.number().int().default(1),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,6 +388,8 @@ export const userManagementSchema = z.object({
   role: z.string().min(2),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
   is_active: z.boolean().default(true),
+  is_login_disabled: z.boolean().default(false),
+  github_url: z.string().max(2000).optional().nullable().or(z.literal("")),
 });
 
 export { generateSecureQRToken } from "@/lib/qr/generator";

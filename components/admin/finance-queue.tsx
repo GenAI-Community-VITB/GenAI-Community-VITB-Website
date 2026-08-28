@@ -34,6 +34,7 @@ import {
   Check,
   QrCode,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 import { EmailOperations } from "@/components/admin/email-operations";
 
@@ -117,6 +118,15 @@ export function FinanceQueue({
     registrationNumber: string;
   } | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
+
+  // Global scroll lock for all modals in finance queue
+  useScrollLock(
+    Boolean(selectedScreenshot) ||
+      Boolean(rejectingItem) ||
+      Boolean(emailingItem) ||
+      Boolean(deletingItem) ||
+      showOnSpotModal,
+  );
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);

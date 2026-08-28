@@ -16,6 +16,7 @@ import {
   FileText,
   Search,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface ProjectsManagerProps {
   initialProjects: Project[];
@@ -28,6 +29,7 @@ export function ProjectsManager({
 }: ProjectsManagerProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [showModal, setShowModal] = useState(false);
+  useScrollLock(showModal);
   const [editingItem, setEditingItem] = useState<Project | null>(null);
   const [isPending, startTransition] = useTransition();
 

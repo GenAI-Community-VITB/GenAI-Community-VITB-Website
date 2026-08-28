@@ -1,4 +1,4 @@
-import { requireStaffRole } from "@/lib/auth/permissions";
+import { requireStaffRole, isVolunteerOnly } from "@/lib/auth/permissions";
 import { QrScannerClient } from "@/components/admin/qr-scanner";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
 import { ArrowLeft, QrCode } from "lucide-react";
@@ -8,6 +8,7 @@ export const revalidate = 0;
 
 export default async function ScannerPage() {
   const { user, profile, role } = await requireStaffRole("volunteer");
+  const isPureVolunteer = isVolunteerOnly(profile.role, profile.roles);
 
   return (
     <div style={{ zoom: "115%" }} className="min-h-screen bg-[#070707] text-white">
@@ -15,13 +16,15 @@ export default async function ScannerPage() {
       <div className="border-b border-[#221c12] bg-[#0c0a08]/90 backdrop-blur-xl sticky top-0 z-40">
         <div className="container-wrap flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#f5b642] hover:text-[#ffd06a] transition mb-1"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Operations Matrix
-            </Link>
+            {!isPureVolunteer && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#f5b642] hover:text-[#ffd06a] transition mb-1"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Operations Matrix
+              </Link>
+            )}
             <h1 className="text-xl font-extrabold text-white sm:text-2xl tracking-tight flex items-center gap-2">
               <QrCode className="h-5 w-5 text-[#f5b642]" />
               Event Entry QR Scanner

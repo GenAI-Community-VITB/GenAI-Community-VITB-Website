@@ -316,7 +316,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
     const adminSupabase = createAdminSupabase();
     const { data: profile, error: profileErr } = await adminSupabase
       .from("user_profiles")
-      .select("id, email, password, is_active, is_voided, role, full_name, assigned_to_name")
+      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name")
       .ilike("email", email)
       .maybeSingle();
 
@@ -334,10 +334,10 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       };
     }
 
-    if (profile.is_voided || profile.is_active === false) {
+    if (profile.is_login_disabled || profile.is_voided || profile.is_active === false) {
       return {
         ok: false,
-        error: `Account Deactivated: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has been voided or marked inactive.`,
+        error: `Account Login Disabled: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has login access disabled. Please contact the Technical Lead or President.`,
       };
     }
 
@@ -590,7 +590,11 @@ export async function upsertEvent(formData: FormData) {
   const eventStartTime = formString(formData, "event_start_time");
   const eventEndTime = formString(formData, "event_end_time");
   const isRegOpenVal = formData.get("is_registration_open");
-  const isRegistrationOpen = isRegOpenVal === "true" || isRegOpenVal === "on" || isRegOpenVal === "1";
+  const isRegistrationOpen = isRegOpenVal === null ? true : (isRegOpenVal === "true" || isRegOpenVal === "on" || isRegOpenVal === "1");
+  const isSpotlightVal = formData.get("is_spotlight");
+  const isSpotlight = isSpotlightVal === "true" || isSpotlightVal === "on" || isSpotlightVal === "1";
+  const spotlightMessage = formString(formData, "spotlight_message");
+  const spotlightPriority = formData.has("spotlight_priority") ? Number(formData.get("spotlight_priority")) : 1;
 
   const parsed = eventSchema.safeParse({
     id: isEdit ? rawId : undefined,
@@ -612,6 +616,9 @@ export async function upsertEvent(formData: FormData) {
     upi_id: formString(formData, "upi_id") || "genai.community@okaxis",
     upi_qr_image_url: formString(formData, "upi_qr_image_url") || null,
     guidelines: guidelines && guidelines.length > 0 ? guidelines : undefined,
+    is_spotlight: isSpotlight,
+    spotlight_message: spotlightMessage || null,
+    spotlight_priority: spotlightPriority,
   });
   if (!parsed.success) throw new Error(zodIssuesMessage(parsed.error));
   const supabase = createAdminSupabase();

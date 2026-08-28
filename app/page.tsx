@@ -1,12 +1,13 @@
 import { Metadata } from "next";
 import { Hero } from "@/components/site/hero";
 import { Navbar } from "@/components/site/navbar";
+import { SpotlightNewsTicker } from "@/components/site/spotlight-news-ticker";
 import { Footer } from "@/components/site/footer";
 import { ClubPillarsSection } from "@/components/site/club-pillars-section";
 import { ScrollTickerSection } from "@/components/site/scroll-ticker";
 import { QuotesSection } from "@/components/site/quotes-section";
 import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/seo/json-ld";
-import { getUpcomingRegisterableEvent } from "@/lib/data/events";
+import { getUpcomingRegisterableEvent, getPublicEvents } from "@/lib/data/events";
 import { getAchievements } from "@/lib/data/achievements";
 import { getHierarchyMembers } from "@/lib/data/public";
 import Link from "next/link";
@@ -34,8 +35,9 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [upcomingEvent, achievements, hierarchyMembers] = await Promise.all([
+  const [upcomingEvent, allEvents, achievements, hierarchyMembers] = await Promise.all([
     getUpcomingRegisterableEvent(30),
+    getPublicEvents(),
     getAchievements(),
     getHierarchyMembers(),
   ]);
@@ -50,6 +52,7 @@ export default async function Home() {
       <WebSiteJsonLd />
 
       <Navbar />
+      <SpotlightNewsTicker events={allEvents} />
       <main className="space-y-0">
         {/* 1. Master Hero with Live Stats & Flashing 30-Day Event Banner */}
         <Hero upcomingEvent={upcomingEvent} memberCount={memberCount} />

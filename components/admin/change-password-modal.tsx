@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Camera,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 export function AccountSettingsButton() {
   return <ChangePasswordButton />;
@@ -31,6 +32,7 @@ export function AccountSettingsButton() {
 
 export function ChangePasswordButton() {
   const [isOpen, setIsOpen] = useState(false);
+  useScrollLock(isOpen);
   const [activeTab, setActiveTab] = useState<"password" | "avatar">("password");
 
   // Account Info
