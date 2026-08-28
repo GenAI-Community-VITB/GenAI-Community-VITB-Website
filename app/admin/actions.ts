@@ -700,28 +700,60 @@ export async function upsertEvent(formData: FormData): Promise<{ success: boolea
     }
 
     let result: any = null;
+    const cleanedPayload = { ...eventPayload };
+    if (!isEdit) delete cleanedPayload.id;
 
-    if (isEdit) {
-      let { data, error } = await supabase.from("events").update(eventPayload).eq("id", rawId).select().single();
-      if (error && error.message.includes("guidelines")) {
-        delete eventPayload.guidelines;
-        const retry = await supabase.from("events").update(eventPayload).eq("id", rawId).select().single();
-        error = retry.error;
-        data = retry.data;
+    // Resilient schema adaptation loop to handle any missing optional columns in Supabase schema cache
+    let lastError: any = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const res = isEdit
+        ? await supabase.from("events").update(cleanedPayload).eq("id", rawId).select().single()
+        : await supabase.from("events").insert(cleanedPayload).select().single();
+
+      if (!res.error) {
+        result = res.data;
+        lastError = null;
+        break;
       }
-      if (error) return { success: false, error: `Database error updating event: ${error.message}` };
-      result = data;
-    } else {
-      delete eventPayload.id;
-      let { data, error } = await supabase.from("events").insert(eventPayload).select().single();
-      if (error && error.message.includes("guidelines")) {
-        delete eventPayload.guidelines;
-        const retry = await supabase.from("events").insert(eventPayload).select().single();
-        error = retry.error;
-        data = retry.data;
+
+      lastError = res.error;
+      const errMsg = res.error.message || "";
+
+      // Extract column name from error message if schema cache or missing column error
+      const colMatch =
+        errMsg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
+        errMsg.match(/column "?([a-zA-Z0-9_]+)"? of relation "events" does not exist/i) ||
+        errMsg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i);
+
+      if (colMatch && colMatch[1] && colMatch[1] in cleanedPayload) {
+        delete cleanedPayload[colMatch[1]];
+        continue;
       }
-      if (error) return { success: false, error: `Database error inserting event: ${error.message}` };
-      result = data;
+
+      // Check known optional columns
+      if (errMsg.includes("allowed_degrees") && "allowed_degrees" in cleanedPayload) {
+        delete cleanedPayload.allowed_degrees;
+        continue;
+      }
+      if (errMsg.includes("allowed_branches") && "allowed_branches" in cleanedPayload) {
+        delete cleanedPayload.allowed_branches;
+        continue;
+      }
+      if (errMsg.includes("guidelines") && "guidelines" in cleanedPayload) {
+        delete cleanedPayload.guidelines;
+        continue;
+      }
+      if (errMsg.includes("spotlight") && ("spotlight_message" in cleanedPayload || "spotlight_priority" in cleanedPayload)) {
+        delete cleanedPayload.spotlight_message;
+        delete cleanedPayload.spotlight_priority;
+        continue;
+      }
+
+      break;
+    }
+
+    if (lastError) {
+      return { success: false, error: `Database error ${isEdit ? "updating" : "inserting"} event: ${lastError.message}` };
     }
 
     // Log event lifecycle to Event Lifecycle Log (fire-and-forget)

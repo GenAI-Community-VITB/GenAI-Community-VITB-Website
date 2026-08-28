@@ -27,7 +27,7 @@ export default async function BlogsPage() {
   const posts = await getBlogPosts();
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", url: "https://www.genaiclubvitb.in" },

@@ -101,7 +101,7 @@ export default async function EventDetailPage(props: {
   const venue = event.venue || "Main Auditorium / Campus, VIT Bhopal University";
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       {/* Schema.org Structured Data */}
       <EventJsonLd
         name={event.title}

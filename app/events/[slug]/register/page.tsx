@@ -73,7 +73,7 @@ export default async function EventRegistrationPage(props: {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-hidden relative">
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       <Navbar />
 
       {/* Ambient background lighting */}

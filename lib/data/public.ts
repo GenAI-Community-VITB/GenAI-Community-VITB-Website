@@ -194,11 +194,14 @@ export const getHierarchyMembers = cache(async () => {
       const normalizedAvatar = normalizeDriveImageUrl(rawAvatar);
 
       const authenticEmail = (p.official_email || p.email || "")?.toLowerCase().trim();
-      const validEmail = authenticEmail.endsWith("@vitbhopal.ac.in") ? authenticEmail : undefined;
+      const memberDisplayName = p.assigned_to_name || p.full_name || "member";
+      const validEmail = authenticEmail.endsWith("@vitbhopal.ac.in")
+        ? authenticEmail
+        : `${memberDisplayName.toLowerCase().trim().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, ".")}@vitbhopal.ac.in`;
 
       return {
         id: p.id,
-        name: p.assigned_to_name || p.full_name,
+        name: memberDisplayName,
         roleTitle: p.full_name,
         rawRole: p.role,
         primaryTeam: primaryRoleObj?.team || "",
