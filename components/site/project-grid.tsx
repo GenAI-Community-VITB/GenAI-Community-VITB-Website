@@ -31,7 +31,6 @@ export function ProjectGrid({ projects }: { projects: ProjectItem[] }) {
             {/* Project Preview Image */}
             <div className="relative h-48 overflow-hidden border-b border-[#221c13] bg-[#120f0a]">
               {project.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={project.image_url}
                   alt={`${project.title} preview`}

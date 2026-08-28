@@ -149,7 +149,6 @@ function MemberCard({ member }: { member: MemberData }) {
         {/* Photo / Avatar area */}
         <div className="relative h-52 w-full overflow-hidden bg-[#111] border-b border-[#1e1e1e]">
           {normalizedImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={normalizedImage}
               alt={`${member.name} photo`}

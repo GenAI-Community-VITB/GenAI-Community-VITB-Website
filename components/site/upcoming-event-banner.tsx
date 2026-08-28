@@ -30,7 +30,6 @@ export function UpcomingEventBanner({ event }: UpcomingEventBannerProps) {
         <div className="flex items-center gap-3 min-w-0">
           {event.image_url && (
             <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-lg border border-[#f5b642]/40 bg-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={event.image_url}
                 alt={`${event.title} banner`}

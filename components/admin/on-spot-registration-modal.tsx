@@ -1,21 +1,20 @@
+"use client";
+
 import { useState, useRef, useEffect } from "react";
 import { Event, Branch } from "@/lib/types";
-import { ALL_APPROVED_BRANCHES, APPROVED_BTECH_BRANCHES, APPROVED_MTECH_BRANCHES } from "@/lib/validation";
+import { ALL_APPROVED_BRANCHES } from "@/lib/validation";
 import {
   UserPlus,
   X,
   CheckCircle2,
   RotateCw,
   AlertCircle,
-  Upload,
   GraduationCap,
   ChevronDown,
   Check,
-  QrCode,
   Copy,
   Smartphone,
   CreditCard,
-  Sparkles,
 } from "lucide-react";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
 
@@ -433,7 +432,6 @@ export function OnSpotRegistrationModal({
 
               {/* Dynamic QR Display Box */}
               <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-[#f5b642] bg-[#14100b] p-3.5 shadow-[0_0_30px_rgba(245,182,66,0.25)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={qrCodeImgSrc}
                   alt="On-Spot Desk QR Code"

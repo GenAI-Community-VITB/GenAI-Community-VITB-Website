@@ -65,7 +65,6 @@ export function EventGrid({ events }: { events: EventItem[] }) {
                 {/* Event Poster / Banner */}
                 <div className="relative h-48 overflow-hidden border-b border-[#221c13] bg-[#120f0a]">
                   {event.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={event.image_url}
                       alt={`${event.title} poster`}
@@ -188,7 +187,6 @@ export function EventGrid({ events }: { events: EventItem[] }) {
               {/* Event Poster / Image */}
               {selectedEvent.image_url ? (
                 <div className="relative h-56 w-full overflow-hidden rounded-2xl border border-[#2a2215]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={selectedEvent.image_url}
                     alt={selectedEvent.title}

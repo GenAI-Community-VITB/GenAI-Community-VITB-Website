@@ -53,8 +53,6 @@ export function MembersManager({
 
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  if (!isAllowed) return null;
-
   // Filtered members list
   const filteredMembers = useMemo(() => {
     return membersList.filter((m) => {
@@ -67,6 +65,8 @@ export function MembersManager({
       return matchTeam && matchSearch;
     });
   }, [membersList, selectedTeamFilter, searchQuery]);
+
+  if (!isAllowed) return null;
 
   function resetForm() {
     setEditingItem(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { UserProfile, Event } from "@/lib/types";
 import {
   getEventVolunteersAction,
@@ -42,12 +42,12 @@ export function EventVolunteersModal({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  async function loadVolunteersAndMembers() {
+  const loadVolunteersAndMembers = useCallback(async () => {
     setLoading(true);
     try {
       const [volRes, memRes] = await Promise.all([
         getEventVolunteersAction(event.id),
-        memberList.length === 0 ? getAllStaffMembersAction() : Promise.resolve({ success: true, members: memberList }),
+        getAllStaffMembersAction(),
       ]);
 
       if (volRes.success) {
@@ -61,11 +61,11 @@ export function EventVolunteersModal({
     } finally {
       setLoading(false);
     }
-  }
+  }, [event.id]);
 
   useEffect(() => {
     loadVolunteersAndMembers();
-  }, [event.id]);
+  }, [loadVolunteersAndMembers]);
 
   const assignedUserIds = new Set(volunteers.map((v) => v.user_id));
 

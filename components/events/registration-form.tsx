@@ -546,7 +546,6 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
 
           {screenshotPreview && (
             <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#2e2e2e] bg-[#181818] p-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={screenshotPreview}
                 alt="Screenshot Preview"

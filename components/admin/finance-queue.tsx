@@ -846,7 +846,6 @@ export function FinanceQueue({
             </div>
 
             <div className="flex max-h-[70vh] items-center justify-center overflow-auto rounded-2xl border border-[#262626] bg-[#0c0c0c] p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/admin/drive/preview/${selectedScreenshot.fileId}`}
                 alt="Payment Proof"

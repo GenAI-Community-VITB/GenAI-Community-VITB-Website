@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { EmailStats, EmailLogRecord } from "@/lib/types";
 import { formatISTDate } from "@/lib/utils/format";
 import {
@@ -44,7 +44,7 @@ export function EmailOperations({ eventId, activeEventTitle }: EmailOperationsPr
   useScrollLock(showLogsModal);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  async function loadEmailStatsAndLogs() {
+  const loadEmailStatsAndLogs = useCallback(async () => {
     setLoading(true);
     try {
       const url = eventId ? `/api/admin/email?eventId=${eventId}` : "/api/admin/email";
@@ -59,11 +59,11 @@ export function EmailOperations({ eventId, activeEventTitle }: EmailOperationsPr
     } finally {
       setLoading(false);
     }
-  }
+  }, [eventId]);
 
   useEffect(() => {
     loadEmailStatsAndLogs();
-  }, [eventId]);
+  }, [loadEmailStatsAndLogs]);
 
   async function handleBulkSendConfirmations() {
     if (!eventId) {

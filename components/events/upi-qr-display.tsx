@@ -37,7 +37,6 @@ export function UpiQrDisplay({ upiId = "genai.community@okaxis", amount, eventTi
       <div className="mt-5 flex flex-col items-center">
         {/* QR Code Container with High-Contrast Border */}
         <div className="rounded-2xl border-2 border-[#f5b642]/50 bg-white p-3.5 shadow-xl">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={qrImageUrl}
             alt="Club UPI QR Code"
