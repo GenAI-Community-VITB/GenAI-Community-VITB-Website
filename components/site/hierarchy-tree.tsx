@@ -25,7 +25,7 @@ import {
   ExternalLink,
   Mail,
 } from "lucide-react";
-import { GithubIcon } from "@/components/ui/icons";
+import { GithubIcon, LinkedinIcon } from "@/components/ui/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
@@ -37,10 +37,12 @@ export interface HierarchyMember {
   roleTitle: string;
   secondaryRole?: string;
   teamName: string;
-  email: string;
+  email?: string | null;
   githubUrl?: string | null;
+  linkedinUrl?: string | null;
   caption: string;
   avatarUrl?: string | null;
+  isCore?: boolean;
 }
 
 export function formatVitBhopalEmail(name: string, rawEmail?: string | null): string {
@@ -984,6 +986,57 @@ export function HierarchyTree({
                 &ldquo;{selectedMember.caption}&rdquo;
               </div>
 
+              {/* Social Profiles: GitHub & LinkedIn */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* GitHub Profile */}
+                <div className="flex items-center justify-between rounded-2xl border border-[#2e2618] bg-[#14100b] p-3 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white shrink-0">
+                      <GithubIcon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-bold uppercase text-zinc-400 block">GitHub</span>
+                      <span className="text-xs font-mono text-zinc-300 truncate max-w-[110px] block">
+                        {selectedMember.githubUrl ? selectedMember.githubUrl.replace("https://github.com/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedMember.githubUrl || `https://github.com/${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[#f5b642]/60 bg-[#f5b642]/10 px-2.5 py-1 text-xs font-bold text-[#f5b642] hover:bg-[#f5b642] hover:text-black transition cursor-pointer"
+                  >
+                    <span>View</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+
+                {/* LinkedIn Profile */}
+                <div className="flex items-center justify-between rounded-2xl border border-[#1b2d42] bg-[#0c1622] p-3 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0a1b2e] border border-sky-600/40 text-sky-400 shrink-0">
+                      <LinkedinIcon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-bold uppercase text-sky-400 block">LinkedIn</span>
+                      <span className="text-xs font-mono text-zinc-300 truncate max-w-[110px] block">
+                        {selectedMember.linkedinUrl ? selectedMember.linkedinUrl.replace("https://www.linkedin.com/in/", "@").replace("https://linkedin.com/in/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedMember.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(selectedMember.name + " VIT Bhopal")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-sky-500/60 bg-sky-500/10 px-2.5 py-1 text-xs font-bold text-sky-400 hover:bg-sky-500 hover:text-black transition cursor-pointer"
+                  >
+                    <span>Connect</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+
               {/* Roles Breakdown */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3">
@@ -994,30 +1047,6 @@ export function HierarchyTree({
                   <span className="text-zinc-400 block text-[9px] uppercase font-bold">Secondary Capacity:</span>
                   <span className="font-semibold text-zinc-200 block mt-1">{selectedMember.secondaryRole || "Volunteer Staff"}</span>
                 </div>
-              </div>
-
-              {/* GitHub Profile Section */}
-              <div className="flex items-center justify-between rounded-2xl border border-[#2e2618] bg-[#14100b] p-3 text-xs gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white shrink-0">
-                    <GithubIcon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase text-zinc-400 block">GitHub Profile</span>
-                    <span className="text-xs font-mono text-zinc-300 truncate max-w-[160px] sm:max-w-[220px] block">
-                      {selectedMember.githubUrl ? selectedMember.githubUrl.replace("https://github.com/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
-                    </span>
-                  </div>
-                </div>
-                <a
-                  href={selectedMember.githubUrl || `https://github.com/${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#f5b642]/60 bg-[#f5b642]/10 px-3 py-1.5 text-xs font-bold text-[#f5b642] hover:bg-[#f5b642] hover:text-black transition cursor-pointer"
-                >
-                  <span>GitHub</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
               </div>
 
               {/* Footer Actions */}
@@ -1325,7 +1354,7 @@ function TreeNodeCard({
           </div>
         </div>
 
-        {/* Right Action Icons: GitHub Link Button + Badge */}
+        {/* Right Action Icons: GitHub + LinkedIn Link Buttons + Badge */}
         <div className="flex items-center gap-1.5 shrink-0">
           <a
             href={ghLink}
@@ -1337,6 +1366,30 @@ function TreeNodeCard({
           >
             <GithubIcon className="h-3 w-3" />
           </a>
+
+          {member.linkedinUrl ? (
+            <a
+              href={member.linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={`Visit ${member.name}'s LinkedIn Profile`}
+              className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#1b2d42] bg-[#0c1622] text-[#38bdf8] hover:text-white hover:border-[#38bdf8] hover:bg-[#13283d] transition cursor-pointer"
+            >
+              <LinkedinIcon className="h-3 w-3" />
+            </a>
+          ) : (
+            <a
+              href={`https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(member.name + " VIT Bhopal")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={`Search ${member.name} on LinkedIn`}
+              className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#222] bg-[#111] text-zinc-500 hover:text-[#38bdf8] hover:border-sky-500/50 hover:bg-[#0c1622] transition cursor-pointer opacity-70 hover:opacity-100"
+            >
+              <LinkedinIcon className="h-3 w-3" />
+            </a>
+          )}
 
           {/* Proper Designation Tag */}
           <span
@@ -1360,10 +1413,173 @@ function TreeNodeCard({
   );
 }
 
+// ── DYNAMIC HIERARCHY TREE BUILDER (Links Database Admin Members & Teams) ──
+export function buildHierarchyTree(
+  dbMembers?: (HierarchyMember | any)[] | null,
+  dbTeams?: any[] | null
+): { president: HierarchyMember; vp: HierarchyMember; branches: TreeBranch[] } {
+  if ((!dbMembers || dbMembers.length === 0) && (!dbTeams || dbTeams.length === 0)) {
+    return {
+      president: PRESIDENT_MEMBER,
+      vp: VP_MEMBER,
+      branches: TREE_BRANCHES,
+    };
+  }
+
+  const allMembers: any[] = [];
+  if (Array.isArray(dbTeams) && dbTeams.length > 0) {
+    dbTeams.forEach((t) => {
+      if (Array.isArray(t.members)) {
+        t.members.forEach((m: any) => {
+          allMembers.push({
+            ...m,
+            teamName: t.name,
+            teamSlug: t.slug,
+            teamColor: t.color,
+          });
+        });
+      }
+    });
+  }
+
+  if (Array.isArray(dbMembers) && dbMembers.length > 0) {
+    dbMembers.forEach((m) => {
+      if (
+        !allMembers.some(
+          (existing) =>
+            (m.id && existing.id === m.id) ||
+            (m.name && existing.name && existing.name.toLowerCase() === m.name.toLowerCase())
+        )
+      ) {
+        allMembers.push(m);
+      }
+    });
+  }
+
+  // 1. Resolve President
+  let pres: HierarchyMember = PRESIDENT_MEMBER;
+  const dbPres = allMembers.find((m) => {
+    const r = (m.role || m.roleTitle || m.position || "").toLowerCase();
+    const n = (m.name || "").toLowerCase();
+    return (r.includes("president") && !r.includes("vice")) || n.includes("harshvardhan");
+  });
+  if (dbPres) {
+    pres = {
+      id: dbPres.id,
+      name: dbPres.name || PRESIDENT_MEMBER.name,
+      roleTitle: dbPres.role || dbPres.roleTitle || "Club President",
+      secondaryRole: dbPres.position || dbPres.secondaryRole || "Volunteer / Strategic Operations",
+      teamName: dbPres.teamName || "Executive Panel",
+      email: dbPres.official_email || dbPres.email || formatVitBhopalEmail(dbPres.name || PRESIDENT_MEMBER.name),
+      githubUrl: dbPres.github_url || dbPres.githubUrl || PRESIDENT_MEMBER.githubUrl,
+      linkedinUrl: dbPres.linkedin_url || dbPres.linkedinUrl || null,
+      caption: dbPres.caption || PRESIDENT_MEMBER.caption,
+      avatarUrl: dbPres.image_url || dbPres.avatarUrl || PRESIDENT_MEMBER.avatarUrl,
+    };
+  }
+
+  // 2. Resolve Vice President
+  let vpMember: HierarchyMember = VP_MEMBER;
+  const dbVp = allMembers.find((m) => {
+    const r = (m.role || m.roleTitle || m.position || "").toLowerCase();
+    const n = (m.name || "").toLowerCase();
+    return r.includes("vice president") || r.includes("vice_president") || n.includes("akshita");
+  });
+  if (dbVp) {
+    vpMember = {
+      id: dbVp.id,
+      name: dbVp.name || VP_MEMBER.name,
+      roleTitle: dbVp.role || dbVp.roleTitle || "Vice President",
+      secondaryRole: dbVp.position || dbVp.secondaryRole || "Volunteer / Cross-Team Coordination",
+      teamName: dbVp.teamName || "Executive Panel",
+      email: dbVp.official_email || dbVp.email || formatVitBhopalEmail(dbVp.name || VP_MEMBER.name),
+      githubUrl: dbVp.github_url || dbVp.githubUrl || VP_MEMBER.githubUrl,
+      linkedinUrl: dbVp.linkedin_url || dbVp.linkedinUrl || null,
+      caption: dbVp.caption || VP_MEMBER.caption,
+      avatarUrl: dbVp.image_url || dbVp.avatarUrl || VP_MEMBER.avatarUrl,
+    };
+  }
+
+  // 3. Map branches from TREE_BRANCHES with database members
+  const branches: TreeBranch[] = TREE_BRANCHES.map((staticBranch) => {
+    const branchKey = staticBranch.id.toLowerCase();
+    const branchNameLower = staticBranch.name.toLowerCase();
+
+    const matchedDbMembers = allMembers.filter((m) => {
+      if (m.id === pres.id || m.id === vpMember.id) return false;
+      const tName = (m.teamName || m.team_id || m.primaryTeam || "").toLowerCase();
+      const tSlug = (m.teamSlug || "").toLowerCase();
+      const r = (m.role || m.roleTitle || "").toLowerCase();
+
+      return (
+        tName.includes(branchKey) ||
+        tSlug.includes(branchKey) ||
+        branchNameLower.includes(tName) ||
+        (branchKey === "secretariat" && (r.includes("secretary") || r.includes("coordinator"))) ||
+        (branchKey === "aiml" && (tName.includes("ai") || tName.includes("ml") || r.includes("aiml") || r.includes("ai/ml"))) ||
+        (branchKey === "tech" && (tName.includes("tech") || r.includes("tech"))) ||
+        (branchKey === "design" && (tName.includes("design") || r.includes("design"))) ||
+        (branchKey === "hr" && (tName.includes("human") || tName.includes("hr") || r.includes("hr"))) ||
+        (branchKey === "pr" && (tName.includes("pr") || tName.includes("outreach") || r.includes("pr"))) ||
+        (branchKey === "social" && (tName.includes("social") || r.includes("social"))) ||
+        (branchKey === "events" && (tName.includes("event") || r.includes("event"))) ||
+        (branchKey === "content" && (tName.includes("content") || r.includes("content"))) ||
+        (branchKey === "finance" && (tName.includes("finance") || r.includes("finance")))
+      );
+    });
+
+    if (matchedDbMembers.length === 0) {
+      return staticBranch;
+    }
+
+    const convertedMembers: HierarchyMember[] = matchedDbMembers.map((m) => ({
+      id: m.id,
+      name: m.name,
+      roleTitle: m.role || m.roleTitle || "Core Member",
+      secondaryRole: m.position || m.secondaryRole || "Volunteer Staff",
+      teamName: staticBranch.name,
+      email: m.official_email || m.email || formatVitBhopalEmail(m.name),
+      githubUrl: m.github_url || m.githubUrl || null,
+      linkedinUrl: m.linkedin_url || m.linkedinUrl || null,
+      caption: m.caption || `Contributing to ${staticBranch.name} operations and community technical innovation.`,
+      avatarUrl: m.image_url || m.avatarUrl || null,
+      isCore: (m.role || m.position || "").toLowerCase().includes("core"),
+    }));
+
+    const leads = convertedMembers.filter((m) => {
+      const r = (m.roleTitle || "").toLowerCase();
+      const p = (m.secondaryRole || "").toLowerCase();
+      return r.includes("lead") || r.includes("secretary") || r.includes("head") || p.includes("lead") || p.includes("secretary");
+    });
+
+    const core = convertedMembers.filter((m) => !leads.includes(m));
+
+    return {
+      ...staticBranch,
+      leads: leads.length > 0 ? leads : staticBranch.leads,
+      core: core.length > 0 ? core : staticBranch.core,
+    };
+  });
+
+  return { president: pres, vp: vpMember, branches };
+}
+
 export function MemberHierarchyTree({
   initialMembers,
+  teams,
 }: {
   initialMembers?: HierarchyMember[] | any[] | null;
+  teams?: any[] | null;
 }) {
-  return <HierarchyTree />;
+  const treeData = useMemo(() => {
+    return buildHierarchyTree(initialMembers, teams);
+  }, [initialMembers, teams]);
+
+  return (
+    <HierarchyTree
+      president={treeData.president}
+      vp={treeData.vp}
+      branches={treeData.branches}
+    />
+  );
 }

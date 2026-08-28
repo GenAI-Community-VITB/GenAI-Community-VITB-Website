@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { MemberHierarchyTree } from "@/components/site/hierarchy-tree";
-import { getHierarchyMembers } from "@/lib/data/public";
+import { getHierarchyMembers, getTeamsWithMembers } from "@/lib/data/public";
 import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const revalidate = 60;
@@ -23,7 +23,10 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamHierarchyPage() {
-  const hierarchyMembers = await getHierarchyMembers();
+  const [hierarchyMembers, teamsWithMembers] = await Promise.all([
+    getHierarchyMembers(),
+    getTeamsWithMembers(),
+  ]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -35,10 +38,9 @@ export default async function TeamHierarchyPage() {
       />
       <Navbar />
       <main className="py-8 pb-32 relative z-30 overflow-visible">
-        <MemberHierarchyTree initialMembers={hierarchyMembers} />
+        <MemberHierarchyTree initialMembers={hierarchyMembers} teams={teamsWithMembers} />
       </main>
       <Footer />
     </div>
   );
 }
-
