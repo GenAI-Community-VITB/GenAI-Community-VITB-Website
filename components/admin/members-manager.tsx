@@ -346,8 +346,9 @@ export function MembersManager({
 
       {/* Add / Edit Member Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="relative m-auto w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden my-auto">
             {/* Fixed Header */}
             <div className="flex items-center justify-between border-b border-[#262015] px-6 py-4 bg-[#14100b] shrink-0">
               <h3 className="font-bold text-base text-white flex items-center gap-2">
@@ -364,7 +365,7 @@ export function MembersManager({
             </div>
 
             {/* Scrollable Form Body */}
-            <form id="member-form" onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
+            <form id="member-form" onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(100svh-10rem)] flex-1 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="text-xs font-semibold text-zinc-300 block mb-1">
@@ -510,6 +511,7 @@ export function MembersManager({
                 {isPending ? "Saving..." : editingItem ? "Update Member" : "Add Member"}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

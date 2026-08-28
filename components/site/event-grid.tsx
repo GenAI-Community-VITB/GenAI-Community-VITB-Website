@@ -149,7 +149,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
       {/* ── IN-PLACE EVENT DETAILS POPUP MODAL ── */}
       <AnimatePresence>
         {selectedEvent && (
-          <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -165,7 +165,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative m-auto z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.3)] space-y-5 shrink-0"
+              className="relative m-auto z-10 w-full max-w-xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.3)] space-y-5 my-auto"
             >
               {/* Top Bar */}
               <div className="flex items-center justify-between border-b border-[#221c13] pb-3">

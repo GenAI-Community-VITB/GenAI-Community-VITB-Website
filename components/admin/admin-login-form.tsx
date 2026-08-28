@@ -233,8 +233,9 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
 
       {/* OTP Password Reset Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="relative m-auto w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4 shrink-0">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+            <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+            <div className="relative m-auto w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4 shrink-0">
             <div className="flex items-center justify-between border-b border-[#221c12] pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-[#f5b642]" />
@@ -431,6 +432,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                 </button>
               </div>
             )}
+          </div>
           </div>
         </div>
       )}

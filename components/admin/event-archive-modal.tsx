@@ -83,8 +83,9 @@ export function EventArchiveModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-      <div className="relative m-auto w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-red-500/50 bg-[#141010] p-6 sm:p-8 shadow-2xl shrink-0">
+    <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+        <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+        <div className="relative m-auto w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-red-500/50 bg-[#141010] p-6 sm:p-8 shadow-2xl shrink-0">
         <div className="flex items-center justify-between border-b border-red-950/60 pb-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/40">
@@ -218,6 +219,7 @@ export function EventArchiveModal({
             </div>
           </form>
         )}
+      </div>
       </div>
     </div>
   );

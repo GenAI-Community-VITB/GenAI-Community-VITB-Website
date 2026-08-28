@@ -904,7 +904,7 @@ export function HierarchyTree({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/95 backdrop-blur-2xl"
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-3 sm:p-6 overflow-y-auto"
             onClick={() => setSelectedMember(null)}
           >
             {/* Modal Card — stop propagation so clicking inside doesn't close */}
@@ -914,7 +914,7 @@ export function HierarchyTree({
               exit={{ opacity: 0, scale: 0.94, y: 12 }}
               transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-xl mx-3 sm:mx-6 my-4 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 sm:p-7 shadow-[0_30px_100px_rgba(245,182,66,0.35)] space-y-5 will-change-transform"
+              className="relative w-full max-w-xl my-auto max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 sm:p-7 shadow-[0_30px_100px_rgba(245,182,66,0.35)] space-y-5 will-change-transform"
             >
               {/* Top Bar with Close Button */}
               <div className="flex items-center justify-between border-b border-[#221c13] pb-3 sticky top-0 bg-[#0c0906] z-10 -mx-1 px-1">

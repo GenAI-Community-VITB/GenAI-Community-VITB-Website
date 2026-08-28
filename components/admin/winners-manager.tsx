@@ -280,8 +280,9 @@ export function WinnersManager({
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="relative m-auto w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+            <div className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden my-auto">
             {/* Fixed Header */}
             <div className="flex items-center justify-between border-b border-[#221c12] px-6 py-4 bg-[#14100b] shrink-0">
               <h3 className="font-bold text-white text-base">
@@ -458,6 +459,7 @@ export function WinnersManager({
               </button>
             </div>
           </div>
+        </div>
         </div>
       )}
     </div>

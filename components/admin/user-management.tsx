@@ -1033,158 +1033,164 @@ export function UserManagement({
 
       {/* ENABLE LOGIN ACCOUNT MODAL */}
       {enableLoginTarget && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-emerald-500/50 bg-[#09150f] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-emerald-400">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-950/80 border border-emerald-800/50">
-                <Sparkles className="h-5 w-5 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white text-base">Enable Member Login Access</h3>
-                <p className="text-xs text-emerald-300">Restores active portal login & synchronizes credentials</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-zinc-300">
-              You are enabling login access for <strong className="text-white">{enableLoginTarget.assigned_to_name || enableLoginTarget.full_name}</strong> (
-              <span className="font-mono text-amber-300">{enableLoginTarget.email}</span>).
-            </p>
-
-            {enableLoginResult ? (
-              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 space-y-2.5">
-                <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Login Successfully Enabled & Active!</span>
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border-2 border-emerald-500/50 bg-[#09150f] p-6 shadow-2xl space-y-4 my-auto">
+              <div className="flex items-center gap-3 text-emerald-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-950/80 border border-emerald-800/50">
+                  <Sparkles className="h-5 w-5 text-emerald-400" />
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-black/70 px-3.5 py-2 text-xs">
-                  <div>
-                    <span className="text-zinc-400 font-mono text-[10px] block uppercase">Synchronized Password:</span>
-                    <span className="font-mono font-bold text-emerald-400 text-sm">{enableLoginResult.password}</span>
+                <div>
+                  <h3 className="font-bold text-white text-base">Enable Member Login Access</h3>
+                  <p className="text-xs text-emerald-300">Restores active portal login & synchronizes credentials</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-300">
+                You are enabling login access for <strong className="text-white">{enableLoginTarget.assigned_to_name || enableLoginTarget.full_name}</strong> (
+                <span className="font-mono text-amber-300">{enableLoginTarget.email}</span>).
+              </p>
+
+              {enableLoginResult ? (
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Login Successfully Enabled & Active!</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(enableLoginResult.password || "");
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#f5b642] hover:underline cursor-pointer"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copied ? "Copied" : "Copy"}</span>
-                  </button>
-                </div>
-                <div className="pt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEnableLoginTarget(null);
-                      setEnableLoginResult(null);
-                    }}
-                    className="w-full rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] cursor-pointer"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-semibold text-zinc-400">
-                      Login Password
-                    </label>
+                  <div className="flex items-center justify-between rounded-xl bg-black/70 px-3.5 py-2 text-xs">
+                    <div>
+                      <span className="text-zinc-400 font-mono text-[10px] block uppercase">Synchronized Password:</span>
+                      <span className="font-mono font-bold text-emerald-400 text-sm">{enableLoginResult.password}</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={generateEnableLoginRandomPassword}
-                      className="text-[11px] font-bold text-[#f5b642] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      onClick={() => {
+                        navigator.clipboard.writeText(enableLoginResult.password || "");
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#f5b642] hover:underline cursor-pointer"
                     >
-                      <RefreshCw className="h-3 w-3" />
-                      <span>Random Password</span>
+                      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copied ? "Copied" : "Copy"}</span>
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    value={enableLoginPassword}
-                    onChange={(e) => setEnableLoginPassword(e.target.value)}
-                    className="w-full rounded-xl border border-emerald-950 bg-black/60 px-3.5 py-2 font-mono text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none"
-                  />
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnableLoginTarget(null);
+                        setEnableLoginResult(null);
+                      }}
+                      className="w-full rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold text-zinc-400">
+                        Login Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={generateEnableLoginRandomPassword}
+                        className="text-[11px] font-bold text-[#f5b642] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Generate Random</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={enableLoginPassword}
+                      onChange={(e) => setEnableLoginPassword(e.target.value)}
+                      placeholder="e.g. GenAI#P@ss2026!"
+                      required
+                      className="w-full rounded-xl border border-emerald-900 bg-black/60 px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
 
-                <div className="flex gap-2.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEnableLoginTarget(null);
-                      setEnableLoginResult(null);
-                    }}
-                    className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={handleConfirmEnableLogin}
-                    className="flex-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition cursor-pointer"
-                  >
-                    {isPending ? "Enabling..." : "Confirm & Enable Login"}
-                  </button>
-                </div>
-              </>
-            )}
+                  <div className="flex gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnableLoginTarget(null);
+                        setEnableLoginPassword("");
+                      }}
+                      className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending || !enableLoginPassword.trim()}
+                      onClick={handleConfirmEnableLogin}
+                      className="flex-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition cursor-pointer"
+                    >
+                      {isPending ? "Enabling..." : "Confirm & Enable Login"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* DISABLE LOGIN CONFIRMATION MODAL */}
       {disableLoginTarget && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#16120b] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-amber-400">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-950/80 border border-amber-800/50">
-                <AlertTriangle className="h-5 w-5" />
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#16120b] p-6 shadow-2xl space-y-4 my-auto">
+              <div className="flex items-center gap-3 text-amber-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-950/80 border border-amber-800/50">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Disable Member Login</h3>
+                  <p className="text-xs text-amber-300">Disables portal login without removing member record or password</p>
+                </div>
               </div>
+
+              <p className="text-xs text-zinc-300">
+                You are disabling login access for <strong className="text-white">{disableLoginTarget.assigned_to_name || disableLoginTarget.full_name}</strong> (
+                <span className="font-mono text-amber-300">{disableLoginTarget.email}</span>). Their membership records, assigned roles, and password will remain preserved in the database.
+              </p>
+
               <div>
-                <h3 className="font-bold text-white text-base">Disable Member Login</h3>
-                <p className="text-xs text-amber-300">Disables portal login without removing member record or password</p>
+                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">
+                  Reason for Disabling Login (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={disableLoginReason}
+                  onChange={(e) => setDisableLoginReason(e.target.value)}
+                  placeholder="e.g. End of active operational cycle / Volunteer duty ended"
+                  className="w-full rounded-xl border border-amber-950 bg-black/60 px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none"
+                />
               </div>
-            </div>
 
-            <p className="text-xs text-zinc-300">
-              You are disabling login access for <strong className="text-white">{disableLoginTarget.assigned_to_name || disableLoginTarget.full_name}</strong> (
-              <span className="font-mono text-amber-300">{disableLoginTarget.email}</span>). Their membership records, assigned roles, and password will remain preserved in the database.
-            </p>
-
-            <div>
-              <label className="text-[11px] font-semibold text-zinc-400 block mb-1">
-                Reason for Disabling Login (Optional)
-              </label>
-              <input
-                type="text"
-                value={disableLoginReason}
-                onChange={(e) => setDisableLoginReason(e.target.value)}
-                placeholder="e.g. End of active operational cycle / Volunteer duty ended"
-                className="w-full rounded-xl border border-amber-950 bg-black/60 px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setDisableLoginTarget(null)}
-                className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={handleConfirmDisableLogin}
-                className="flex-1 rounded-xl bg-amber-600 py-2 text-xs font-bold text-black hover:bg-amber-500 disabled:opacity-50 transition cursor-pointer"
-              >
-                {isPending ? "Disabling..." : "Confirm & Disable Login"}
-              </button>
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDisableLoginTarget(null)}
+                  className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleConfirmDisableLogin}
+                  className="flex-1 rounded-xl bg-amber-600 py-2 text-xs font-bold text-black hover:bg-amber-500 disabled:opacity-50 transition cursor-pointer"
+                >
+                  {isPending ? "Disabling..." : "Confirm & Disable Login"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1192,134 +1198,136 @@ export function UserManagement({
 
       {/* PASSWORD RESET QUERIES MODAL (EXEC 6) */}
       {showResetQueriesModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-2xl rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4 max-h-[88vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-[#242016] pb-3 shrink-0">
-              <div className="flex items-center gap-2.5 text-[#f5b642]">
-                <KeyRound className="h-5 w-5" />
-                <div>
-                  <h3 className="font-bold text-white text-base">Executive 6 Password Reset Queries</h3>
-                  <p className="text-[11px] text-zinc-400">Verify member identity and approve 1-click password re-issuance</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowResetQueriesModal(false);
-                  setApprovedResult(null);
-                }}
-                className="text-zinc-400 hover:text-white text-xs"
-              >
-                ✕
-              </button>
-            </div>
-
-            {approvedResult && (
-              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/30 p-4 shrink-0 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Password Reset Approved & Synchronized!</span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-black/60 px-3.5 py-2 text-xs">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div className="w-full max-w-2xl rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] flex flex-col my-auto">
+              <div className="flex items-center justify-between border-b border-[#242016] pb-3 shrink-0">
+                <div className="flex items-center gap-2.5 text-[#f5b642]">
+                  <KeyRound className="h-5 w-5" />
                   <div>
-                    <span className="text-zinc-400 font-mono text-[11px]">{approvedResult.email}: </span>
-                    <span className="font-mono font-bold text-white text-sm">{approvedResult.password}</span>
+                    <h3 className="font-bold text-white text-base">Executive 6 Password Reset Queries</h3>
+                    <p className="text-[11px] text-zinc-400">Verify member identity and approve 1-click password re-issuance</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(approvedResult.password || "");
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#f5b642] hover:underline"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copied ? "Copied" : "Copy"}</span>
-                  </button>
                 </div>
+                <button
+                  onClick={() => {
+                    setShowResetQueriesModal(false);
+                    setApprovedResult(null);
+                  }}
+                  className="text-zinc-400 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
               </div>
-            )}
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {resetQueries.length === 0 ? (
-                <div className="text-center py-12 text-zinc-500 text-xs">
-                  <KeyRound className="h-8 w-8 mx-auto mb-2 opacity-30 text-amber-400" />
-                  No pending password reset requests.
-                </div>
-              ) : (
-                resetQueries.map((q) => (
-                  <div
-                    key={q.id}
-                    className={`rounded-2xl border p-4 transition ${
-                      q.status === "pending"
-                        ? "border-[#382f1d] bg-[#1a150d]"
-                        : "border-[#222] bg-[#111] opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-white">{q.student_name}</h4>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                              q.status === "pending"
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                                : q.status === "approved"
-                                ? "bg-emerald-500/20 text-emerald-300"
-                                : "bg-red-500/20 text-red-300"
-                            }`}
-                          >
-                            {q.status}
-                          </span>
-                        </div>
-                        <p className="font-mono text-xs text-amber-300/80 mt-0.5">{q.email}</p>
-                        {q.reason && (
-                          <p className="text-xs text-zinc-400 mt-2 bg-black/40 rounded-xl p-2.5 border border-[#222]">
-                            &ldquo;{q.reason}&rdquo;
-                          </p>
-                        )}
-                        <p className="text-[10px] text-zinc-500 font-mono mt-2">
-                          Requested: {new Date(q.created_at).toLocaleString()}
-                        </p>
-                      </div>
-
-                      {q.status === "pending" && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleResolveQuery(q.id, "approve")}
-                            className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition shadow cursor-pointer"
-                          >
-                            ⚡ Approve & Reset
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleResolveQuery(q.id, "reject")}
-                            className="rounded-xl border border-red-900/50 bg-red-950/30 px-2.5 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-900/40 transition cursor-pointer"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                    </div>
+              {approvedResult && (
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/30 p-4 shrink-0 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Password Reset Approved & Synchronized!</span>
                   </div>
-                ))
+                  <div className="flex items-center justify-between rounded-xl bg-black/60 px-3.5 py-2 text-xs">
+                    <div>
+                      <span className="text-zinc-400 font-mono text-[11px]">{approvedResult.email}: </span>
+                      <span className="font-mono font-bold text-white text-sm">{approvedResult.password}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(approvedResult.password || "");
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#f5b642] hover:underline"
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copied ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                </div>
               )}
-            </div>
 
-            <div className="border-t border-[#242016] pt-3 shrink-0 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowResetQueriesModal(false);
-                  setApprovedResult(null);
-                }}
-                className="rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
-              >
-                Done
-              </button>
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {resetQueries.length === 0 ? (
+                  <div className="text-center py-12 text-zinc-500 text-xs">
+                    <KeyRound className="h-8 w-8 mx-auto mb-2 opacity-30 text-amber-400" />
+                    No pending password reset requests.
+                  </div>
+                ) : (
+                  resetQueries.map((q) => (
+                    <div
+                      key={q.id}
+                      className={`rounded-2xl border p-4 transition ${
+                        q.status === "pending"
+                          ? "border-[#382f1d] bg-[#1a150d]"
+                          : "border-[#222] bg-[#111] opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-white">{q.student_name}</h4>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                q.status === "pending"
+                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                  : q.status === "approved"
+                                  ? "bg-emerald-500/20 text-emerald-300"
+                                  : "bg-red-500/20 text-red-300"
+                              }`}
+                            >
+                              {q.status}
+                            </span>
+                          </div>
+                          <p className="font-mono text-xs text-amber-300/80 mt-0.5">{q.email}</p>
+                          {q.reason && (
+                            <p className="text-xs text-zinc-400 mt-2 bg-black/40 rounded-xl p-2.5 border border-[#222]">
+                              &ldquo;{q.reason}&rdquo;
+                            </p>
+                          )}
+                          <p className="text-[10px] text-zinc-500 font-mono mt-2">
+                            Requested: {new Date(q.created_at).toLocaleString()}
+                          </p>
+                        </div>
+
+                        {q.status === "pending" && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => handleResolveQuery(q.id, "approve")}
+                              className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black hover:bg-[#ffd06a] transition shadow cursor-pointer"
+                            >
+                              ⚡ Approve & Reset
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => handleResolveQuery(q.id, "reject")}
+                              className="rounded-xl border border-red-900/50 bg-red-950/30 px-2.5 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-900/40 transition cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="border-t border-[#242016] pt-3 shrink-0 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetQueriesModal(false);
+                    setApprovedResult(null);
+                  }}
+                  className="rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1327,8 +1335,9 @@ export function UserManagement({
 
       {/* Member Creation / Edit Modal with Multi-Role Builder */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="relative m-auto w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+            <div className="relative w-full max-w-2xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden my-auto">
             {/* Fixed Header */}
             <div className="flex items-center justify-between border-b border-[#242424] px-6 py-4 bg-[#14100b] shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1628,6 +1637,7 @@ export function UserManagement({
                 {isPending ? "Saving Member..." : editingUser ? "Update Member" : "Create Member & Generate ID"}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

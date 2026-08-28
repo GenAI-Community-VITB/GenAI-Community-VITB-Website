@@ -299,8 +299,9 @@ export function EmailOperations({ eventId, activeEventTitle }: EmailOperationsPr
 
       {/* Email Logs Modal */}
       {showLogsModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0e0c08] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+          <div className="w-full max-w-4xl flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0e0c08] shadow-2xl overflow-hidden my-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#221c12] p-5 bg-[#14100b]">
               <div>
@@ -379,6 +380,7 @@ export function EmailOperations({ eventId, activeEventTitle }: EmailOperationsPr
                 Close
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
