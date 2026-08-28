@@ -181,10 +181,10 @@ export function MembersManager({
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Users className="h-5 w-5 text-[#f5b642]" />
-            Team Members Roster & Management
+            Members in the Hierarchy Tree
           </h2>
           <p className="text-xs text-zinc-400">
-            Add, update, or remove student leaders and technical contributors across all vertical teams.
+            Add, update, or remove student leaders, vertical leads, and core members displayed in the hierarchy tree.
           </p>
         </div>
 
@@ -346,8 +346,8 @@ export function MembersManager({
 
       {/* Add / Edit Member Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-          <div className="relative my-auto w-full max-w-lg max-h-[92vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="relative m-auto w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
             {/* Fixed Header */}
             <div className="flex items-center justify-between border-b border-[#262015] px-6 py-4 bg-[#14100b] shrink-0">
               <h3 className="font-bold text-base text-white flex items-center gap-2">

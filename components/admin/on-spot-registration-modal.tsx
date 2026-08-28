@@ -152,8 +152,8 @@ export function OnSpotRegistrationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-      <div className="w-full max-w-4xl max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 sm:p-8 shadow-2xl">
+    <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
+      <div className="relative m-auto w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 sm:p-8 shadow-2xl shrink-0">
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-[#241c10] pb-4 mb-6">
           <div className="flex items-center gap-3">

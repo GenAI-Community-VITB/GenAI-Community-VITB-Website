@@ -45,7 +45,7 @@ import { BookOpen } from "lucide-react";
 type TabId = "members" | "teams" | "events" | "projects" | "blogs" | "achievements" | "winners";
 
 const tabs: { id: TabId; label: string; icon: any }[] = [
-  { id: "members", label: "Team Members", icon: Users },
+  { id: "members", label: "Members in the Hierarchy Tree", icon: Users },
   { id: "teams", label: "Team Verticals", icon: Network },
   { id: "events", label: "Events", icon: Calendar },
   { id: "projects", label: "Projects", icon: FolderKanban },
