@@ -8,6 +8,8 @@
   --surface: #0e0c08;
   --surface-border: #262015;
   --card-bg: #14100b;
+  /* Modal / dialog safe timing */
+  --ease-spring: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 @theme inline {
@@ -104,6 +106,14 @@ section, main, footer {
   contain-intrinsic-size: 1px 600px;
 }
 
+/* Modals must NOT use content-visibility (breaks animation) */
+[role="dialog"],
+[data-modal="true"],
+.modal-overlay {
+  content-visibility: visible !important;
+  contain: none !important;
+}
+
 .will-gpu {
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
@@ -114,6 +124,35 @@ section, main, footer {
 .card, [role="dialog"] {
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+/* ── Global Modal / Overlay Safety Rules ──────────────────── */
+/* Ensure fixed-position modals are always fully within viewport */
+.fixed-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Modal content — never exceeds viewport, always scrollable */
+.fixed-modal-content {
+  position: relative;
+  width: 100%;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  margin: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Ultra-smooth transitions ──────────────────────────────── */
+button, a, [role="button"] {
+  transition-timing-function: var(--ease-spring);
 }
 
 @keyframes marquee {

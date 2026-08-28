@@ -1033,7 +1033,7 @@ export function UserManagement({
 
       {/* ENABLE LOGIN ACCOUNT MODAL */}
       {enableLoginTarget && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
           <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-emerald-500/50 bg-[#09150f] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-emerald-400">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-950/80 border border-emerald-800/50">
@@ -1139,7 +1139,7 @@ export function UserManagement({
 
       {/* DISABLE LOGIN CONFIRMATION MODAL */}
       {disableLoginTarget && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
           <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#16120b] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-amber-400">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-950/80 border border-amber-800/50">
@@ -1192,7 +1192,7 @@ export function UserManagement({
 
       {/* PASSWORD RESET QUERIES MODAL (EXEC 6) */}
       {showResetQueriesModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
           <div className="w-full max-w-2xl rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4 max-h-[88vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-[#242016] pb-3 shrink-0">
               <div className="flex items-center gap-2.5 text-[#f5b642]">
