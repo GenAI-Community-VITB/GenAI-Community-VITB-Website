@@ -36,6 +36,7 @@ create table if not exists public.members (
   name text not null,
   role text not null,
   position text not null,
+  github_url text,
   linkedin_url text,
   image_url text,
   status text not null default 'active' check (status in ('pending', 'active')),
@@ -55,6 +56,23 @@ create table if not exists public.projects (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.blog_posts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  summary text not null,
+  original_content text,
+  post_url text not null,
+  author_name text not null default 'GENAI Social Media Team',
+  tags text[] not null default '{}',
+  is_published boolean not null default true,
+  image_url text,
+  published_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_blog_posts_published on public.blog_posts(is_published, published_at desc);
+
 drop trigger if exists teams_updated_at on public.teams;
 create trigger teams_updated_at before update on public.teams for each row execute function public.set_updated_at();
 
@@ -64,6 +82,9 @@ create trigger members_updated_at before update on public.members for each row e
 drop trigger if exists projects_updated_at on public.projects;
 create trigger projects_updated_at before update on public.projects for each row execute function public.set_updated_at();
 
+drop trigger if exists blog_posts_updated_at on public.blog_posts;
+create trigger blog_posts_updated_at before update on public.blog_posts for each row execute function public.set_updated_at();
+
 -- ----------------------------------------------------------------------------
 -- 2. USER PROFILES & ROLE SYSTEM
 -- ----------------------------------------------------------------------------
@@ -72,6 +93,7 @@ create table if not exists public.user_profiles (
   email text not null unique,
   full_name text not null default '',
   role text not null check (role in ('tech', 'finance', 'volunteer')),
+  github_url text,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -932,7 +954,46 @@ alter table if exists public.checkins
   add column if not exists deleted_by uuid references auth.users(id);
 
 -- ----------------------------------------------------------------------------
--- 14. PERMISSION GRANTS
+-- 14. PUBLIC CONTENT & ADMIN POLICIES
+-- ----------------------------------------------------------------------------
+alter table if exists public.teams enable row level security;
+drop policy if exists "Public view teams" on public.teams;
+create policy "Public view teams" on public.teams for select using (true);
+drop policy if exists "Service and auth manage teams" on public.teams;
+create policy "Service and auth manage teams" on public.teams for all using (auth.role() in ('authenticated', 'service_role'));
+
+alter table if exists public.members enable row level security;
+drop policy if exists "Public view members" on public.members;
+create policy "Public view members" on public.members for select using (true);
+drop policy if exists "Service and auth manage members" on public.members;
+create policy "Service and auth manage members" on public.members for all using (auth.role() in ('authenticated', 'service_role'));
+
+alter table if exists public.projects enable row level security;
+drop policy if exists "Public view projects" on public.projects;
+create policy "Public view projects" on public.projects for select using (true);
+drop policy if exists "Service and auth manage projects" on public.projects;
+create policy "Service and auth manage projects" on public.projects for all using (auth.role() in ('authenticated', 'service_role'));
+
+alter table if exists public.blog_posts enable row level security;
+drop policy if exists "Public view blog posts" on public.blog_posts;
+create policy "Public view blog posts" on public.blog_posts for select using (is_published = true or auth.role() in ('authenticated', 'service_role'));
+drop policy if exists "Service and auth manage blog posts" on public.blog_posts;
+create policy "Service and auth manage blog posts" on public.blog_posts for all using (auth.role() in ('authenticated', 'service_role'));
+
+alter table if exists public.achievements enable row level security;
+drop policy if exists "Public view achievements" on public.achievements;
+create policy "Public view achievements" on public.achievements for select using (true);
+drop policy if exists "Service and auth manage achievements" on public.achievements;
+create policy "Service and auth manage achievements" on public.achievements for all using (auth.role() in ('authenticated', 'service_role'));
+
+alter table if exists public.winners enable row level security;
+drop policy if exists "Public view winners" on public.winners;
+create policy "Public view winners" on public.winners for select using (true);
+drop policy if exists "Service and auth manage winners" on public.winners;
+create policy "Service and auth manage winners" on public.winners for all using (auth.role() in ('authenticated', 'service_role'));
+
+-- ----------------------------------------------------------------------------
+-- 15. PERMISSION GRANTS & SCHEMA CACHE RELOAD
 -- ----------------------------------------------------------------------------
 grant usage on schema public to postgres, anon, authenticated, service_role;
 grant all on all tables in schema public to postgres, anon, authenticated, service_role;
@@ -942,3 +1003,6 @@ grant all on all sequences in schema public to postgres, anon, authenticated, se
 alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;
+
+-- Reload Supabase PostgREST schema cache
+notify pgrst, 'reload schema';

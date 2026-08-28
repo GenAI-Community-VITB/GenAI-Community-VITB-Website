@@ -7,6 +7,7 @@ import {
   disableStaffLoginAction,
   enableStaffLoginAction,
   resetStaffPasswordAction,
+  enforceTeamLoginPolicyAction,
 } from "@/app/admin/events-actions";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
 import {
@@ -276,6 +277,13 @@ export function UserManagement({
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  useScrollLock(
+    showCreateModal ||
+      showResetQueriesModal ||
+      Boolean(enableLoginTarget) ||
+      Boolean(disableLoginTarget),
+  );
 
   async function handleOpenResetQueries() {
     setShowResetQueriesModal(true);
@@ -547,6 +555,33 @@ export function UserManagement({
     });
   }
 
+  function handleEnforceLoginPolicy() {
+    if (
+      !confirm(
+        "Enforce Active Team Logins:\n\nThis will enforce login access ONLY for President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts, and disable logins for everyone else.\n\nProceed?",
+      )
+    )
+      return;
+
+    startTransition(async () => {
+      try {
+        const res = await enforceTeamLoginPolicyAction();
+        if (res.success) {
+          setActionSuccess(
+            `Team login policy enforced: ${res.enabledCount} accounts enabled (Pres, VP, Tech, AIML, Fin, HR), ${res.disabledCount} accounts disabled.`,
+          );
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+        } else {
+          setActionError(res.error || "Failed to enforce team login policy.");
+        }
+      } catch (err: any) {
+        setActionError(err.message || "Failed to enforce team login policy.");
+      }
+    });
+  }
+
   function handleCopyCredentials() {
     if (!generatedCredentials) return;
     const text = `Generative AI Community 2026-27 Portal Access\nAssigned To: ${generatedCredentials.assignedTo}\nEmail / User ID: ${generatedCredentials.email}\nPassword: ${generatedCredentials.password || "Unchanged"}\nLogin Portal: https://genai-club.vercel.app/admin/login`;
@@ -576,7 +611,8 @@ export function UserManagement({
           <p className="text-xs text-zinc-400">
             View allocated passwords, assigned student names, and manage 2026–27 team positions.
           </p>
-        </div>        <div className="flex items-center gap-2.5">
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Search bar */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
@@ -588,6 +624,19 @@ export function UserManagement({
               className="rounded-2xl border border-[#3d3019] bg-[#120f0a] pl-9 pr-3.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none w-56 sm:w-72 font-medium"
             />
           </div>
+
+          {isTop6Admin(currentUserRole) && (
+            <button
+              type="button"
+              onClick={handleEnforceLoginPolicy}
+              disabled={isPending}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-[#221a0e] to-[#17120a] px-3.5 py-2 text-xs font-bold text-amber-300 hover:border-amber-400 hover:text-white transition shadow-sm shrink-0 cursor-pointer disabled:opacity-50"
+              title="Enforce login policy: President, VP, Tech, AIML, Finance, HR only"
+            >
+              <Shield className="h-4 w-4 text-[#f5b642]" />
+              <span>Enforce Active Team Logins</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -984,8 +1033,8 @@ export function UserManagement({
 
       {/* ENABLE LOGIN ACCOUNT MODAL */}
       {enableLoginTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-900/50 bg-[#09150f] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-emerald-500/50 bg-[#09150f] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-emerald-400">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-950/80 border border-emerald-800/50">
                 <Sparkles className="h-5 w-5 text-emerald-400" />
@@ -1090,8 +1139,8 @@ export function UserManagement({
 
       {/* DISABLE LOGIN CONFIRMATION MODAL */}
       {disableLoginTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl border border-amber-900/50 bg-[#16120b] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#16120b] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-amber-400">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-950/80 border border-amber-800/50">
                 <AlertTriangle className="h-5 w-5" />
@@ -1143,8 +1192,8 @@ export function UserManagement({
 
       {/* PASSWORD RESET QUERIES MODAL (EXEC 6) */}
       {showResetQueriesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-[#382f1d] bg-[#12100b] p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-2xl rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4 max-h-[88vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-[#242016] pb-3 shrink-0">
               <div className="flex items-center gap-2.5 text-[#f5b642]">
                 <KeyRound className="h-5 w-5" />
@@ -1278,15 +1327,16 @@ export function UserManagement({
 
       {/* Member Creation / Edit Modal with Multi-Role Builder */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-xl rounded-3xl border border-[#333333] bg-[#121212] p-6 sm:p-8 shadow-2xl my-8">
-            <div className="flex items-center justify-between border-b border-[#242424] pb-4 mb-6">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden">
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between border-b border-[#242424] px-6 py-4 bg-[#14100b] shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f5b642]/20 text-[#f5b642]">
                   <UserPlus className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">
+                  <h2 className="text-base font-bold text-white">
                     {editingUser ? `Edit Member: ${editingUser.full_name}` : "Add Club Member"}
                   </h2>
                   <p className="text-xs text-zinc-400">Assign multiple club teams and generate login credentials</p>
@@ -1294,13 +1344,14 @@ export function UserManagement({
               </div>
               <button
                 onClick={resetForm}
-                className="rounded-xl p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition"
+                className="rounded-xl p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Scrollable Form Body */}
+            <form id="user-form" onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
@@ -1557,23 +1608,26 @@ export function UserManagement({
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-3">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="flex-[2] rounded-xl bg-[#f5b642] py-2.5 text-xs font-bold text-black hover:bg-[#ffd06a] disabled:opacity-50 transition"
-                >
-                  {isPending ? "Saving Member..." : editingUser ? "Update Member" : "Create Member & Generate ID"}
-                </button>
-              </div>
             </form>
+
+            {/* Fixed Action Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-[#242424] px-6 py-3.5 bg-[#120f0a] shrink-0 z-20">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="user-form"
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#f5b642] bg-[#f5b642] px-5 py-2 text-xs font-bold text-black hover:bg-[#ffd06a] disabled:opacity-50 transition cursor-pointer shadow-[0_0_15px_rgba(245,182,66,0.25)]"
+              >
+                {isPending ? "Saving Member..." : editingUser ? "Update Member" : "Create Member & Generate ID"}
+              </button>
+            </div>
           </div>
         </div>
       )}

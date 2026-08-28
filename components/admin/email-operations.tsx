@@ -19,6 +19,7 @@ import {
   X,
   FileText,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface EmailOperationsProps {
   eventId?: string;
@@ -40,6 +41,7 @@ export function EmailOperations({ eventId, activeEventTitle }: EmailOperationsPr
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showLogsModal, setShowLogsModal] = useState(false);
+  useScrollLock(showLogsModal);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   async function loadEmailStatsAndLogs() {
@@ -297,8 +299,8 @@ export function EmailOperations({ eventId, activeEventTitle }: EmailOperationsPr
 
       {/* Email Logs Modal */}
       {showLogsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-3xl border border-[#2d2416] bg-[#0e0c08] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0e0c08] shadow-2xl overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#221c12] p-5 bg-[#14100b]">
               <div>

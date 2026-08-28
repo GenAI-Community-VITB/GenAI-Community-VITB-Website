@@ -827,8 +827,8 @@ export function FinanceQueue({
 
       {/* Screenshot Preview Modal */}
       {selectedScreenshot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl rounded-3xl border border-[#333333] bg-[#141414] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="relative w-full max-w-2xl max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#282828] pb-3">
               <div>
                 <h3 className="font-bold text-white text-base">Payment Screenshot</h3>
@@ -869,8 +869,8 @@ export function FinanceQueue({
 
       {/* Reject Payment Modal */}
       {rejectingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-3xl border border-red-900/40 bg-[#161111] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-red-500/50 bg-[#161111] p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-red-900/30 pb-3">
               <h3 className="font-bold text-white text-base">
                 Reject Payment · {rejectingItem.studentName}
@@ -933,8 +933,8 @@ export function FinanceQueue({
 
       {/* Custom Email Modal */}
       {emailingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-3xl border border-[#333333] bg-[#141414] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#282828] pb-3">
               <h3 className="font-bold text-white text-base">Send Email to {emailingItem.studentName}</h3>
               <button
@@ -1004,8 +1004,8 @@ export function FinanceQueue({
 
       {/* Top-6 Executive Remove Participant Modal */}
       {deletingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-3xl border border-red-800/60 bg-[#161111] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-red-500/60 bg-[#161111] p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-red-900/30 pb-3">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-5 w-5 text-red-400" />

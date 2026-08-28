@@ -804,8 +804,8 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
 
       {/* Tech Override Modal */}
       {showOverrideModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="w-full max-w-md rounded-3xl border border-[#f5b642]/40 bg-[#14100b] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-2 text-[#f5b642]">
               <ShieldAlert className="h-6 w-6" />
               <h3 className="font-extrabold text-white text-lg">Executive Tech Override</h3>

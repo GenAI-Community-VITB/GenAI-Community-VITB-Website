@@ -210,8 +210,8 @@ export function ChangePasswordButton() {
       </button>
 
       {isOpen && mounted && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto bg-black/85 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
-          <div className="relative my-auto w-full max-w-lg rounded-3xl border border-[#3d3019] bg-gradient-to-b from-[#16120b] to-[#0a0805] p-6 sm:p-7 shadow-[0_25px_60px_rgba(0,0,0,0.85)] space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl animate-in fade-in duration-200">
+          <div className="relative my-auto w-full max-w-lg rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 sm:p-7 shadow-[0_25px_60px_rgba(0,0,0,0.85)] space-y-5 max-h-[88vh] overflow-y-auto">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#2a2216] pb-4">

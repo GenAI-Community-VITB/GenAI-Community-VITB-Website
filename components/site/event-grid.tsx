@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface EventItem {
   id: string;
@@ -29,6 +30,16 @@ interface EventItem {
 
 export function EventGrid({ events }: { events: EventItem[] }) {
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  useScrollLock(Boolean(selectedEvent));
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedEvent(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedEvent]);
 
   if (events.length === 0) {
     return (
@@ -139,24 +150,41 @@ export function EventGrid({ events }: { events: EventItem[] }) {
       {/* ── IN-PLACE EVENT DETAILS POPUP MODAL ── */}
       <AnimatePresence>
         {selectedEvent && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedEvent(null)}
-              className="absolute inset-0 bg-black/85 backdrop-blur-md"
+              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
             />
 
             {/* Modal Dialog Box */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a07] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.25)] space-y-6"
+              className="relative z-10 w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.3)] space-y-5"
             >
+              {/* Top Bar */}
+              <div className="flex items-center justify-between border-b border-[#221c13] pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#f5b642] shadow-[0_0_8px_#f5b642]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
+                    Event Overview
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(null)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#3a3020] bg-[#1a140b] px-3 py-1 text-xs font-semibold text-zinc-300 hover:border-[#f5b642] hover:text-white transition cursor-pointer"
+                >
+                  <span>Close</span>
+                  <span className="rounded bg-[#282013] px-1.5 py-0.2 text-[10px] font-mono text-zinc-400">ESC</span>
+                </button>
+              </div>
               {/* Event Poster / Image */}
               {selectedEvent.image_url ? (
                 <div className="relative h-56 w-full overflow-hidden rounded-2xl border border-[#2a2215]">

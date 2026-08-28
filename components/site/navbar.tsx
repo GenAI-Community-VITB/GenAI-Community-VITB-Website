@@ -18,6 +18,7 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -33,6 +34,7 @@ const NAV_LINKS = [
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useScrollLock(mobileMenuOpen);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#221d14] bg-black/90 backdrop-blur-xl">

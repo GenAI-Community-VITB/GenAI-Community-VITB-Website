@@ -10,6 +10,7 @@ export const memberSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   role: z.string().min(1, "Role is required").max(200),
   position: z.string().min(1, "Position is required").max(200),
+  github_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   linkedin_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   image_url: z.string().max(2000).optional().nullable().or(z.literal("")),
   status: z.enum(["pending", "active"]).default("active"),

@@ -9,6 +9,7 @@ import {
   isSupremeExecutive,
   isExecutiveAccount,
   isTop6Admin,
+  isTeamLoginAllowed,
 } from "@/lib/auth/permissions";
 import { reviewPayment, sendCustomStaffEmail } from "@/lib/data/registrations";
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
@@ -267,6 +268,8 @@ export async function upsertStaffUserAction(formData: FormData) {
     }
   }
 
+  const githubUrl = formData.get("github_url") ? String(formData.get("github_url")).trim() : undefined;
+
   if (userId) {
     // Check if trying to disable or demote the last active Tech user
     if (!isActive || staffRole !== "tech") {
@@ -280,8 +283,6 @@ export async function upsertStaffUserAction(formData: FormData) {
         throw new Error("Action blocked: You cannot disable or demote the only remaining active Tech lead.");
       }
     }
-
-    const githubUrl = formData.get("github_url") ? String(formData.get("github_url")).trim() : undefined;
 
     const updatePayload: Record<string, unknown> = {
       full_name: fullName,
@@ -324,6 +325,7 @@ export async function upsertStaffUserAction(formData: FormData) {
       await supabase.auth.admin.updateUserById(userId!, { password });
     }
 
+    // Comprehensive Audit Log for user profile edits
     await logAuditEvent({
       actorUserId: user.id,
       actorEmail: profile.email || user.email,
@@ -375,6 +377,7 @@ export async function upsertStaffUserAction(formData: FormData) {
       full_name: fullName,
       assigned_to_name: assignedToName,
       password: password!,
+      github_url: githubUrl || null,
       avatar_url: avatarUrl || null,
       drive_file_id: avatarDriveFileId || null,
       role: staffRole,
@@ -673,6 +676,90 @@ export async function updateMemberGitHubUrlAction(userId: string, githubUrl: str
   revalidatePath("/team");
   revalidatePath("/");
   return { success: true };
+}
+
+/**
+ * Enforces the Club Login Policy:
+ * Logins are active ONLY for President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team.
+ * For all other accounts, login is disabled.
+ */
+export async function enforceTeamLoginPolicyAction(): Promise<{
+  success: boolean;
+  enabledCount: number;
+  disabledCount: number;
+  error?: string;
+}> {
+  try {
+    const { user, profile, role } = await requireStaffRole("tech");
+    const supabase = createAdminSupabase();
+
+    const { data: allProfiles, error: fetchErr } = await supabase
+      .from("user_profiles")
+      .select("id, email, full_name, assigned_to_name, role, is_active, is_login_disabled, is_voided, roles:member_roles(*)");
+
+    if (fetchErr) throw new Error(fetchErr.message);
+
+    let enabledCount = 0;
+    let disabledCount = 0;
+
+    for (const p of allProfiles || []) {
+      const allowed = isTeamLoginAllowed(p.role, p.roles, p.email);
+
+      if (allowed) {
+        // Enable account if disabled
+        if (p.is_login_disabled || p.is_voided || !p.is_active) {
+          await supabase
+            .from("user_profiles")
+            .update({
+              is_login_disabled: false,
+              is_voided: false,
+              is_active: true,
+              login_disabled_reason: null,
+              voided_reason: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", p.id);
+        }
+        enabledCount++;
+      } else {
+        // Disable login for non-exempt teams
+        if (!p.is_login_disabled || !p.is_voided || p.is_active) {
+          await supabase
+            .from("user_profiles")
+            .update({
+              is_login_disabled: true,
+              is_voided: true,
+              is_active: false,
+              login_disabled_reason: "Logins currently restricted to President, Vice President, Tech, AIML, Finance, and HR teams",
+              voided_reason: "Logins currently restricted to President, Vice President, Tech, AIML, Finance, and HR teams",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", p.id);
+        }
+        disabledCount++;
+      }
+    }
+
+    await logAuditEvent({
+      actorUserId: user.id,
+      actorEmail: profile.email || user.email,
+      actorRole: role,
+      action: "TEAM_LOGIN_POLICY_ENFORCED",
+      targetType: "system_policy",
+      targetId: "login_permissions",
+      reason: "Enforced login whitelist for President, VP, Tech, AIML, Finance, and HR teams",
+      metadata: {
+        enabledCount,
+        disabledCount,
+      },
+    });
+
+    revalidatePath("/admin/users");
+    revalidatePath("/admin");
+    return { success: true, enabledCount, disabledCount };
+  } catch (err: any) {
+    return { success: false, enabledCount: 0, disabledCount: 0, error: err.message || "Failed to enforce team login policy." };
+  }
 }
 
 /**

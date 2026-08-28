@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { CloudflareTurnstile } from "@/components/security/cloudflare-turnstile";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 export function AdminLoginForm({ showInitialError }: { showInitialError: boolean }) {
   const router = useRouter();
@@ -32,6 +33,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
 
   // OTP Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);
+  useScrollLock(showForgotModal);
   const [otpStep, setOtpStep] = useState<"email" | "verify" | "success">("email");
   const [resetEmail, setResetEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -231,8 +233,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
 
       {/* OTP Password Reset Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="relative w-full max-w-md rounded-2xl border border-[#332714] bg-[#120f0a] p-5 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#221c12] pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-[#f5b642]" />

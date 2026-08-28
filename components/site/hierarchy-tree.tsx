@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, memo } from "react";
 import {
-  Crown, Mail,
+  Crown,
   Shield,
   BrainCircuit,
   Cpu,
@@ -23,10 +23,12 @@ import {
   ZoomOut,
   RotateCcw,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 export interface HierarchyMember {
   id?: string;
@@ -34,14 +36,10 @@ export interface HierarchyMember {
   roleTitle: string;
   secondaryRole?: string;
   teamName: string;
-  email?: string;
+  email: string;
   githubUrl?: string | null;
   caption: string;
   avatarUrl?: string | null;
-  rawRole?: string;
-  primaryTeam?: string;
-  primaryPosition?: string;
-  tier?: "president" | "panel" | "lead" | "core";
 }
 
 export const HierarchyAvatar = memo(function HierarchyAvatar({
@@ -57,51 +55,29 @@ export const HierarchyAvatar = memo(function HierarchyAvatar({
   fallbackClassName?: string;
   initialsClassName?: string;
 }) {
-  const normalized = useMemo(() => normalizeDriveImageUrl(avatarUrl), [avatarUrl]);
-  const [currentSrc, setCurrentSrc] = useState<string | null>(normalized);
-  const [hasFailed, setHasFailed] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const normalized = normalizeDriveImageUrl(avatarUrl);
+  const initials =
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "GA";
 
   useEffect(() => {
-    setCurrentSrc(normalizeDriveImageUrl(avatarUrl));
-    setHasFailed(false);
+    setHasError(false);
   }, [avatarUrl]);
 
-  const initials = useMemo(() => {
-    return (
-      name
-        .split(" ")
-        .map((n) => n[0])
-        .filter(Boolean)
-        .slice(0, 2)
-        .join("")
-        .toUpperCase() || "GA"
-    );
-  }, [name]);
-
-  function handleError() {
-    // If external Google CDN failed or got throttled, try local streaming proxy
-    const fileIdMatch =
-      avatarUrl?.match(/[?&]id=([a-zA-Z0-9_-]{20,})/) ||
-      avatarUrl?.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/) ||
-      avatarUrl?.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{20,})/) ||
-      avatarUrl?.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
-
-    if (fileIdMatch && fileIdMatch[1] && currentSrc !== `/api/drive/asset/${fileIdMatch[1]}`) {
-      setCurrentSrc(`/api/drive/asset/${fileIdMatch[1]}`);
-    } else {
-      setHasFailed(true);
-    }
-  }
-
-  if (currentSrc && !hasFailed) {
+  if (normalized && !hasError) {
     return (
       <img
-        src={currentSrc}
+        src={normalized}
         alt={name}
         className={className || "h-full w-full object-cover"}
-        onError={handleError}
+        onError={() => setHasError(true)}
         loading="lazy"
-        decoding="async"
       />
     );
   }
@@ -119,7 +95,8 @@ const PRESIDENT_MEMBER: HierarchyMember = {
   roleTitle: "Club President",
   secondaryRole: "Volunteer / Strategic Operations",
   teamName: "Executive Panel",
-  email: "harshvardhan.24bce10511@vitbhopal.ac.in",
+  email: "president@genai.community",
+  githubUrl: "https://github.com",
   caption: "Spearheading community vision, strategic partnerships, and multi-vertical technical innovation.",
 };
 
@@ -129,7 +106,8 @@ const VP_MEMBER: HierarchyMember = {
   roleTitle: "Vice President",
   secondaryRole: "Volunteer / Cross-Team Coordination",
   teamName: "Executive Panel",
-  email: "akshita.25bce10779@vitbhopal.ac.in",
+  email: "vice.president@genai.community",
+  githubUrl: "https://github.com",
   caption: "Overseeing operations, leadership development programs, and inter-departmental technical execution.",
 };
 
@@ -155,6 +133,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "General Secretary",
         secondaryRole: "Volunteer / Administrative Operations",
         teamName: "Secretariat & Operations",
+        email: "general.secretary@genai.community",
+        githubUrl: "https://github.com",
         caption: "Managing institutional governance, university administrative alignment, and official approvals.",
       },
       {
@@ -162,6 +142,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "General Secretary (Provisional)",
         secondaryRole: "Volunteer / Strategy Support",
         teamName: "Secretariat & Operations",
+        email: "gen.sec.provisional@genai.community",
+        githubUrl: "https://github.com",
         caption: "Supporting organizational logistics, internal policies, and operational planning.",
       },
       {
@@ -169,6 +151,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Joint Secretary",
         secondaryRole: "Volunteer / Event Logistics",
         teamName: "Secretariat & Operations",
+        email: "joint.secretary@genai.community",
+        githubUrl: "https://github.com",
         caption: "Directing joint-vertical execution, workshop planning, and guest speaker engagements.",
       },
       {
@@ -176,6 +160,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Assistant Secretary",
         secondaryRole: "Volunteer / Documentation",
         teamName: "Secretariat & Operations",
+        email: "assistant.secretary@genai.community",
+        githubUrl: "https://github.com",
         caption: "Coordinating internal reporting, session registries, and member records.",
       },
     ],
@@ -185,7 +171,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Student Coordinator 01",
         secondaryRole: "Volunteer / Operations Support",
         teamName: "Secretariat & Operations",
-        email: "ishani.25boe10013@vitbhopal.ac.in",
+        email: "student.coord.001@genai.community",
+        githubUrl: "https://github.com",
         caption: "Liaison between executive leadership and student participant communities.",
       },
       {
@@ -193,7 +180,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Student Coordinator 02",
         secondaryRole: "Volunteer / Campus Outreach",
         teamName: "Secretariat & Operations",
-        email: "prince.25bai11117@vitbhopal.ac.in",
+        email: "student.coord.002@genai.community",
+        githubUrl: "https://github.com",
         caption: "Driving on-campus engagement, peer outreach, and workshop facilitation.",
       },
     ],
@@ -209,7 +197,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML & Innovation Lead",
         secondaryRole: "Volunteer / Technical Verifier",
         teamName: "AI/ML & Innovation",
-        email: "lakshya.24bce10549@vitbhopal.ac.in",
+        email: "aiml.lead@genai.community",
+        githubUrl: "https://github.com/klakshya007",
         caption: "Architecting autonomous agentic frameworks, multi-modal LLM pipelines, and AI masterclasses.",
       },
       {
@@ -217,7 +206,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML & Innovation Co-Lead",
         secondaryRole: "Volunteer / Research Facilitator",
         teamName: "AI/ML & Innovation",
-        email: "aaditya.25bai10079@vitbhopal.ac.in",
+        email: "aiml.co.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Co-directing research hackathons, neural architecture explorations, and hands-on bootcamps.",
       },
     ],
@@ -227,7 +217,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Lab Assistant",
         teamName: "AI/ML & Innovation",
-        email: "rachit.25bsa10113@vitbhopal.ac.in",
+        email: "aiml.coremember.001@genai.community",
+        githubUrl: "https://github.com",
         caption: "Developing deep learning benchmark pipelines and hands-on AI demo modules.",
       },
       {
@@ -235,7 +226,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Research Member",
         teamName: "AI/ML & Innovation",
-        email: "suhani.25bai10011@vitbhopal.ac.in",
+        email: "aiml.coremember.002@genai.community",
+        githubUrl: "https://github.com",
         caption: "Building NLP sentiment classifiers, transformer experiments, and research benchmarks.",
       },
       {
@@ -243,7 +235,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Hackathon Mentor",
         teamName: "AI/ML & Innovation",
-        email: "sargam.24mip10155@vitbhopal.ac.in",
+        email: "aiml.coremember.003@genai.community",
+        githubUrl: "https://github.com",
         caption: "Assisting participants in computer vision and generative image models.",
       },
       {
@@ -251,7 +244,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "AI/ML Core Member",
         secondaryRole: "Volunteer / Tech Support",
         teamName: "AI/ML & Innovation",
-        email: "aditya.24bce10697@vitbhopal.ac.in",
+        email: "aiml.coremember.004@genai.community",
+        githubUrl: "https://github.com",
         caption: "Implementing retrieval-augmented generation (RAG) knowledge retrieval systems.",
       },
     ],
@@ -267,7 +261,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Team Lead",
         secondaryRole: "Volunteer / System Admin",
         teamName: "Technical Team",
-        email: "abhinav.24bsa10110@vitbhopal.ac.in",
+        email: "tech.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Managing full-stack web infrastructure, edge APIs, cloud deployments, and security auditing.",
       },
       {
@@ -275,7 +270,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Team Co-Lead",
         secondaryRole: "Volunteer / Platform Dev",
         teamName: "Technical Team",
-        email: "swetalina.24bce10419@vitbhopal.ac.in",
+        email: "tech.co.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Engineering frontend interfaces, automated build pipelines, and participant portals.",
       },
     ],
@@ -285,7 +281,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Frontend Dev",
         teamName: "Technical Team",
-        email: "anushka.25bce10312@vitbhopal.ac.in",
+        email: "tech.coremember.001@genai.community",
+        githubUrl: "https://github.com",
         caption: "Building responsive web pages, React components, and interactive user interfaces.",
       },
       {
@@ -293,7 +290,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Backend Dev",
         teamName: "Technical Team",
-        email: "rishab.25bce10989@vitbhopal.ac.in",
+        email: "tech.coremember.002@genai.community",
+        githubUrl: "https://github.com",
         caption: "Developing serverless API endpoints, database query optimization, and webhook listeners.",
       },
       {
@@ -301,7 +299,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / QA & Testing",
         teamName: "Technical Team",
-        email: "aaditi.25bcy10019@vitbhopal.ac.in",
+        email: "tech.coremember.003@genai.community",
+        githubUrl: "https://github.com",
         caption: "Performing platform stress tests, cross-browser validation, and bug triaging.",
       },
       {
@@ -309,49 +308,82 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Technical Core Member",
         secondaryRole: "Volunteer / Cloud Dev",
         teamName: "Technical Team",
-        email: "nitin.25bai11122@vitbhopal.ac.in",
-        caption: "Configuring containerized microservices and automated CI/CD deployment routines.",
+        email: "tech.coremember.004@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Configuring cloud hosting, CDN distribution, and domain DNS routing.",
       },
       {
-        name: "Nivedita Jain",
+        name: "Shresth Sharma",
         roleTitle: "Technical Core Member",
-        secondaryRole: "Volunteer / Frontend Dev",
+        secondaryRole: "Volunteer / Full Stack Dev",
         teamName: "Technical Team",
-        email: "nivedita.25mim10038@vitbhopal.ac.in",
-        caption: "Crafting accessible UI animations, dark-mode themes, and dynamic data tables.",
+        email: "tech.coremember.005@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Integrating Supabase databases, real-time subscriptions, and security rules.",
       },
     ],
   },
   {
     id: "design",
-    name: "Design & UI/UX",
+    name: "Design Team",
     color: "#ec4899",
     icon: Palette,
     leads: [
       {
-        name: "Agrim Mathur",
+        name: "Aparna Dixit",
         roleTitle: "Design Team Lead",
-        secondaryRole: "Volunteer / UI/UX Design",
+        secondaryRole: "Volunteer / Creative Director",
         teamName: "Design Team",
-        email: "agrim.24bcg10060@vitbhopal.ac.in",
-        caption: "Crafting visual brand identities, graphic collateral, event posters, and design systems.",
+        email: "design.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Directing visual brand identity, UI/UX design systems, event banners, and promotional artwork.",
       },
       {
-        name: "Kushagra Nigam",
+        name: "Diya Sharma",
         roleTitle: "Design Team Co-Lead",
-        secondaryRole: "Volunteer / Motion Graphics",
+        secondaryRole: "Volunteer / UI/UX Designer",
         teamName: "Design Team",
-        email: "kushagra.25bai11055@vitbhopal.ac.in",
-        caption: "Creating 3D digital art, typography animations, and digital media assets.",
+        email: "design.co.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Crafting wireframes, Figma prototypes, user journeys, and poster illustrations.",
       },
     ],
     core: [
       {
-        name: "Ameeshi",
+        name: "Akshat Jain",
         roleTitle: "Design Core Member",
-        secondaryRole: "Volunteer / Graphic Designer",
+        secondaryRole: "Volunteer / Vector Artist",
         teamName: "Design Team",
-        caption: "Designing creative social media banners, event flyers, and vector illustrations.",
+        email: "design.coremember.001@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Creating custom vector badges, club stickers, and high-resolution digital art.",
+      },
+      {
+        name: "Shreya Shrivastav",
+        roleTitle: "Design Core Member",
+        secondaryRole: "Volunteer / Layout Specialist",
+        teamName: "Design Team",
+        email: "design.coremember.002@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Designing certificate layouts, social media carousels, and presentation decks.",
+      },
+      {
+        name: "Bhavya Gupta",
+        roleTitle: "Design Core Member",
+        secondaryRole: "Volunteer / Motion Designer",
+        teamName: "Design Team",
+        email: "design.coremember.003@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Creating dynamic animated bumpers, motion reels, and kinetic typography.",
+      },
+      {
+        name: "Rishi",
+        roleTitle: "Design Core Member",
+        secondaryRole: "Volunteer / Brand Designer",
+        teamName: "Design Team",
+        email: "design.coremember.004@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Maintaining consistent typography standards, color palettes, and print merchandise.",
       },
     ],
   },
@@ -362,76 +394,69 @@ const TREE_BRANCHES: TreeBranch[] = [
     icon: Users,
     leads: [
       {
-        name: "Priyansh Upadhyay",
+        name: "Sarthak Shrivastava",
         roleTitle: "Event Management Lead",
-        secondaryRole: "Volunteer / Stage & Audio",
+        secondaryRole: "Volunteer / Stage Director",
         teamName: "Event Management",
-        email: "priyansh.24bcy10117@vitbhopal.ac.in",
-        caption: "Directing auditorium logistics, hackathon staging, and real-time event operations.",
+        email: "events.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Overseeing end-to-end event execution, auditorium booking, live ticketing, and schedule flow.",
       },
       {
-        name: "Anya Singh",
+        name: "Abhinav Patel",
         roleTitle: "Event Management Co-Lead",
-        secondaryRole: "Volunteer / Participant Flow",
+        secondaryRole: "Volunteer / Floor Manager",
         teamName: "Event Management",
-        email: "anya.25bai11254@vitbhopal.ac.in",
-        caption: "Overseeing check-in checkpoints, volunteer dispatch, and participant hospitality.",
+        email: "events.co.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Managing on-ground crowd control, registration desks, AV coordination, and speaker hospitality.",
       },
     ],
     core: [
       {
-        name: "Shikha Singh",
-        roleTitle: "Event Management Core",
-        secondaryRole: "Volunteer / Hospitality",
+        name: "Siddhant Sharma",
+        roleTitle: "Event Core Member",
+        secondaryRole: "Volunteer / Desk Check-in",
         teamName: "Event Management",
-        email: "shikha.24bai10244@vitbhopal.ac.in",
-        caption: "Coordinating hall setup, attendee welcome desks, and schedule transitions.",
+        email: "events.coremember.001@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Operating high-speed QR pass check-in scanners and attendee badge distribution.",
       },
       {
-        name: "Shaurya Tyagi",
-        roleTitle: "Event Management Core",
-        secondaryRole: "Volunteer / Floor Coordinator",
+        name: "Sneha Rawat",
+        roleTitle: "Event Core Member",
+        secondaryRole: "Volunteer / Stage Coordinator",
         teamName: "Event Management",
-        email: "shaurya.24bce10339@vitbhopal.ac.in",
-        caption: "Managing on-spot participant queueing, badge handovers, and physical security.",
-      },
-    ],
-  },
-  {
-    id: "hr",
-    name: "Human Resources",
-    color: "#10b981",
-    icon: Shield,
-    leads: [
-      {
-        name: "Amritanshu Gupta",
-        roleTitle: "HR Team Lead",
-        secondaryRole: "Volunteer / Talent Operations",
-        teamName: "Human Resources",
-        caption: "Managing internal team culture, member recruitment, onboarding, and performance tracking.",
+        email: "events.coremember.002@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Coordinating speaker cueing, mic setups, and timing schedules during live workshops.",
       },
       {
-        name: "Srishti Manav",
-        roleTitle: "HR Team Co-Lead",
-        secondaryRole: "Volunteer / Member Relations",
-        teamName: "Human Resources",
-        caption: "Coordinating member welfare, engagement initiatives, and leadership mentorship sessions.",
-      },
-    ],
-    core: [
-      {
-        name: "Nilansh Chauhan",
-        roleTitle: "HR Core Member",
-        secondaryRole: "Volunteer / Staff Coordinator",
-        teamName: "Human Resources",
-        caption: "Handling member check-ins, internal comms channels, and meeting arrangements.",
+        name: "Gaurav Tiwari",
+        roleTitle: "Event Core Member",
+        secondaryRole: "Volunteer / Hospitality Lead",
+        teamName: "Event Management",
+        email: "events.coremember.003@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Welcoming invited dignitaries, keynote speakers, and industry workshop hosts.",
       },
       {
-        name: "Aashka Swaroop",
-        roleTitle: "HR Core Member",
-        secondaryRole: "Volunteer / Member Relations",
-        teamName: "Human Resources",
-        caption: "Facilitating peer feedback surveys and team building workshop activities.",
+        name: "Abhishek Patidar",
+        roleTitle: "Event Core Member",
+        secondaryRole: "Volunteer / Hall Manager",
+        teamName: "Event Management",
+        email: "events.coremember.004@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Managing auditorium seating allocations and emergency logistical assistance.",
+      },
+      {
+        name: "Yashvardhan Sharma",
+        roleTitle: "Event Core Member",
+        secondaryRole: "Volunteer / Technical Support",
+        teamName: "Event Management",
+        email: "events.coremember.005@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Managing live projector outputs, screen sharing, and audio fidelity.",
       },
     ],
   },
@@ -446,7 +471,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR & Outreach Lead",
         secondaryRole: "Volunteer / Corporate Relations",
         teamName: "PR & Outreach",
-        email: "shashwat.25bai10233@vitbhopal.ac.in",
+        email: "pr.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Leading industry sponsorships, press releases, tech community outreach, and external relations.",
       },
       {
@@ -454,7 +480,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR & Outreach Co-Lead",
         secondaryRole: "Volunteer / Media Relations",
         teamName: "PR & Outreach",
-        email: "drishti.25boe10138@vitbhopal.ac.in",
+        email: "pr.co.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Managing sponsor communications, speaker invitations, and inter-university marketing.",
       },
     ],
@@ -464,7 +491,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Campus Ambassador",
         teamName: "PR & Outreach",
-        email: "debasmita.25boe10075@vitbhopal.ac.in",
+        email: "pr.coremember.001@genai.community",
+        githubUrl: "https://github.com",
         caption: "Promoting community initiatives across departmental student clubs and hostels.",
       },
       {
@@ -472,7 +500,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Outreach Executive",
         teamName: "PR & Outreach",
-        email: "palak.25bhi10116@vitbhopal.ac.in",
+        email: "pr.coremember.002@genai.community",
+        githubUrl: "https://github.com",
         caption: "Handling speaker logistics, travel support, and hospitality greetings.",
       },
       {
@@ -480,7 +509,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Sponsorship Liaison",
         teamName: "PR & Outreach",
-        email: "saanvi.25bce10473@vitbhopal.ac.in",
+        email: "pr.coremember.003@genai.community",
+        githubUrl: "https://github.com",
         caption: "Preparing sponsorship pitch decks and external partner follow-ups.",
       },
       {
@@ -488,7 +518,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Event Media",
         teamName: "PR & Outreach",
-        email: "anjali.25bai10296@vitbhopal.ac.in",
+        email: "pr.coremember.004@genai.community",
+        githubUrl: "https://github.com",
         caption: "Documenting on-ground community engagements and participant testimonials.",
       },
       {
@@ -496,7 +527,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "PR Core Member",
         secondaryRole: "Volunteer / Public Relations",
         teamName: "PR & Outreach",
-        email: "pushkar.25bet10028@vitbhopal.ac.in",
+        email: "pr.coremember.005@genai.community",
+        githubUrl: "https://github.com",
         caption: "Distributing marketing materials and coordinating cross-college registrations.",
       },
     ],
@@ -512,7 +544,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Lead",
         secondaryRole: "Volunteer / Content Strategy",
         teamName: "Social Media",
-        email: "jharna.25bai10557@vitbhopal.ac.in",
+        email: "social.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Curating digital marketing campaigns, LinkedIn & Instagram outreach, and technical reels.",
       },
       {
@@ -520,7 +553,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Co-Lead",
         secondaryRole: "Volunteer / Social Engagement",
         teamName: "Social Media",
-        email: "sakcham.25mei10005@vitbhopal.ac.in",
+        email: "social.co.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Designing high-engagement viral tech content, community updates, and event broadcasts.",
       },
     ],
@@ -530,7 +564,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Video Editor",
         teamName: "Social Media",
-        email: "arpan.25bai10112@vitbhopal.ac.in",
+        email: "social.coremember.001@genai.community",
+        githubUrl: "https://github.com",
         caption: "Producing cinematic event highlight recaps, reels, and video teasers.",
       },
       {
@@ -538,7 +573,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Copy Creator",
         teamName: "Social Media",
-        email: "ayesha.25bai10998@vitbhopal.ac.in",
+        email: "social.coremember.002@genai.community",
+        githubUrl: "https://github.com",
         caption: "Drafting engaging captions, Twitter threads, and event broadcast reminders.",
       },
       {
@@ -546,7 +582,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Community Mod",
         teamName: "Social Media",
-        email: "sanidhya.24bai10494@vitbhopal.ac.in",
+        email: "social.coremember.003@genai.community",
+        githubUrl: "https://github.com",
         caption: "Managing Discord community channels, announcements, and tech discussion threads.",
       },
       {
@@ -554,7 +591,8 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Social Media Core",
         secondaryRole: "Volunteer / Media Analytics",
         teamName: "Social Media",
-        email: "priyanshu.25bce10710@vitbhopal.ac.in",
+        email: "social.coremember.004@genai.community",
+        githubUrl: "https://github.com",
         caption: "Tracking post impressions, engagement metrics, and audience demographics.",
       },
     ],
@@ -570,235 +608,185 @@ const TREE_BRANCHES: TreeBranch[] = [
         roleTitle: "Content Team Lead",
         secondaryRole: "Volunteer / Editorial Head",
         teamName: "Content & Writing Team",
-        email: "muskan.25bce11431@vitbhopal.ac.in",
+        email: "content.lead@genai.community",
+        githubUrl: "https://github.com",
         caption: "Writing technical blog publications, event scripts, newsletter issues, and research summaries.",
       },
       {
-        name: "Muskan Bhatia",
+        name: "Ankit Jha",
         roleTitle: "Content Team Co-Lead",
-        secondaryRole: "Volunteer / Technical Writer",
+        secondaryRole: "Volunteer / Documentation Lead",
         teamName: "Content & Writing Team",
-        email: "muskan.25bai10064@vitbhopal.ac.in",
-        caption: "Co-authoring tutorial articles, workshop documentation, and event promo copy.",
+        email: "content.co.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Curating technical tutorials, open-source documentation, and event press releases.",
       },
     ],
     core: [
       {
-        name: "Arsh Arun",
+        name: "Manthan Vyas",
         roleTitle: "Content Core Member",
-        secondaryRole: "Volunteer / Documentation",
+        secondaryRole: "Volunteer / Tech Writer",
         teamName: "Content & Writing Team",
-        email: "arsh.25bai10482@vitbhopal.ac.in",
-        caption: "Documenting open-source project repositories, README files, and FAQs.",
+        email: "content.coremember.001@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Authoring deep-dive technical articles on transformer architectures and LLM prompt engineering.",
       },
       {
-        name: "Kaustubh",
+        name: "Prachi Jha",
         roleTitle: "Content Core Member",
-        secondaryRole: "Volunteer / Article Writer",
+        secondaryRole: "Volunteer / Script Writer",
         teamName: "Content & Writing Team",
-        email: "kaustubh.25bce10722@vitbhopal.ac.in",
-        caption: "Writing in-depth articles on generative diffusion models and transformer attention.",
+        email: "content.coremember.002@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Drafting engaging hosting scripts, introductory speeches, and vote-of-thanks remarks.",
+      },
+      {
+        name: "Komal Sahu",
+        roleTitle: "Content Core Member",
+        secondaryRole: "Volunteer / Newsletter Editor",
+        teamName: "Content & Writing Team",
+        email: "content.coremember.003@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Compiling monthly community digest newsletters and student technical spotlight stories.",
+      },
+      {
+        name: "Bhavya Gupta",
+        roleTitle: "Content Core Member",
+        secondaryRole: "Volunteer / Copy Editor",
+        teamName: "Content & Writing Team",
+        email: "content.coremember.004@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Proofreading official announcements, registration FAQs, and workshop handouts.",
       },
     ],
   },
   {
     id: "finance",
     name: "Finance Team",
-    color: "#14b8a6",
+    color: "#10b981",
     icon: DollarSign,
     leads: [
       {
-        name: "Finance Lead",
-        roleTitle: "Finance Team Lead",
-        secondaryRole: "Volunteer / Treasury Head",
+        name: "Divyansh Sahu",
+        roleTitle: "Finance Lead",
+        secondaryRole: "Volunteer / Treasurer",
         teamName: "Finance Team",
-        caption: "Managing budget allocations, ticket revenue verification, audits, and vendor disbursements.",
+        email: "finance.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Managing club budget allocation, payment verification, cash flow auditing, and invoice settlement.",
+      },
+      {
+        name: "Aryan Gupta",
+        roleTitle: "Finance Co-Lead",
+        secondaryRole: "Volunteer / Accounts Officer",
+        teamName: "Finance Team",
+        email: "finance.co.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Auditing registration UPI transactions, UTR reconciliation, and expense reimbursement records.",
       },
     ],
     core: [
       {
-        name: "Finance Core Member",
+        name: "Kunal Gathe",
         roleTitle: "Finance Core Member",
-        secondaryRole: "Volunteer / Accounts Assistant",
+        secondaryRole: "Volunteer / Payment Auditor",
         teamName: "Finance Team",
-        caption: "Assisting with fee verification, balance ledger records, and purchase receipts.",
+        email: "finance.coremember.001@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Verifying live payment screenshots, transaction IDs, and manual bank clearance.",
+      },
+      {
+        name: "Anas Ahmed",
+        roleTitle: "Finance Core Member",
+        secondaryRole: "Volunteer / Budget Analyst",
+        teamName: "Finance Team",
+        email: "finance.coremember.002@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Preparing itemized budget forecasts for upcoming hackathons and physical workshops.",
+      },
+    ],
+  },
+  {
+    id: "hr",
+    name: "Human Resources",
+    color: "#8b5cf6",
+    icon: Shield,
+    leads: [
+      {
+        name: "Arya Pandey",
+        roleTitle: "HR Lead",
+        secondaryRole: "Volunteer / Talent Manager",
+        teamName: "Human Resources",
+        email: "hr.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Overseeing internal recruitment, attendance governance, performance reviews, and conflict resolution.",
+      },
+      {
+        name: "Anshika Mishra",
+        roleTitle: "HR Co-Lead",
+        secondaryRole: "Volunteer / People Operations",
+        teamName: "Human Resources",
+        email: "hr.co.lead@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Managing core team recruitment drives, onboarding interviews, and member welfare programs.",
+      },
+    ],
+    core: [
+      {
+        name: "Kavya Saxena",
+        roleTitle: "HR Core Member",
+        secondaryRole: "Volunteer / Onboarding Lead",
+        teamName: "Human Resources",
+        email: "hr.coremember.001@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Handling member check-ins, internal comms channels, and meeting arrangements.",
+      },
+      {
+        name: "Aashka Swaroop",
+        roleTitle: "HR Core Member",
+        secondaryRole: "Volunteer / Member Relations",
+        teamName: "Human Resources",
+        email: "hr.coremember.002@genai.community",
+        githubUrl: "https://github.com",
+        caption: "Facilitating peer feedback surveys and team building workshop activities.",
       },
     ],
   },
 ];
 
-function findMatchingDbMember(
-  staticMember: HierarchyMember,
-  dbMembers?: HierarchyMember[] | null
-): HierarchyMember | undefined {
-  if (!dbMembers || dbMembers.length === 0) return undefined;
-
-  const staticEmail = (staticMember.email || "").toLowerCase().trim();
-  const staticName = (staticMember.name || "").toLowerCase().trim();
-  const staticRole = (staticMember.roleTitle || "").toLowerCase().trim();
-
-  // 1. Direct match by ID or Email
-  const byEmail = dbMembers.find((m) => {
-    if (m.id && staticMember.id && m.id === staticMember.id) return true;
-    const dbEmail = (m.email || "").toLowerCase().trim();
-    return dbEmail === staticEmail;
-  });
-  if (byEmail) return byEmail;
-
-  // 2. Direct match by name
-  const byName = dbMembers.find((m) => {
-    const dbName = (m.name || "").toLowerCase().trim();
-    return dbName === staticName || (staticName.includes(dbName) && dbName.length > 3) || (dbName.includes(staticName) && staticName.length > 3);
-  });
-  if (byName) return byName;
-
-  // 3. Known Roster Email / Alias match
-  const byAlias = dbMembers.find((m) => {
-    const dbEmail = (m.email || "").toLowerCase().trim();
-    if (staticEmail.startsWith("aiml.lead") && (dbEmail.includes("lakshya") || dbEmail.includes("24bce10549"))) return true;
-    if (staticEmail.startsWith("aiml.co.lead") && (dbEmail.includes("aaditya") || dbEmail.includes("25bai10079"))) return true;
-    if (staticEmail.startsWith("president") && (dbEmail.includes("harshvardhan") || dbEmail.includes("24bce10511"))) return true;
-    if (staticEmail.startsWith("vice.president") && (dbEmail.includes("akshita") || dbEmail.includes("25bce10779"))) return true;
-    if (staticEmail.startsWith("tech.lead") && (dbEmail.includes("abhinav") || dbEmail.includes("24bsa10110"))) return true;
-    if (staticEmail.startsWith("tech.co.lead") && (dbEmail.includes("swetalina") || dbEmail.includes("24bce10419"))) return true;
-    if (staticEmail.startsWith("general.secretary") && (dbEmail.includes("aditya.gen") || dbEmail.includes("aditya.mishra"))) return true;
-    if (staticEmail.startsWith("gen.sec.provisional") && dbEmail.includes("anuj")) return true;
-    if (staticEmail.startsWith("joint.secretary") && dbEmail.includes("anvi")) return true;
-    if (staticEmail.startsWith("assistant.secretary") && dbEmail.includes("archita")) return true;
-    if (staticEmail.startsWith("student.coord.001") && dbEmail.includes("ishani")) return true;
-    if (staticEmail.startsWith("student.coord.002") && dbEmail.includes("prince")) return true;
-    if (staticEmail.startsWith("hr.lead") && dbEmail.includes("amritanshu")) return true;
-    if (staticEmail.startsWith("hr.co.lead") && dbEmail.includes("srishti")) return true;
-    if (staticEmail.startsWith("hr.coremember.001") && dbEmail.includes("nilansh")) return true;
-    if (staticEmail.startsWith("hr.coremember.002") && dbEmail.includes("aashka")) return true;
-    if (staticEmail.startsWith("event.lead") && dbEmail.includes("priyansh")) return true;
-    if (staticEmail.startsWith("event.co.lead") && dbEmail.includes("anya")) return true;
-    if (staticEmail.startsWith("event.coremember.001") && dbEmail.includes("shikha")) return true;
-    if (staticEmail.startsWith("event.coremember.002") && dbEmail.includes("shaurya")) return true;
-    if (staticEmail.startsWith("design.lead") && dbEmail.includes("agrim")) return true;
-    if (staticEmail.startsWith("design.co.lead") && dbEmail.includes("kushagra")) return true;
-    if (staticEmail.startsWith("design.coremember.001") && dbEmail.includes("ameeshi")) return true;
-    if (staticEmail.startsWith("aiml.coremember.001") && dbEmail.includes("rachit")) return true;
-    if (staticEmail.startsWith("aiml.coremember.002") && dbEmail.includes("suhani")) return true;
-    if (staticEmail.startsWith("aiml.coremember.003") && dbEmail.includes("sargam")) return true;
-    if (staticEmail.startsWith("aiml.coremember.004") && dbEmail.includes("aditya.24bce10697")) return true;
-    if (staticEmail.startsWith("tech.coremember.001") && dbEmail.includes("anushka")) return true;
-    if (staticEmail.startsWith("tech.coremember.002") && dbEmail.includes("rishab")) return true;
-    if (staticEmail.startsWith("tech.coremember.003") && dbEmail.includes("aaditi")) return true;
-    if (staticEmail.startsWith("tech.coremember.004") && dbEmail.includes("nitin")) return true;
-    if (staticEmail.startsWith("tech.coremember.005") && dbEmail.includes("nivedita")) return true;
-    if (staticEmail.startsWith("pr.lead") && dbEmail.includes("shashwat")) return true;
-    if (staticEmail.startsWith("pr.co.lead") && dbEmail.includes("drishti")) return true;
-    if (staticEmail.startsWith("pr.coremember.001") && dbEmail.includes("debasmita")) return true;
-    if (staticEmail.startsWith("pr.coremember.002") && dbEmail.includes("palak")) return true;
-    if (staticEmail.startsWith("pr.coremember.003") && dbEmail.includes("saanvi")) return true;
-    if (staticEmail.startsWith("pr.coremember.004") && dbEmail.includes("anjali")) return true;
-    if (staticEmail.startsWith("pr.coremember.005") && dbEmail.includes("pushkar")) return true;
-    if (staticEmail.startsWith("social.lead") && dbEmail.includes("jharna")) return true;
-    if (staticEmail.startsWith("social.co.lead") && dbEmail.includes("sakcham")) return true;
-    if (staticEmail.startsWith("social.coremember.001") && dbEmail.includes("arpan")) return true;
-    if (staticEmail.startsWith("social.coremember.002") && dbEmail.includes("ayesha")) return true;
-    if (staticEmail.startsWith("social.coremember.003") && dbEmail.includes("sanidhya")) return true;
-    if (staticEmail.startsWith("social.coremember.004") && dbEmail.includes("priyanshu")) return true;
-    if (staticEmail.startsWith("content.lead") && dbEmail.includes("muskan.25bce11431")) return true;
-    if (staticEmail.startsWith("content.co.lead") && dbEmail.includes("muskan.25bai10064")) return true;
-    if (staticEmail.startsWith("content.coremember.001") && dbEmail.includes("kaustubh")) return true;
-    if (staticEmail.startsWith("content.coremember.002") && dbEmail.includes("arsh")) return true;
-    if (staticEmail.startsWith("finance.lead") && dbEmail.includes("finance.lead")) return true;
-    if (staticEmail.startsWith("finance.coremember.001") && dbEmail.includes("finance.core")) return true;
-    return false;
-  });
-  if (byAlias) return byAlias;
-
-  // 4. Match by exact role title
-  if (staticRole) {
-    const byRole = dbMembers.find((m) => {
-      const dbRole = (m.roleTitle || "").toLowerCase().trim();
-      return dbRole === staticRole;
-    });
-    if (byRole) return byRole;
-  }
-
-  return undefined;
-}
-
-function hydrateMember(staticMember: HierarchyMember, dbMembers?: HierarchyMember[] | null): HierarchyMember {
-  if (!dbMembers) return staticMember;
-  const match = findMatchingDbMember(staticMember, dbMembers);
-  if (!match) return staticMember;
-
-  return {
-    ...staticMember,
-    id: match.id || staticMember.id,
-    name: match.name || staticMember.name,
-    roleTitle: staticMember.roleTitle || match.roleTitle,
-    avatarUrl: match.avatarUrl !== undefined ? match.avatarUrl : staticMember.avatarUrl,
-    email: match.email || staticMember.email,
-    secondaryRole: match.secondaryRole || staticMember.secondaryRole,
-  };
-}
-
-export function MemberHierarchyTree({
-  initialMembers,
+export function HierarchyTree({
+  president = PRESIDENT_MEMBER,
+  vp = VP_MEMBER,
+  branches = TREE_BRANCHES,
 }: {
-  initialMembers?: HierarchyMember[] | null;
+  president?: HierarchyMember;
+  vp?: HierarchyMember;
+  branches?: TreeBranch[];
 }) {
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<HierarchyMember | null>(null);
+  useScrollLock(Boolean(selectedMember));
 
-  // Lock body scroll and touch gestures when member modal is opened
   useEffect(() => {
-    if (selectedMember) {
-      const originalOverflow = document.body.style.overflow;
-      const originalPaddingRight = document.body.style.paddingRight;
-      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-      document.body.style.overflow = "hidden";
-      if (scrollBarWidth > 0) {
-        document.body.style.paddingRight = `${scrollBarWidth}px`;
-      }
-
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-          setSelectedMember(null);
-        }
-      };
-      window.addEventListener("keydown", handleKeyDown);
-
-      return () => {
-        document.body.style.overflow = originalOverflow;
-        document.body.style.paddingRight = originalPaddingRight;
-        window.removeEventListener("keydown", handleKeyDown);
-      };
-    }
+    if (!selectedMember) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedMember(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedMember]);
 
-  // Dynamically hydrate all branches with database profiles and real-time avatars
-  const branches = useMemo(() => {
-    return TREE_BRANCHES.map((b) => ({
-      ...b,
-      leads: b.leads.map((lead) => hydrateMember(lead, initialMembers)),
-      core: b.core.map((coreMember) => hydrateMember(coreMember, initialMembers)),
-    }));
-  }, [initialMembers]);
-
-  // Dynamic total member count
   const totalCount = useMemo(() => {
-    if (initialMembers && initialMembers.length > 0) return initialMembers.length;
-    return branches.reduce((acc, b) => acc + b.leads.length + b.core.length, 2);
-  }, [initialMembers, branches]);
-
-  // Dynamically hydrate President & Vice President with database profiles & photos
-  const president = useMemo(() => {
-    return hydrateMember(PRESIDENT_MEMBER, initialMembers);
-  }, [initialMembers]);
-
-  const vp = useMemo(() => {
-    return hydrateMember(VP_MEMBER, initialMembers);
-  }, [initialMembers]);
+    let count = 2; // Pres + VP
+    branches.forEach((b) => {
+      count += b.leads.length + b.core.length;
+    });
+    return count;
+  }, [branches]);
 
   return (
-    <section id="members" className={`relative border-b border-[#1e1e1e] py-8 sm:py-12 bg-[#080808] overflow-visible ${activeTeamId ? "z-50" : "z-0"}`}>
+    <section id="members" className="relative z-20 border-b border-[#1e1e1e] pt-8 sm:pt-12 pb-44 sm:pb-60 bg-[#080808] overflow-visible">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2 h-[700px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_center,_rgba(245,182,66,0.08),_transparent_70%)] blur-3xl" />
 
@@ -815,15 +803,15 @@ export function MemberHierarchyTree({
               Team Members
             </span>
           </h2>
-          <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl mx-auto truncate font-medium">
-            Student-led hierarchy connecting panel leads to specialized technical verticals.
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl mx-auto font-medium">
+            Student-led hierarchy connecting executive panel leads to specialized technical verticals.
           </p>
 
           {/* Friendly Interactive Instruction Banner */}
           <div className="inline-flex items-center gap-2 rounded-2xl border border-[#2e2618] bg-[#14100b]/90 px-4 py-2 text-xs text-zinc-300 shadow-md">
             <Sparkles className="h-3.5 w-3.5 text-[#f5b642] shrink-0" />
             <span>
-              <strong>Tip:</strong> Click or hover over any team to expand/retract members, and click any profile to view full details and photo.
+              <strong>Tip:</strong> Click or hover over any team to expand members, and click any profile or GitHub icon to connect!
             </span>
           </div>
         </div>
@@ -838,7 +826,7 @@ export function MemberHierarchyTree({
               <Crown className="h-3.5 w-3.5 text-[#f5b642]" />
               President
             </div>
-            <div className="w-full max-w-[340px] sm:max-w-md">
+            <div className="w-80 sm:w-96">
               <TreeNodeCard
                 member={president}
                 color="#f5b642"
@@ -860,7 +848,7 @@ export function MemberHierarchyTree({
               <Shield className="h-3.5 w-3.5 text-sky-400" />
               Vice President
             </div>
-            <div className="w-full max-w-[340px] sm:max-w-md">
+            <div className="w-80 sm:w-96">
               <TreeNodeCard
                 member={vp}
                 color="#38bdf8"
@@ -888,7 +876,7 @@ export function MemberHierarchyTree({
           {/* ══════════════════════════════════════════════════════════════════════
               DEPARTMENTAL TEAMS GRID WITH CLICK/HOVER RETRACTING MENUS
           ══════════════════════════════════════════════════════════════════════ */}
-          <div className={`w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative overflow-visible pt-2 ${activeTeamId ? "z-[200]" : "z-10"}`}>
+          <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative z-10 overflow-visible pt-2">
             {branches.map((branch, index) => {
               const Icon = branch.icon;
               const isOpen = activeTeamId === branch.id;
@@ -904,7 +892,9 @@ export function MemberHierarchyTree({
               return (
                 <div
                   key={branch.id}
-                  className={`relative flex flex-col transition-all ${isOpen ? "z-[999]" : "z-10"}`}
+                  className={`relative flex flex-col transition-all duration-200 ${
+                    isOpen ? "z-50" : "z-10"
+                  }`}
                   onMouseEnter={() => setActiveTeamId(branch.id)}
                   onMouseLeave={() => setActiveTeamId(null)}
                 >
@@ -919,8 +909,8 @@ export function MemberHierarchyTree({
                     onClick={() => setActiveTeamId((prev) => (prev === branch.id ? null : branch.id))}
                     className={`group relative flex flex-col justify-between rounded-3xl border p-5 transition-all duration-200 cursor-pointer ${
                       isOpen
-                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-[999]"
-                        : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl z-10"
+                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-40"
+                        : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl"
                     }`}
                   >
                     <div>
@@ -935,48 +925,48 @@ export function MemberHierarchyTree({
                         >
                           <Icon className="h-5 w-5" />
                         </div>
-                        <span className="rounded-full border border-[#2e2618] bg-[#14110b] px-2.5 py-0.5 text-[10px] font-bold text-zinc-400 font-mono">
-                          {totalTeamMembers}
+                        <span className="font-mono text-[10px] text-zinc-400 font-bold bg-[#17130b] px-2.5 py-0.5 rounded-full border border-[#2e2618]">
+                          {totalTeamMembers} Members
                         </span>
                       </div>
 
-                      <h4 className="font-extrabold text-white text-sm sm:text-base mt-3 group-hover:text-[#ffd06a] transition-colors leading-snug">
+                      <h3 className="mt-4 font-black text-white text-base tracking-tight group-hover:text-[#ffd06a] transition-colors">
                         {branch.name}
-                      </h4>
-                      <p className="text-[11px] text-zinc-400 font-mono mt-1">
-                        {branch.leads.length} Leads · {branch.core.length} Core
+                      </h3>
+                      <p className="mt-1 text-[11px] text-zinc-400 font-medium">
+                        {branch.leads.length} Leads · {branch.core.length} Core Team
                       </p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-[#221c12] flex items-center justify-between text-xs font-semibold">
-                      <span className="text-[#f5b642] group-hover:underline">
-                        {isOpen ? "Close Menu" : "View Team"}
+                    <div className="mt-5 flex items-center justify-between pt-3 border-t border-[#1e190f]">
+                      <span className="text-[11px] font-bold text-[#f5b642] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                        {isOpen ? "Close Roster" : "View Roster"}
                       </span>
-                      <div
-                        className={`flex h-6 w-6 items-center justify-center rounded-lg border border-[#2e2618] bg-[#16120b] text-[#f5b642] transition-transform duration-200 ${
-                          isOpen ? "rotate-180 bg-[#f5b642] text-black" : ""
+                      <ChevronDown
+                        className={`h-4 w-4 text-[#f5b642] transition-transform duration-200 ${
+                          isOpen ? "rotate-180" : ""
                         }`}
-                      >
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      </div>
+                      />
                     </div>
                   </div>
 
-                  {/* ── OVERLAY POP-OUT DROPDOWN (Retracts on click toggle or mouse leave) ── */}
+                  {/* ── EXPANDING HOVER/CLICK POPOVER DRAWER (DESKTOP & MOBILE) ── */}
                   <AnimatePresence>
                     {isOpen && (
                       <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                        transition={{ duration: 0.18, ease: "easeOut" }}
-                        className={`absolute top-full mt-2 w-[290px] sm:w-[330px] max-w-[calc(100vw-2rem)] rounded-3xl border-2 border-[#f5b642] bg-[#0c0a07] shadow-[0_30px_90px_rgba(0,0,0,0.99)] z-[1000] overflow-hidden flex flex-col ${alignClass}`}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.15 }}
+                        className={`absolute top-full mt-2 z-[70] w-80 sm:w-96 rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.98)] backdrop-blur-3xl space-y-4 ${alignClass}`}
                       >
-                        {/* Header of Pop-out with Close/Retract Button */}
-                        <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-[#221c13] bg-[#120e09] shrink-0">
+                        {/* Drawer Header */}
+                        <div className="flex items-center justify-between border-b border-[#221c13] pb-3">
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4" style={{ color: branch.color }} />
-                            <span className="font-bold text-white text-xs">{branch.name}</span>
+                            <span className="font-black text-sm text-white">
+                              {branch.name} Roster
+                            </span>
                           </div>
                           <button
                             type="button"
@@ -984,62 +974,57 @@ export function MemberHierarchyTree({
                               e.stopPropagation();
                               setActiveTeamId(null);
                             }}
-                            className="text-[10px] text-amber-400 hover:text-white font-mono uppercase font-bold px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 cursor-pointer"
+                            className="text-zinc-500 hover:text-white text-xs font-mono px-1.5 py-0.5 rounded-lg border border-[#332b1d] hover:bg-[#221c12] transition"
                           >
-                            Close ✕
+                            ✕
                           </button>
                         </div>
 
-                        {/* Internal Scroll Area strictly contained within card boundary */}
-                        <div className="max-h-[380px] overflow-y-auto overscroll-contain p-3.5 space-y-3 [scrollbar-width:thin] [scrollbar-color:rgba(245,182,66,0.3)_transparent]">
-                          {/* Leads Sub-section */}
-                          {branch.leads.length > 0 && (
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 font-mono block">
-                                Leadership:
-                              </span>
-                              <div className="space-y-1.5">
-                                {branch.leads.map((m) => {
-                                  const isCoLead =
-                                    m.roleTitle.toLowerCase().includes("co-lead") ||
-                                    m.roleTitle.toLowerCase().includes("joint") ||
-                                    m.roleTitle.toLowerCase().includes("assistant");
-                                  const badge = isCoLead ? "Co-Lead" : "Lead";
-                                  return (
-                                    <TreeNodeCard
-                                      key={m.email}
-                                      member={m}
-                                      color={branch.color}
-                                      badgeText={badge}
-                                      onSelectMember={setSelectedMember}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Core Members Sub-section */}
-                          {branch.core.length > 0 && (
-                            <div className="space-y-1.5 pt-2 border-t border-[#1e1910]">
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 font-mono block">
-                                Core Specialists:
-                              </span>
-                              <div className="space-y-1.5">
-                                {branch.core.map((m) => (
-                                  <TreeNodeCard
-                                    key={m.email}
-                                    member={m}
-                                    color={branch.color}
-                                    isCore
-                                    badgeText="Core"
-                                    onSelectMember={setSelectedMember}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                        {/* Leads Sub-Tree */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: branch.color }} />
+                            <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 font-mono">
+                              Vertical Leads ({branch.leads.length})
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {branch.leads.map((m, idx) => (
+                              <TreeNodeCard
+                                key={m.email || idx}
+                                member={m}
+                                color={branch.color}
+                                badgeText={idx === 0 ? "Lead" : "Co-Lead"}
+                                isCore={false}
+                                onSelectMember={setSelectedMember}
+                              />
+                            ))}
+                          </div>
                         </div>
+
+                        {/* Core Sub-Tree */}
+                        {branch.core.length > 0 && (
+                          <div className="space-y-2 pt-2 border-t border-[#1c1810]">
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 font-mono">
+                                Core Members ({branch.core.length})
+                              </span>
+                            </div>
+                            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                              {branch.core.map((m, idx) => (
+                                <TreeNodeCard
+                                  key={m.email || idx}
+                                  member={m}
+                                  color="#a1a1aa"
+                                  badgeText="Core"
+                                  isCore={true}
+                                  onSelectMember={setSelectedMember}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1050,94 +1035,116 @@ export function MemberHierarchyTree({
         </div>
       </div>
 
-      {/* ── FULL PROFILE MODAL (TRIGGERS ON CLICK) ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          MEMBER PROFILE DETAILS POPUP MODAL (ON CLICKING ANY NODE)
+      ══════════════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {selectedMember && (
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 overflow-hidden select-none"
-            onClick={() => setSelectedMember(null)}
-          >
+          <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: "linear" }}
-              className="absolute inset-0 bg-black/85 backdrop-blur-md will-change-[opacity]"
+              onClick={() => setSelectedMember(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
             />
 
-            {/* Modal Dialog Card */}
+            {/* Modal Card */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative z-10 w-full max-w-lg rounded-3xl border-2 border-[#f5b642] bg-[#0d0a07] p-6 sm:p-7 shadow-[0_30px_100px_rgba(245,182,66,0.35)] space-y-4 will-change-[transform,opacity] overflow-hidden"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative z-10 w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.3)] space-y-6 will-change-[transform,opacity]"
             >
-              {/* Header Profile Summary with Prominently Enlarged Card Avatar */}
+              {/* Top Bar with Close Button */}
+              <div className="flex items-center justify-between border-b border-[#221c13] pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#f5b642] shadow-[0_0_8px_#f5b642]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
+                    Member Profile View
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMember(null)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#3a3020] bg-[#1a140b] px-3 py-1 text-xs font-semibold text-zinc-300 hover:border-[#f5b642] hover:text-white transition cursor-pointer"
+                >
+                  <span>Close</span>
+                  <span className="rounded bg-[#282013] px-1.5 py-0.2 text-[10px] font-mono text-zinc-400">ESC</span>
+                </button>
+              </div>
+
+              {/* Header Profile Summary */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
                 <HierarchyAvatar
                   name={selectedMember.name}
                   avatarUrl={selectedMember.avatarUrl}
-                  className="h-32 w-32 sm:h-36 sm:w-36 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_35px_rgba(245,182,66,0.45)] shrink-0"
-                  fallbackClassName="flex h-32 w-32 sm:h-36 sm:w-36 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
+                  className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_30px_rgba(245,182,66,0.4)] shrink-0"
+                  fallbackClassName="flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
                   initialsClassName="font-black text-3xl text-[#f5b642]"
                 />
 
-                <div className="space-y-1.5 min-w-0 flex-1 break-words">
+                <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-0.5 text-xs font-bold text-amber-300 font-mono uppercase">
                     {selectedMember.teamName}
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight break-words">
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     {selectedMember.name}
                   </h3>
-                  <p className="text-sm font-bold text-[#f5b642] break-words">
+                  <p className="text-sm font-bold text-[#f5b642]">
                     {selectedMember.roleTitle}
                   </p>
-                  {selectedMember.email && selectedMember.email.endsWith("@vitbhopal.ac.in") && (
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-300 font-mono">
-                      <Mail className="h-3.5 w-3.5 text-[#f5b642] shrink-0" />
-                      <a href={`mailto:${selectedMember.email}`} className="hover:text-amber-300 transition-colors underline underline-offset-2">
-                        {selectedMember.email}
-                      </a>
-                    </div>
-                  )}
-                  {selectedMember.githubUrl && (
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-300 pt-0.5">
-                      <GithubIcon className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                      <a
-                        href={selectedMember.githubUrl.startsWith("http") ? selectedMember.githubUrl : `https://github.com/${selectedMember.githubUrl}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-zinc-300 hover:text-white font-mono transition-colors underline underline-offset-2"
-                      >
-                        <span>GitHub Profile</span>
-                        <ExternalLink className="h-3 w-3 text-zinc-500" />
-                      </a>
-                    </div>
-                  )}
+                  <p className="text-xs text-zinc-400 font-mono break-all">
+                    {selectedMember.email}
+                  </p>
                 </div>
               </div>
 
               {/* Mission Statement */}
-              <div className="rounded-2xl border border-[#2e2618] bg-[#14100b] p-3.5 text-xs sm:text-sm text-zinc-200 leading-relaxed">
+              <div className="rounded-2xl border border-[#2e2618] bg-[#14100b] p-4 text-xs sm:text-sm text-zinc-200 leading-relaxed">
                 <span className="text-[#f5b642] font-bold text-[10px] uppercase block tracking-wider mb-1 font-mono">
                   Focus & Mission Statement:
                 </span>
                 &ldquo;{selectedMember.caption}&rdquo;
               </div>
 
-              {/* Roles Breakdown */}
+              {/* Roles Breakdown & GitHub */}
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-2.5">
+                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3">
                   <span className="text-zinc-400 block text-[9px] uppercase font-bold">Primary Designation:</span>
-                  <span className="font-bold text-amber-300 block mt-0.5">{selectedMember.roleTitle}</span>
+                  <span className="font-bold text-amber-300 block mt-1">{selectedMember.roleTitle}</span>
                 </div>
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/80 p-2.5">
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/80 p-3">
                   <span className="text-zinc-400 block text-[9px] uppercase font-bold">Secondary Capacity:</span>
-                  <span className="font-semibold text-zinc-200 block mt-0.5">{selectedMember.secondaryRole || "Volunteer Staff"}</span>
+                  <span className="font-semibold text-zinc-200 block mt-1">{selectedMember.secondaryRole || "Volunteer Staff"}</span>
                 </div>
+              </div>
+
+              {/* GitHub Profile Section */}
+              <div className="flex items-center justify-between rounded-2xl border border-[#2e2618] bg-[#14100b] p-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white">
+                    <GithubIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-zinc-400 block">GitHub Profile</span>
+                    <span className="text-xs font-mono text-zinc-300 truncate max-w-[200px] block">
+                      {selectedMember.githubUrl ? selectedMember.githubUrl.replace("https://github.com/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                    </span>
+                  </div>
+                </div>
+
+                <a
+                  href={selectedMember.githubUrl || `https://github.com/${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#f5b642]/60 bg-[#f5b642]/10 px-3 py-1.5 text-xs font-bold text-[#f5b642] hover:bg-[#f5b642] hover:text-black transition cursor-pointer"
+                >
+                  <span>Visit GitHub</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
 
               {/* Footer Actions */}
@@ -1161,8 +1168,8 @@ export function MemberHierarchyTree({
   );
 }
 
-// ── PURE HIERARCHY NODE CARD (Idle: Name + Designation | Click: Full Profile Modal) ──
-const TreeNodeCard = memo(function TreeNodeCard({
+// ── PURE HIERARCHY NODE CARD (Idle: Name + Designation + GitHub | Click: Full Profile Modal) ──
+function TreeNodeCard({
   member,
   color = "#f5b642",
   badgeText = "Member",
@@ -1175,54 +1182,56 @@ const TreeNodeCard = memo(function TreeNodeCard({
   isCore?: boolean;
   onSelectMember?: (member: HierarchyMember) => void;
 }) {
+  const ghLink = member.githubUrl || `https://github.com/${member.name.toLowerCase().replace(/\s+/g, "")}`;
+
   return (
     <div
       onClick={(e) => {
         e.stopPropagation();
         onSelectMember?.(member);
       }}
-      className={`group relative rounded-2xl border transition-all duration-200 ${
+      className={`group relative rounded-2xl border transition-all duration-150 ${
         badgeText === "President"
-          ? "border-amber-500/70 bg-[#16120b] hover:border-[#f5b642] p-4 sm:p-5 shadow-xl hover:shadow-[0_0_30px_rgba(245,182,66,0.25)]"
+          ? "border-amber-500/70 bg-[#16120b] hover:border-[#f5b642] p-4 sm:p-5 shadow-lg"
           : badgeText === "Vice President"
-          ? "border-sky-500/60 bg-[#0e141a] hover:border-sky-400 p-4 sm:p-5 shadow-xl hover:shadow-[0_0_30px_rgba(56,189,248,0.25)]"
+          ? "border-sky-500/60 bg-[#0e141a] hover:border-sky-400 p-4 sm:p-5 shadow-lg"
           : badgeText === "Lead"
-          ? "border-amber-500/35 bg-[#130f0a] hover:border-[#f5b642] hover:bg-[#18130c] p-3.5 sm:p-4 shadow-md"
+          ? "border-amber-500/30 bg-[#130f0a] hover:border-[#f5b642] hover:bg-[#18130c] p-3"
           : badgeText === "Co-Lead"
-          ? "border-sky-500/35 bg-[#0e1217] hover:border-sky-400 hover:bg-[#121820] p-3.5 sm:p-4 shadow-md"
-          : "border-[#262015] bg-[#0e0c08] hover:border-[#f5b642] hover:bg-[#14100b] p-3 sm:p-3.5 shadow-sm"
-      } cursor-pointer hover:scale-[1.02] w-full`}
+          ? "border-sky-500/30 bg-[#0e1217] hover:border-sky-400 hover:bg-[#121820] p-3"
+          : "border-[#221c13] bg-[#0e0c08] hover:border-[#f5b642] hover:bg-[#14100b] p-2.5"
+      } cursor-pointer hover:scale-[1.02]`}
     >
       {/* Top subtle glow line on hover */}
       <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#f5b642] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-      {/* ── CARD CONTENT: AVATAR + NAME + FULL UNABBREVIATED DESIGNATION ── */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      {/* ── CARD CONTENT: AVATAR + NAME + DESIGNATION + GITHUB LINK ── */}
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {/* Avatar Thumbnail */}
           <div
             className={`shrink-0 overflow-hidden rounded-xl border flex items-center justify-center font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
               badgeText === "President"
-                ? "h-10 w-10 sm:h-11 sm:w-11 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_10px_rgba(245,182,66,0.25)] text-xs"
+                ? "h-11 w-11 border-amber-500/60 bg-amber-500/10 text-amber-300 shadow-[0_0_12px_rgba(245,182,66,0.25)] text-sm"
                 : badgeText === "Vice President"
-                ? "h-10 w-10 sm:h-11 sm:w-11 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.25)] text-xs"
+                ? "h-11 w-11 border-sky-500/60 bg-sky-500/10 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.25)] text-sm"
                 : badgeText === "Lead" || badgeText === "Co-Lead"
-                ? "h-9 w-9 sm:h-10 sm:w-10 border-[#3d3018] bg-[#1a140c] text-[#f5b642] text-xs"
-                : "h-8 w-8 sm:h-9 sm:w-9 border-[#2b2417] bg-[#120f0a] text-zinc-300 text-[10px]"
+                ? "h-9 w-9 border-[#382c16] bg-[#1a140c] text-[#f5b642] text-xs"
+                : "h-8 w-8 border-[#262015] bg-[#120f0a] text-zinc-400 text-[10px]"
             }`}
           >
             <HierarchyAvatar
               name={member.name}
               avatarUrl={member.avatarUrl}
-              className="h-full w-full object-cover rounded-lg"
+              className="h-full w-full object-cover"
               fallbackClassName="flex h-full w-full items-center justify-center font-bold"
               initialsClassName="font-mono text-inherit"
             />
           </div>
 
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h4 className="font-extrabold text-white text-xs sm:text-sm tracking-tight truncate group-hover:text-[#ffd06a] transition-colors">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-black text-white text-xs tracking-tight truncate group-hover:text-[#ffd06a] transition-colors">
                 {member.name}
               </h4>
               {badgeText === "President" && (
@@ -1230,7 +1239,7 @@ const TreeNodeCard = memo(function TreeNodeCard({
               )}
             </div>
             <p
-              className="font-bold text-[11px] sm:text-xs truncate leading-snug"
+              className="font-bold text-[10.5px] truncate"
               style={{ color }}
             >
               {member.roleTitle}
@@ -1238,22 +1247,22 @@ const TreeNodeCard = memo(function TreeNodeCard({
           </div>
         </div>
 
+        {/* Right Action Icons: GitHub Link Button + Badge */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {member.githubUrl && (
-            <a
-              href={member.githubUrl.startsWith("http") ? member.githubUrl : `https://github.com/${member.githubUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-xl border border-zinc-800 bg-[#16120b] text-zinc-400 hover:text-white hover:border-[#f5b642] transition"
-              title="GitHub Profile"
-            >
-              <GithubIcon className="h-3.5 w-3.5" />
-            </a>
-          )}
+          <a
+            href={ghLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title={`Visit ${member.name}'s GitHub Profile`}
+            className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#332b1d] bg-[#1a140b] text-zinc-400 hover:text-white hover:border-[#f5b642] hover:bg-[#2a1f0c] transition cursor-pointer"
+          >
+            <GithubIcon className="h-3 w-3" />
+          </a>
+
           {/* Proper Designation Tag */}
           <span
-            className={`rounded-full border px-2.5 py-0.5 text-[9.5px] sm:text-[10px] font-bold transition shrink-0 ${
+            className={`rounded-full border px-2 py-0.5 text-[9px] font-bold transition ${
               badgeText === "President"
                 ? "border-amber-500/50 bg-amber-500/20 text-amber-300"
                 : badgeText === "Vice President"
@@ -1271,4 +1280,12 @@ const TreeNodeCard = memo(function TreeNodeCard({
       </div>
     </div>
   );
-});
+}
+
+export function MemberHierarchyTree({
+  initialMembers,
+}: {
+  initialMembers?: HierarchyMember[] | any[] | null;
+}) {
+  return <HierarchyTree />;
+}

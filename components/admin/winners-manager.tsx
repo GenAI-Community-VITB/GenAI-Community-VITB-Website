@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { EventWinner } from "@/lib/data/winners";
 import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import { upsertWinnerAction, deleteWinnerAction } from "@/app/admin/winners-actions";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 import {
   Trophy,
   Plus,
@@ -30,6 +31,7 @@ export function WinnersManager({
 }: WinnersManagerProps) {
   const [winners, setWinners] = useState(initialWinners);
   const [showModal, setShowModal] = useState(false);
+  useScrollLock(showModal);
   const [editingItem, setEditingItem] = useState<EventWinner | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -278,18 +280,20 @@ export function WinnersManager({
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-[#333] bg-[#121212] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#222] pb-3">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-lg max-h-[88vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden">
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between border-b border-[#221c12] px-6 py-4 bg-[#14100b] shrink-0">
               <h3 className="font-bold text-white text-base">
                 {editingItem ? "Edit Winner Record" : "Add Winner Record"}
               </h3>
-              <button onClick={resetForm} className="text-zinc-400 hover:text-white text-xs cursor-pointer">
+              <button onClick={resetForm} className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1">
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            {/* Scrollable Form Body */}
+            <form id="winner-form" onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="text-xs font-semibold text-zinc-300 block mb-1">
@@ -433,23 +437,26 @@ export function WinnersManager({
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="flex-1 rounded-xl border border-zinc-700 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="flex-1 rounded-xl bg-[#f5b642] py-2 text-xs font-bold text-black hover:bg-[#ffd06a] disabled:opacity-50 transition cursor-pointer"
-                >
-                  {isPending ? "Saving..." : editingItem ? "Update Winner" : "Publish Winner"}
-                </button>
-              </div>
             </form>
+
+            {/* Fixed Action Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-[#221c12] px-6 py-3.5 bg-[#120f0a] shrink-0 z-20">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="winner-form"
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#f5b642] bg-[#f5b642] px-5 py-2 text-xs font-bold text-black hover:bg-[#ffd06a] disabled:opacity-50 transition cursor-pointer shadow-[0_0_15px_rgba(245,182,66,0.25)]"
+              >
+                {isPending ? "Saving..." : editingItem ? "Update Winner" : "Publish Winner"}
+              </button>
+            </div>
           </div>
         </div>
       )}

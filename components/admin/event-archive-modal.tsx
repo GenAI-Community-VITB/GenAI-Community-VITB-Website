@@ -13,6 +13,7 @@ import {
   Download,
   ShieldAlert,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface EventArchiveModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export function EventArchiveModal({
   statistics,
   onSuccess,
 }: EventArchiveModalProps) {
+  useScrollLock(isOpen);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +83,8 @@ export function EventArchiveModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-xl rounded-3xl border border-red-500/30 bg-[#141010] p-6 sm:p-8 shadow-2xl my-8">
+    <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+      <div className="w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-red-500/50 bg-[#141010] p-6 sm:p-8 shadow-2xl">
         <div className="flex items-center justify-between border-b border-red-950/60 pb-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/40">

@@ -137,6 +137,130 @@ export function isExecutiveAccount(
   return false;
 }
 
+/**
+ * Team Login Policy:
+ * Only President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts are allowed to log in.
+ * Logins for all other teams and roles remain disabled.
+ */
+export function isTeamLoginAllowed(
+  role?: UserRole | string | null,
+  roles?: MemberRoleAssignment[],
+  email?: string | null,
+): boolean {
+  if (!role && !email && (!roles || roles.length === 0)) return false;
+
+  const normalizedRole = (role || "").toLowerCase().trim();
+  const normalizedEmail = (email || "").toLowerCase().trim();
+
+  // Root Admin / System Council / Hardcoded Admin
+  if (
+    normalizedRole === "root admin" ||
+    normalizedRole === "superadmin" ||
+    normalizedRole === "system_council" ||
+    normalizedRole === "top_executive" ||
+    normalizedEmail.includes("gen_ai@vitbhopal.ac.in") ||
+    normalizedEmail.includes("president@genai.community") ||
+    normalizedEmail.includes("vice.president@genai.community")
+  ) {
+    return true;
+  }
+
+  // 1. President & Vice President
+  if (
+    normalizedRole === "president" ||
+    normalizedRole === "vice_president" ||
+    normalizedRole.includes("president")
+  ) {
+    return true;
+  }
+
+  // 2. Tech Team
+  if (
+    normalizedRole === "tech" ||
+    normalizedRole.includes("tech") ||
+    normalizedRole.includes("technical")
+  ) {
+    return true;
+  }
+
+  // 3. AIML Team
+  if (
+    normalizedRole === "aiml" ||
+    normalizedRole.includes("aiml") ||
+    normalizedRole.includes("ai/ml") ||
+    normalizedRole.includes("ai_ml")
+  ) {
+    return true;
+  }
+
+  // 4. Finance Team
+  if (
+    normalizedRole === "finance" ||
+    normalizedRole.includes("finance") ||
+    normalizedRole.includes("treasurer")
+  ) {
+    return true;
+  }
+
+  // 5. HR Team
+  if (
+    normalizedRole === "hr" ||
+    normalizedRole.includes("hr") ||
+    normalizedRole.includes("human_resources") ||
+    normalizedRole.includes("human resources")
+  ) {
+    return true;
+  }
+
+  // Check multi-roles if present
+  if (roles && Array.isArray(roles)) {
+    return roles.some((r) => {
+      const tm = (r.team || "").toLowerCase().trim();
+      const pos = (r.position || "").toLowerCase().trim();
+
+      // Check team affiliation
+      if (
+        tm.includes("tech") ||
+        tm.includes("aiml") ||
+        tm.includes("ai/ml") ||
+        tm.includes("ai_ml") ||
+        tm.includes("finance") ||
+        tm.includes("human_resources") ||
+        tm.includes("human resources") ||
+        tm.includes("hr")
+      ) {
+        return true;
+      }
+
+      // Check panel / executive roles for President/VP
+      if (tm.includes("panel") || tm.includes("executive")) {
+        return (
+          pos.includes("president") ||
+          pos.includes("vice") ||
+          pos.includes("tech") ||
+          pos.includes("aiml")
+        );
+      }
+
+      // Check position designation
+      if (
+        pos.includes("president") ||
+        pos.includes("tech") ||
+        pos.includes("aiml") ||
+        pos.includes("ai/ml") ||
+        pos.includes("finance") ||
+        pos.includes("hr")
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+  }
+
+  return false;
+}
+
 export { formatISTDate } from "@/lib/utils/format";
 
 export const ROLE_HIERARCHY: Record<string, number> = {
