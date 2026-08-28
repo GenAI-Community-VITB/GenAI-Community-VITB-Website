@@ -832,9 +832,7 @@ export function HierarchyTree({
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════
-            CONNECTED HIERARCHICAL TREE (PRESIDENT -> VP -> BRANCH DISTRIBUTOR)
-        ══════════════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col items-center space-y-0 relative max-w-5xl mx-auto overflow-visible">
+         <div className="flex flex-col items-center space-y-0 relative max-w-5xl mx-auto overflow-visible">
           {/* ── PRESIDENT NODE ── */}
           <div className="flex flex-col items-center relative z-40">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3.5 py-0.5 text-[11px] font-bold text-amber-300 mb-2 shadow-[0_0_15px_rgba(245,182,66,0.2)]">
@@ -1070,6 +1068,61 @@ export function HierarchyTree({
   );
 }
 
+// ── HIERARCHY ROLE RANKING & BADGE RESOLVERS ──────────────────────────────
+export function getMemberRoleRank(m: HierarchyMember | any): number {
+  const r = (m.roleTitle || m.role || m.position || "").toLowerCase().trim();
+  const p = (m.secondaryRole || "").toLowerCase().trim();
+  const combined = `${r} ${p}`;
+
+  // Rank 1: Primary Lead / Head / General Secretary
+  if (
+    combined.includes("general secretary") ||
+    (combined.includes("lead") && !combined.includes("co-lead") && !combined.includes("co lead") && !combined.includes("co-")) ||
+    (combined.includes("head") && !combined.includes("co-head") && !combined.includes("co head") && !combined.includes("co-"))
+  ) {
+    return 1;
+  }
+
+  // Rank 2: Co-Lead / Co-Head / Joint Secretary / Assistant Secretary
+  if (
+    combined.includes("co-lead") ||
+    combined.includes("co lead") ||
+    combined.includes("co-head") ||
+    combined.includes("co head") ||
+    combined.includes("joint secretary") ||
+    combined.includes("assistant secretary")
+  ) {
+    return 2;
+  }
+
+  // Rank 3: Student Coordinator / Associate
+  if (combined.includes("coordinator") || combined.includes("secretary")) {
+    return 3;
+  }
+
+  // Rank 4: Core Member
+  if (combined.includes("core")) {
+    return 4;
+  }
+
+  // Rank 5: General Member / Volunteer
+  return 5;
+}
+
+export function getMemberBadgeText(m: HierarchyMember | any, fallbackIdx: number = 0): string {
+  const r = (m.roleTitle || m.role || m.position || "").toLowerCase().trim();
+  const rank = getMemberRoleRank(m);
+
+  if (r.includes("general secretary")) return "Gen Secretary";
+  if (r.includes("joint secretary")) return "Joint Sec";
+  if (r.includes("assistant secretary")) return "Asst Sec";
+  if (rank === 1) return "Lead";
+  if (rank === 2) return "Co-Lead";
+  if (rank === 3) return "Coordinator";
+  if (rank === 4) return "Core";
+  return fallbackIdx === 0 ? "Lead" : "Co-Lead";
+}
+
 // ── BRANCH CARD WITH VIEWPORT-SAFE POPUP ──
 // Uses a fixed-position portal so the popup can never bleed outside viewport borders.
 function BranchCard({
@@ -1177,7 +1230,7 @@ function BranchCard({
                 key={m.email || idx}
                 member={m}
                 color={branch.color}
-                badgeText={idx === 0 ? "Lead" : "Co-Lead"}
+                badgeText={getMemberBadgeText(m, idx)}
                 isCore={false}
                 onSelectMember={onSelectMember}
               />
@@ -1200,7 +1253,7 @@ function BranchCard({
                   key={m.email || idx}
                   member={m}
                   color="#a1a1aa"
-                  badgeText="Core"
+                  badgeText={getMemberBadgeText(m, idx + 2)}
                   isCore={true}
                   onSelectMember={onSelectMember}
                 />

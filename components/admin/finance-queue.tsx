@@ -454,22 +454,20 @@ export function FinanceQueue({
           <p className="mt-1 text-2xl font-bold text-white">{registrations.length}</p>
         </div>
 
-        {isTop6 && (
-          <div
-            onClick={() => setShowArchivedTab(true)}
-            className={`cursor-pointer rounded-2xl border p-4 transition ${
-              showArchivedTab
-                ? "border-amber-500 bg-amber-950/30 shadow-[0_0_20px_rgba(245,182,66,0.2)] ring-1 ring-amber-500/50"
-                : "border-[#282828] bg-[#121212] hover:border-amber-500/50"
-            }`}
-          >
-            <p className="text-xs text-amber-300 uppercase font-semibold flex items-center gap-1.5">
-              <Archive className="h-3.5 w-3.5" />
-              Archived / Deleted
-            </p>
-            <p className="mt-1 text-2xl font-bold text-amber-400">{deletedRegistrations.length}</p>
-          </div>
-        )}
+        <div
+          onClick={() => setShowArchivedTab(true)}
+          className={`cursor-pointer rounded-2xl border p-4 transition ${
+            showArchivedTab
+              ? "border-amber-500 bg-amber-950/30 shadow-[0_0_20px_rgba(245,182,66,0.2)] ring-1 ring-amber-500/50"
+              : "border-[#282828] bg-[#121212] hover:border-amber-500/50"
+          }`}
+        >
+          <p className="text-xs text-amber-300 uppercase font-semibold flex items-center gap-1.5">
+            <Archive className="h-3.5 w-3.5" />
+            Archived / Deleted
+          </p>
+          <p className="mt-1 text-2xl font-bold text-amber-400">{deletedRegistrations.length}</p>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -547,8 +545,8 @@ export function FinanceQueue({
         </div>
       )}
 
-      {/* Archived / Deleted Registrations Vault View (Top-6 Only) */}
-      {showArchivedTab && isTop6 ? (
+      {/* Archived / Deleted Registrations Vault View */}
+      {showArchivedTab ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-[#221c12] pb-3">
             <div className="flex items-center gap-2">

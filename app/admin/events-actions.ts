@@ -1097,16 +1097,13 @@ export async function resetStaffPasswordAction(userId: string, customPassword?: 
 }
 
 /**
- * Top-6 only: Removes and archives a registration record (even if verified/approved/checked-in).
+ * Finance Staff / Admin: Removes and archives a registration record (into deleted_registrations vault).
  */
 export async function deleteRegistrationAction(formData: FormData) {
-  const { user, profile, role, isTop6 } = await requireStaffRole("finance");
-  if (!isTop6) {
-    throw new Error("Unauthorized: Only Top-6 Executives have permission to remove registered/approved participants.");
-  }
+  const { user, profile, role } = await requireStaffRole("finance");
 
   const registrationId = String(formData.get("registration_id") || "").trim();
-  const reason = String(formData.get("reason") || "Executive manual removal").trim();
+  const reason = String(formData.get("reason") || "Staff manual removal").trim();
 
   if (!registrationId) {
     throw new Error("Registration ID is required");
