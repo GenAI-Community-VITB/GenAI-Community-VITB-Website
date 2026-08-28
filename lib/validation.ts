@@ -206,7 +206,7 @@ export function validateEventEligibility(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const studentRegistrationSchema = z.object({
-  event_id: z.string().uuid("Invalid event selected"),
+  event_id: z.string().min(1, "Event ID is required"),
   full_name: z
     .string()
     .trim()

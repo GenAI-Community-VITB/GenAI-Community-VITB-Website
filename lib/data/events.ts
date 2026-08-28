@@ -148,11 +148,11 @@ export const getEventBySlugOrId = cache(
         }
       }
 
-      // 4. Case-insensitive slug fallback
+      // 4. Case-insensitive slug or title fallback
       const { data: ilikeEvent } = await adminSupabase
         .from("events")
         .select("*")
-        .ilike("slug", cleanParam)
+        .or(`slug.ilike.${cleanParam},title.ilike.${cleanParam}`)
         .limit(1)
         .maybeSingle();
 

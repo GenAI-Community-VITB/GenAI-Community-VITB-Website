@@ -26,6 +26,7 @@ import { appendToGoogleSheet } from "@/lib/google/sheets";
 import { uploadPaymentScreenshotToDrive } from "@/lib/google/drive";
 import { logAuditEvent } from "@/lib/data/audit";
 import { formatISTDate } from "@/lib/utils/format";
+import { getEventBySlugOrId } from "@/lib/data/events";
 
 /**
  * Creates a new student registration record (Online or On-Spot).
@@ -90,19 +91,18 @@ export async function createRegistration(params: {
   const supabase = createAdminSupabase();
 
   // 0. Verify event status and strict degree / branch eligibility
-  const { data: eventData, error: eventErr } = await supabase
-    .from("events")
-    .select("id, title, is_registration_open, registration_deadline, allowed_degrees, allowed_branches, status")
-    .eq("id", params.eventId)
-    .single();
+  const eventData = await getEventBySlugOrId(params.eventId);
 
-  if (eventErr || !eventData) {
+  if (!eventData) {
+    console.error("[createRegistration] Event could not be found for identifier:", params.eventId);
     return {
       success: false,
       error: "The specified event could not be found.",
       errorCode: "EVENT_NOT_FOUND",
     };
   }
+
+  const canonicalEventId = eventData.id;
 
   if (!eventData.is_registration_open || eventData.status === "past") {
     return {
@@ -164,7 +164,7 @@ export async function createRegistration(params: {
             college_email: cleanCollegeEmail,
             personal_email: params.personalEmail,
             transaction_id: cleanTxId,
-            event_id: params.eventId,
+            event_id: canonicalEventId,
           }),
         ],
       ]).catch((err) => console.error("Error logging duplicate tx attempt to sheets:", err));
@@ -181,7 +181,7 @@ export async function createRegistration(params: {
   const { data: existingReg } = await supabase
     .from("registrations")
     .select("id, vit_registration_number, college_email")
-    .eq("event_id", params.eventId)
+    .eq("event_id", canonicalEventId)
     .or(`vit_registration_number.ilike.${cleanVitReg},college_email.ilike.${cleanCollegeEmail}`)
     .limit(1);
 
@@ -199,7 +199,7 @@ export async function createRegistration(params: {
           full_name: params.fullName,
           vit_registration_number: cleanVitReg,
           college_email: cleanCollegeEmail,
-          event_id: params.eventId,
+          event_id: canonicalEventId,
         }),
       ],
     ]).catch((err) => console.error("Error logging duplicate reg attempt to sheets:", err));
@@ -215,7 +215,7 @@ export async function createRegistration(params: {
   const { data: rpcResult, error: rpcError } = await supabase.rpc(
     "atomic_register_student",
     {
-      p_event_id: params.eventId,
+      p_event_id: canonicalEventId,
       p_full_name: params.fullName.trim(),
       p_vit_reg: cleanVitReg,
       p_branch_id: null,
@@ -441,14 +441,10 @@ export async function submitStudentRegistration(params: {
   screenshotMimeType: string;
   screenshotFileName: string;
 }) {
-  const supabase = createAdminSupabase();
-  const { data: event, error: eventErr } = await supabase
-    .from("events")
-    .select("title, registration_fee, is_registration_open, registration_deadline, allowed_degrees, allowed_branches, status")
-    .eq("id", params.eventId)
-    .single();
+  const event = await getEventBySlugOrId(params.eventId);
 
-  if (eventErr || !event) {
+  if (!event) {
+    console.error("[submitStudentRegistration] Event could not be found for identifier:", params.eventId);
     return {
       success: false,
       error: "The selected event could not be found.",
@@ -499,7 +495,7 @@ export async function submitStudentRegistration(params: {
   });
 
   return createRegistration({
-    eventId: params.eventId,
+    eventId: event.id,
     fullName: params.fullName,
     vitRegistrationNumber: params.vitRegistrationNumber,
     branchName: params.branchName,
