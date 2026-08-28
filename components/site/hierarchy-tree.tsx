@@ -874,15 +874,15 @@ export function HierarchyTree({
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              DEPARTMENTAL TEAMS GRID WITH CLICK/HOVER RETRACTING MENUS
+              DEPARTMENTAL TEAMS GRID (2x4 SYMMETRICAL INTERACTIVE WORKSPACES)
           ══════════════════════════════════════════════════════════════════════ */}
-          <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative z-10 overflow-visible pt-2">
+          <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-4 relative z-10 overflow-visible pt-2 max-w-6xl mx-auto">
             {branches.map((branch, index) => {
               const Icon = branch.icon;
               const isOpen = activeTeamId === branch.id;
               const totalTeamMembers = branch.leads.length + branch.core.length;
-              const isFirst = index === 0 || index % 5 === 0;
-              const isLast = index === branches.length - 1 || index % 5 === 4;
+              const isFirst = index % 4 === 0;
+              const isLast = index % 4 === 3;
               const alignClass = isFirst
                 ? "left-0 translate-x-0"
                 : isLast
