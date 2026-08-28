@@ -116,7 +116,7 @@ export function SheetsSyncWidget() {
 
       {/* Safety Confirmation Modal Before Flushing */}
       {showWarningModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
           <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#0d0a06] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-amber-400 border-b border-[#2a2215] pb-3">
               <div className="rounded-xl bg-amber-500/20 p-2">

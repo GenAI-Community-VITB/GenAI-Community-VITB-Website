@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, memo } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback, memo } from "react";
 import {
   Crown,
   Shield,
@@ -29,6 +29,7 @@ import { GithubIcon } from "@/components/ui/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { normalizeDriveImageUrl } from "@/lib/utils/format";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
+import { createPortal } from "react-dom";
 
 export interface HierarchyMember {
   id?: string;
@@ -876,161 +877,19 @@ export function HierarchyTree({
           {/* ══════════════════════════════════════════════════════════════════════
               DEPARTMENTAL TEAMS GRID (2x4 SYMMETRICAL INTERACTIVE WORKSPACES)
           ══════════════════════════════════════════════════════════════════════ */}
-          <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-4 relative z-10 overflow-visible pt-2 max-w-6xl mx-auto">
-            {branches.map((branch, index) => {
-              const Icon = branch.icon;
-              const isOpen = activeTeamId === branch.id;
-              const totalTeamMembers = branch.leads.length + branch.core.length;
-              const isFirst = index % 4 === 0;
-              const isLast = index % 4 === 3;
-              const alignClass = isFirst
-                ? "left-0 translate-x-0"
-                : isLast
-                ? "right-0 left-auto translate-x-0"
-                : "left-1/2 -translate-x-1/2";
-
-              return (
-                <div
-                  key={branch.id}
-                  className={`relative flex flex-col transition-all duration-200 ${
-                    isOpen ? "z-50" : "z-10"
-                  }`}
-                  onMouseEnter={() => setActiveTeamId(branch.id)}
-                  onMouseLeave={() => setActiveTeamId(null)}
-                >
-                  {/* Vertical Connector Stem from Horizontal Line to Team Box */}
-                  <div className="hidden md:flex flex-col items-center -mt-6 mb-2">
-                    <div className="h-4 w-0.5 bg-[#f5b642]/60" />
-                    <div className="h-1.5 w-1.5 rounded-full bg-[#f5b642]" />
-                  </div>
-
-                  {/* Team Card (Clicking toggles open/close, mouse leave retracts automatically) */}
-                  <div
-                    onClick={() => setActiveTeamId((prev) => (prev === branch.id ? null : branch.id))}
-                    className={`group relative flex flex-col justify-between rounded-3xl border p-5 transition-all duration-200 cursor-pointer ${
-                      isOpen
-                        ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)] z-40"
-                        : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div
-                          className="flex h-10 w-10 items-center justify-center rounded-2xl border text-sm transition-transform duration-300 group-hover:scale-105"
-                          style={{
-                            borderColor: `${branch.color}50`,
-                            backgroundColor: `${branch.color}15`,
-                            color: branch.color,
-                          }}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="font-mono text-[10px] text-zinc-400 font-bold bg-[#17130b] px-2.5 py-0.5 rounded-full border border-[#2e2618]">
-                          {totalTeamMembers} Members
-                        </span>
-                      </div>
-
-                      <h3 className="mt-4 font-black text-white text-base tracking-tight group-hover:text-[#ffd06a] transition-colors">
-                        {branch.name}
-                      </h3>
-                      <p className="mt-1 text-[11px] text-zinc-400 font-medium">
-                        {branch.leads.length} Leads · {branch.core.length} Core Team
-                      </p>
-                    </div>
-
-                    <div className="mt-5 flex items-center justify-between pt-3 border-t border-[#1e190f]">
-                      <span className="text-[11px] font-bold text-[#f5b642] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                        {isOpen ? "Close Roster" : "View Roster"}
-                      </span>
-                      <ChevronDown
-                        className={`h-4 w-4 text-[#f5b642] transition-transform duration-200 ${
-                          isOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* ── EXPANDING HOVER/CLICK POPOVER DRAWER (DESKTOP & MOBILE) ── */}
-                  <AnimatePresence>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                        transition={{ duration: 0.15 }}
-                        className={`absolute top-full mt-2 z-[100] w-80 sm:w-96 rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.98)] backdrop-blur-3xl space-y-4 ${alignClass}`}
-                      >
-                        {/* Drawer Header */}
-                        <div className="flex items-center justify-between border-b border-[#221c13] pb-3">
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" style={{ color: branch.color }} />
-                            <span className="font-black text-sm text-white">
-                              {branch.name} Roster
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveTeamId(null);
-                            }}
-                            className="text-zinc-500 hover:text-white text-xs font-mono px-1.5 py-0.5 rounded-lg border border-[#332b1d] hover:bg-[#221c12] transition"
-                          >
-                            ✕
-                          </button>
-                        </div>
-
-                        {/* Leads Sub-Tree */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: branch.color }} />
-                            <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 font-mono">
-                              Vertical Leads ({branch.leads.length})
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {branch.leads.map((m, idx) => (
-                              <TreeNodeCard
-                                key={m.email || idx}
-                                member={m}
-                                color={branch.color}
-                                badgeText={idx === 0 ? "Lead" : "Co-Lead"}
-                                isCore={false}
-                                onSelectMember={setSelectedMember}
-                              />
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Core Sub-Tree */}
-                        {branch.core.length > 0 && (
-                          <div className="space-y-2 pt-2 border-t border-[#1c1810]">
-                            <div className="flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
-                              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 font-mono">
-                                Core Members ({branch.core.length})
-                              </span>
-                            </div>
-                            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                              {branch.core.map((m, idx) => (
-                                <TreeNodeCard
-                                  key={m.email || idx}
-                                  member={m}
-                                  color="#a1a1aa"
-                                  badgeText="Core"
-                                  isCore={true}
-                                  onSelectMember={setSelectedMember}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
+          <div className="w-full grid gap-5 sm:grid-cols-2 lg:grid-cols-4 relative z-10 pt-2 max-w-6xl mx-auto">
+            {branches.map((branch, index) => (
+              <BranchCard
+                key={branch.id}
+                branch={branch}
+                isOpen={activeTeamId === branch.id}
+                onOpen={() => setActiveTeamId(branch.id)}
+                onClose={() => setActiveTeamId(null)}
+                onSelectMember={setSelectedMember}
+                columnIndex={index % 4}
+                totalColumns={4}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -1040,26 +899,25 @@ export function HierarchyTree({
       ══════════════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {selectedMember && (
-          <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
-            {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/95 backdrop-blur-2xl"
+            onClick={() => setSelectedMember(null)}
+          >
+            {/* Modal Card — stop propagation so clicking inside doesn't close */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedMember(null)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
-            />
-
-            {/* Modal Card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative m-auto z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-6 sm:p-8 shadow-[0_30px_100px_rgba(245,182,66,0.3)] space-y-6 will-change-[transform,opacity] shrink-0"
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-xl mx-3 sm:mx-6 my-4 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 sm:p-7 shadow-[0_30px_100px_rgba(245,182,66,0.35)] space-y-5 will-change-transform"
             >
               {/* Top Bar with Close Button */}
-              <div className="flex items-center justify-between border-b border-[#221c13] pb-3">
+              <div className="flex items-center justify-between border-b border-[#221c13] pb-3 sticky top-0 bg-[#0c0906] z-10 -mx-1 px-1">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-[#f5b642] shadow-[0_0_8px_#f5b642]" />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
@@ -1072,7 +930,7 @@ export function HierarchyTree({
                   className="inline-flex items-center gap-1.5 rounded-xl border border-[#3a3020] bg-[#1a140b] px-3 py-1 text-xs font-semibold text-zinc-300 hover:border-[#f5b642] hover:text-white transition cursor-pointer"
                 >
                   <span>Close</span>
-                  <span className="rounded bg-[#282013] px-1.5 py-0.2 text-[10px] font-mono text-zinc-400">ESC</span>
+                  <span className="rounded bg-[#282013] px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">ESC</span>
                 </button>
               </div>
 
@@ -1081,11 +939,10 @@ export function HierarchyTree({
                 <HierarchyAvatar
                   name={selectedMember.name}
                   avatarUrl={selectedMember.avatarUrl}
-                  className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_30px_rgba(245,182,66,0.4)] shrink-0"
-                  fallbackClassName="flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
+                  className="h-24 w-24 sm:h-28 sm:w-28 rounded-3xl object-cover border-2 border-[#f5b642] shadow-[0_0_30px_rgba(245,182,66,0.4)] shrink-0"
+                  fallbackClassName="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-[#2a2213] via-[#1a140b] to-[#0d0a06] border-2 border-[#f5b642] shadow-inner shrink-0"
                   initialsClassName="font-black text-3xl text-[#f5b642]"
                 />
-
                 <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-0.5 text-xs font-bold text-amber-300 font-mono uppercase">
                     {selectedMember.teamName}
@@ -1105,12 +962,12 @@ export function HierarchyTree({
               {/* Mission Statement */}
               <div className="rounded-2xl border border-[#2e2618] bg-[#14100b] p-4 text-xs sm:text-sm text-zinc-200 leading-relaxed">
                 <span className="text-[#f5b642] font-bold text-[10px] uppercase block tracking-wider mb-1 font-mono">
-                  Focus & Mission Statement:
+                  Focus &amp; Mission Statement:
                 </span>
                 &ldquo;{selectedMember.caption}&rdquo;
               </div>
 
-              {/* Roles Breakdown & GitHub */}
+              {/* Roles Breakdown */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3">
                   <span className="text-zinc-400 block text-[9px] uppercase font-bold">Primary Designation:</span>
@@ -1123,34 +980,33 @@ export function HierarchyTree({
               </div>
 
               {/* GitHub Profile Section */}
-              <div className="flex items-center justify-between rounded-2xl border border-[#2e2618] bg-[#14100b] p-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white">
+              <div className="flex items-center justify-between rounded-2xl border border-[#2e2618] bg-[#14100b] p-3 text-xs gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white shrink-0">
                     <GithubIcon className="h-4 w-4" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase text-zinc-400 block">GitHub Profile</span>
-                    <span className="text-xs font-mono text-zinc-300 truncate max-w-[200px] block">
+                    <span className="text-xs font-mono text-zinc-300 truncate max-w-[160px] sm:max-w-[220px] block">
                       {selectedMember.githubUrl ? selectedMember.githubUrl.replace("https://github.com/", "@") : `@${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
                     </span>
                   </div>
                 </div>
-
                 <a
                   href={selectedMember.githubUrl || `https://github.com/${selectedMember.name.toLowerCase().replace(/\s+/g, "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#f5b642]/60 bg-[#f5b642]/10 px-3 py-1.5 text-xs font-bold text-[#f5b642] hover:bg-[#f5b642] hover:text-black transition cursor-pointer"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#f5b642]/60 bg-[#f5b642]/10 px-3 py-1.5 text-xs font-bold text-[#f5b642] hover:bg-[#f5b642] hover:text-black transition cursor-pointer"
                 >
-                  <span>Visit GitHub</span>
+                  <span>GitHub</span>
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
 
               {/* Footer Actions */}
-              <div className="flex items-center justify-between pt-2 border-t border-[#221c13]">
+              <div className="flex items-center justify-between pt-3 border-t border-[#221c13]">
                 <span className="font-mono text-xs text-emerald-400 flex items-center gap-1.5 font-bold">
-                  <CheckCircle2 className="h-4 w-4" /> Verified Official (2026–27)
+                  <CheckCircle2 className="h-4 w-4" /> Verified (2026–27)
                 </span>
                 <button
                   type="button"
@@ -1161,10 +1017,215 @@ export function HierarchyTree({
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </section>
+  );
+}
+
+// ── BRANCH CARD WITH VIEWPORT-SAFE POPUP ──
+// Uses a fixed-position portal so the popup can never bleed outside viewport borders.
+function BranchCard({
+  branch,
+  isOpen,
+  onOpen,
+  onClose,
+  onSelectMember,
+  columnIndex,
+  totalColumns,
+}: {
+  branch: TreeBranch;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onSelectMember: (m: HierarchyMember) => void;
+  columnIndex: number;
+  totalColumns: number;
+}) {
+  const Icon = branch.icon;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+  const [isMounted, setIsMounted] = useState(false);
+  const totalTeamMembers = branch.leads.length + branch.core.length;
+
+  // Mount state for createPortal
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Compute popup position when opening
+  useEffect(() => {
+    if (!isOpen || !cardRef.current) return;
+
+    const rect = cardRef.current.getBoundingClientRect();
+    const POPUP_WIDTH = 384; // w-96 = 24rem = 384px
+    const POPUP_MAX_HEIGHT = 480;
+    const PADDING = 12;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Horizontal: try center, then nudge to stay in viewport
+    let left = rect.left + rect.width / 2 - POPUP_WIDTH / 2;
+    if (left < PADDING) left = PADDING;
+    if (left + POPUP_WIDTH > viewportWidth - PADDING) {
+      left = viewportWidth - POPUP_WIDTH - PADDING;
+    }
+
+    // Vertical: prefer below, flip above if no space
+    const spaceBelow = viewportHeight - rect.bottom - PADDING;
+    const spaceAbove = rect.top - PADDING;
+    let top: number;
+    let transform = "";
+
+    if (spaceBelow >= 200 || spaceBelow >= spaceAbove) {
+      top = rect.bottom + 8;
+    } else {
+      // Flip above
+      top = rect.top - 8;
+      transform = "translateY(-100%)";
+    }
+
+    setPopupStyle({ left, top, transform, width: POPUP_WIDTH });
+  }, [isOpen]);
+
+  const popup = isOpen && isMounted ? createPortal(
+    <AnimatePresence>
+      <motion.div
+        key={branch.id + "-popup"}
+        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 6, scale: 0.96 }}
+        transition={{ duration: 0.14, ease: [0.25, 0.46, 0.45, 0.94] }}
+        style={popupStyle}
+        className="fixed z-[9999] max-h-[480px] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0c0906] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.98)] backdrop-blur-3xl space-y-4 will-change-transform"
+        onMouseEnter={onOpen}
+        onMouseLeave={onClose}
+      >
+        {/* Popup Header */}
+        <div className="flex items-center justify-between border-b border-[#221c13] pb-3 sticky top-0 bg-[#0c0906] z-10">
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4" style={{ color: branch.color }} />
+            <span className="font-black text-sm text-white">{branch.name} Roster</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="text-zinc-500 hover:text-white text-xs font-mono px-1.5 py-0.5 rounded-lg border border-[#332b1d] hover:bg-[#221c12] transition cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Leads */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: branch.color }} />
+            <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 font-mono">
+              Vertical Leads ({branch.leads.length})
+            </span>
+          </div>
+          <div className="space-y-2">
+            {branch.leads.map((m, idx) => (
+              <TreeNodeCard
+                key={m.email || idx}
+                member={m}
+                color={branch.color}
+                badgeText={idx === 0 ? "Lead" : "Co-Lead"}
+                isCore={false}
+                onSelectMember={onSelectMember}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Core Members */}
+        {branch.core.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-[#1c1810]">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
+              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 font-mono">
+                Core Members ({branch.core.length})
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {branch.core.map((m, idx) => (
+                <TreeNodeCard
+                  key={m.email || idx}
+                  member={m}
+                  color="#a1a1aa"
+                  badgeText="Core"
+                  isCore={true}
+                  onSelectMember={onSelectMember}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  ) : null;
+
+  return (
+    <div
+      ref={cardRef}
+      className={`relative flex flex-col transition-all duration-200 ${isOpen ? "z-50" : "z-10"}`}
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+    >
+      {/* Vertical Connector Stem */}
+      <div className="hidden md:flex flex-col items-center -mt-6 mb-2">
+        <div className="h-4 w-0.5 bg-[#f5b642]/60" />
+        <div className="h-1.5 w-1.5 rounded-full bg-[#f5b642]" />
+      </div>
+
+      {/* Team Card */}
+      <div
+        onClick={() => isOpen ? onClose() : onOpen()}
+        className={`group relative flex flex-col justify-between rounded-3xl border p-5 transition-all duration-200 cursor-pointer ${
+          isOpen
+            ? "border-[#f5b642] bg-[#1a140c] shadow-[0_0_35px_rgba(245,182,66,0.25)]"
+            : "border-[#262015] bg-[#0c0a07] hover:border-[#f5b642]/70 hover:bg-[#120f0a] shadow-xl"
+        }`}
+      >
+        <div>
+          <div className="flex items-center justify-between">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border text-sm transition-transform duration-300 group-hover:scale-105"
+              style={{
+                borderColor: `${branch.color}50`,
+                backgroundColor: `${branch.color}15`,
+                color: branch.color,
+              }}
+            >
+              <Icon className="h-5 w-5" />
+            </div>
+            <span className="font-mono text-[10px] text-zinc-400 font-bold bg-[#17130b] px-2.5 py-0.5 rounded-full border border-[#2e2618]">
+              {totalTeamMembers} Members
+            </span>
+          </div>
+          <h3 className="mt-4 font-black text-white text-base tracking-tight group-hover:text-[#ffd06a] transition-colors">
+            {branch.name}
+          </h3>
+          <p className="mt-1 text-[11px] text-zinc-400 font-medium">
+            {branch.leads.length} Leads · {branch.core.length} Core Team
+          </p>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between pt-3 border-t border-[#1e190f]">
+          <span className="text-[11px] font-bold text-[#f5b642] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            {isOpen ? "Close Roster" : "View Roster"}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-[#f5b642] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          />
+        </div>
+      </div>
+
+      {/* Portal Popup */}
+      {popup}
+    </div>
   );
 }
 
