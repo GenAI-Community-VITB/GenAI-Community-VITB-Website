@@ -122,7 +122,7 @@ export function EventVolunteersModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
       <div className="relative w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] p-6 shadow-2xl space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#221c12] pb-3">

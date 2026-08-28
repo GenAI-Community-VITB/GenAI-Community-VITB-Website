@@ -1040,7 +1040,7 @@ export function HierarchyTree({
       ══════════════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {selectedMember && (
-          <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}

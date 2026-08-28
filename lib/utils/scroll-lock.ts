@@ -7,9 +7,18 @@ let originalBodyOverflow = "";
 let originalHtmlOverflow = "";
 let originalPaddingRight = "";
 
+export function forceUnlockScroll() {
+  if (typeof window === "undefined") return;
+  activeLockCount = 0;
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+  document.body.style.paddingRight = "";
+}
+
 /**
- * Custom hook to lock window/body scrolling when a modal, dialog, or drawer is open.
+ * Custom hook to lock background window/body scrolling when a modal, dialog, or drawer is open.
  * Uses a reference counter to safely support concurrent/nested dialogs and prevent layout shift.
+ * When the modal is open, the modal itself serves as a full-window scrollable surface.
  */
 export function useScrollLock(isLocked: boolean) {
   useEffect(() => {
@@ -32,8 +41,8 @@ export function useScrollLock(isLocked: boolean) {
     return () => {
       activeLockCount = Math.max(0, activeLockCount - 1);
       if (activeLockCount === 0) {
-        document.body.style.overflow = originalBodyOverflow;
-        document.documentElement.style.overflow = originalHtmlOverflow;
+        document.body.style.overflow = originalBodyOverflow === "hidden" ? "" : originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow === "hidden" ? "" : originalHtmlOverflow;
         document.body.style.paddingRight = originalPaddingRight;
       }
     };
