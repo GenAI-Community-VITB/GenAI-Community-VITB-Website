@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
 import { TeamsManager } from "@/components/admin/teams-manager";
+import { MembersManager } from "@/components/admin/members-manager";
 import { EventsManager } from "@/components/admin/events-manager";
 import { AdminInactivityChip } from "@/components/admin/inactivity-timer";
 import { ProjectsManager } from "@/components/admin/projects-manager";
@@ -41,10 +42,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 
-type TabId = "teams" | "events" | "projects" | "blogs" | "achievements" | "winners";
+type TabId = "members" | "teams" | "events" | "projects" | "blogs" | "achievements" | "winners";
 
 const tabs: { id: TabId; label: string; icon: any }[] = [
-  { id: "teams", label: "Teams", icon: Network },
+  { id: "members", label: "Team Members", icon: Users },
+  { id: "teams", label: "Team Verticals", icon: Network },
   { id: "events", label: "Events", icon: Calendar },
   { id: "projects", label: "Projects", icon: FolderKanban },
   { id: "blogs", label: "Blogs & LinkedIn AI", icon: BookOpen },
@@ -343,11 +345,12 @@ export function AdminDashboardClient(props: {
           </div>
 
           {/* Horizontal Workspace Selector Bar with Golden Glow */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             {tabs.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               let count = 0;
-              if (id === "teams") count = teams.length;
+              if (id === "members") count = members.length;
+              else if (id === "teams") count = teams.length;
               else if (id === "events") count = currentEvents.length;
               else if (id === "projects") count = projects.length;
               else if (id === "achievements") count = achievements.length;
@@ -419,6 +422,15 @@ export function AdminDashboardClient(props: {
                     Live Workspace Active: {tabs.find((t) => t.id === tab)?.label}
                   </span>
                 </div>
+              </div>
+
+              {/* ── 0. Team Members Management ── */}
+              <div className={tab === "members" ? "block space-y-8" : "hidden"}>
+                <MembersManager
+                  initialMembers={members}
+                  teams={teams}
+                  isAllowed={isTop6 || userRole === "tech"}
+                />
               </div>
 
               {/* ── 1. Teams Management ── */}

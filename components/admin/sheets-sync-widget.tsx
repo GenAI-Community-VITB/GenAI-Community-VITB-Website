@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { FileSpreadsheet, RefreshCw, CheckCircle2, AlertCircle, ExternalLink, Loader2, Trash2, ShieldAlert } from "lucide-react";
 import { formatISTDate } from "@/lib/utils/format";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 export function SheetsSyncWidget() {
   const [loading, setLoading] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  useScrollLock(showWarningModal);
   const [result, setResult] = useState<{
     success?: boolean;
     message?: string;
@@ -114,8 +116,8 @@ export function SheetsSyncWidget() {
 
       {/* Safety Confirmation Modal Before Flushing */}
       {showWarningModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="w-full max-w-md rounded-3xl border border-amber-500/40 bg-[#120f0a] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
+          <div className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#0d0a06] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-amber-400 border-b border-[#2a2215] pb-3">
               <div className="rounded-xl bg-amber-500/20 p-2">
                 <ShieldAlert className="h-6 w-6" />

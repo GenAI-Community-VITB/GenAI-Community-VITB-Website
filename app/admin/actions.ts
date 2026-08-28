@@ -38,6 +38,7 @@ const ADMIN_SESSION_COOKIE = "club_admin_session";
 
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import { verifyCloudflareTurnstile } from "@/lib/security/turnstile";
+import { isTeamLoginAllowed } from "@/lib/auth/permissions";
 
 const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -281,6 +282,31 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
   let authErrorDetail = "";
   try {
     const supabase = await createServerSupabase();
+    const adminSupabase = createAdminSupabase();
+
+    // Check user_profiles and team login policy before completing login
+    const { data: profile } = await adminSupabase
+      .from("user_profiles")
+      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name, roles:member_roles(*)")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (profile) {
+      if (profile.is_login_disabled || profile.is_voided || profile.is_active === false) {
+        return {
+          ok: false,
+          error: `Account Login Disabled: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has login access disabled. Please contact the Technical Lead or President.`,
+        };
+      }
+
+      if (!isTeamLoginAllowed(profile.role, profile.roles, profile.email)) {
+        return {
+          ok: false,
+          error: `Account Login Disabled: Logins are currently restricted to President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts only.`,
+        };
+      }
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (!error && data.user) {
@@ -316,7 +342,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
     const adminSupabase = createAdminSupabase();
     const { data: profile, error: profileErr } = await adminSupabase
       .from("user_profiles")
-      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name")
+      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name, roles:member_roles(*)")
       .ilike("email", email)
       .maybeSingle();
 
@@ -338,6 +364,13 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       return {
         ok: false,
         error: `Account Login Disabled: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has login access disabled. Please contact the Technical Lead or President.`,
+      };
+    }
+
+    if (!isTeamLoginAllowed(profile.role, profile.roles, profile.email)) {
+      return {
+        ok: false,
+        error: `Account Login Disabled: Logins are currently restricted to President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts only.`,
       };
     }
 
@@ -412,6 +445,7 @@ export async function upsertMember(formData: FormData): Promise<{ success: boole
       name: formString(formData, "name"),
       role: formString(formData, "role"),
       position: formString(formData, "position"),
+      github_url: formString(formData, "github_url"),
       linkedin_url: formString(formData, "linkedin_url"),
       image_url: uploaded ?? formString(formData, "image_url"),
       status: (formString(formData, "status") as "active" | "pending") || "active",

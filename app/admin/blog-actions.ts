@@ -5,6 +5,23 @@ import type { BlogPost } from "@/lib/types";
 import { summarizeLinkedInPostWithAI } from "@/lib/ai/blog-agent";
 import { revalidatePath } from "next/cache";
 
+// Resilient memory cache fallback if Supabase table has not yet been executed in SQL editor
+let inMemoryBlogPosts: BlogPost[] = [];
+
+function isTableMissingError(err: any): boolean {
+  if (!err) return false;
+  const str = (err.message || err.details || err.hint || JSON.stringify(err) || String(err)).toLowerCase();
+  const code = String(err.code || "").toUpperCase();
+  return (
+    code === "PGRST205" ||
+    code === "42P01" ||
+    str.includes("schema cache") ||
+    str.includes("could not find the table") ||
+    str.includes("does not exist") ||
+    str.includes("blog_posts")
+  );
+}
+
 export async function getAllAdminBlogPostsAction(): Promise<{ success: boolean; posts?: BlogPost[]; error?: string }> {
   try {
     const supabase = createAdminSupabase();
@@ -14,11 +31,20 @@ export async function getAllAdminBlogPostsAction(): Promise<{ success: boolean; 
       .order("published_at", { ascending: false });
 
     if (error) {
+      if (isTableMissingError(error)) {
+        return { success: true, posts: inMemoryBlogPosts };
+      }
       return { success: false, error: error.message };
     }
 
-    return { success: true, posts: (data || []) as BlogPost[] };
+    const dbPosts = (data || []) as BlogPost[];
+    // Merge any memory posts not yet in DB
+    const all = [...inMemoryBlogPosts.filter((m) => !dbPosts.some((d) => d.id === m.id)), ...dbPosts];
+    return { success: true, posts: all };
   } catch (err: any) {
+    if (isTableMissingError(err)) {
+      return { success: true, posts: inMemoryBlogPosts };
+    }
     return { success: false, error: err.message || "Failed to fetch blog posts." };
   }
 }
@@ -59,6 +85,7 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
   success: boolean;
   post?: BlogPost;
   error?: string;
+  warning?: string;
 }> {
   try {
     const supabase = createAdminSupabase();
@@ -102,7 +129,32 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
         .eq("id", rawId)
         .select()
         .single();
-      if (error) return { success: false, error: `Database error updating blog post: ${error.message}` };
+
+      if (error) {
+        if (isTableMissingError(error)) {
+          const updatedPost: BlogPost = {
+            id: rawId!,
+            title,
+            summary,
+            original_content: originalContent || summary,
+            post_url: postUrl,
+            author_name: authorName,
+            tags: tags.length > 0 ? tags : ["AI", "Community"],
+            is_published: isPublished,
+            image_url: imageUrl,
+            published_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          inMemoryBlogPosts = inMemoryBlogPosts.map((p) => (p.id === rawId ? updatedPost : p));
+          return {
+            success: true,
+            post: updatedPost,
+            warning: "Note: The blog_posts table is pending in Supabase. Run supabase/schema.sql in SQL Editor to persist to DB.",
+          };
+        }
+        return { success: false, error: `Database error updating blog post: ${error.message}` };
+      }
       savedPost = data;
     } else {
       payload.id = crypto.randomUUID();
@@ -114,7 +166,32 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
         .insert(payload)
         .select()
         .single();
-      if (error) return { success: false, error: `Database error inserting blog post: ${error.message}` };
+
+      if (error) {
+        if (isTableMissingError(error)) {
+          const newMemPost: BlogPost = {
+            id: payload.id,
+            title,
+            summary,
+            original_content: originalContent || summary,
+            post_url: postUrl,
+            author_name: authorName,
+            tags: tags.length > 0 ? tags : ["AI", "Community"],
+            is_published: isPublished,
+            image_url: imageUrl,
+            published_at: payload.published_at,
+            created_at: payload.created_at,
+            updated_at: payload.updated_at,
+          };
+          inMemoryBlogPosts = [newMemPost, ...inMemoryBlogPosts];
+          return {
+            success: true,
+            post: newMemPost,
+            warning: "Note: The blog_posts table is pending in Supabase. Run supabase/schema.sql in SQL Editor to persist to DB.",
+          };
+        }
+        return { success: false, error: `Database error inserting blog post: ${error.message}` };
+      }
       savedPost = data;
     }
 
@@ -135,9 +212,13 @@ export async function deleteBlogPostAction(formData: FormData): Promise<{ succes
     const id = String(formData.get("id") || "").trim();
     if (!id) return { success: false, error: "Blog post ID is required." };
 
+    inMemoryBlogPosts = inMemoryBlogPosts.filter((p) => p.id !== id);
+
     const supabase = createAdminSupabase();
     const { error } = await supabase.from("blog_posts").delete().eq("id", id);
-    if (error) return { success: false, error: `Database error deleting blog post: ${error.message}` };
+    if (error && !isTableMissingError(error)) {
+      return { success: false, error: `Database error deleting blog post: ${error.message}` };
+    }
 
     try {
       revalidatePath("/blogs");
@@ -159,6 +240,7 @@ export async function importFromLinkedInUrlAction(params: {
   success: boolean;
   post?: BlogPost;
   error?: string;
+  warning?: string;
 }> {
   try {
     const cleanUrl = params.postUrl.trim();
@@ -228,26 +310,41 @@ export async function importFromLinkedInUrlAction(params: {
     const newPostId = crypto.randomUUID();
     const nowIso = new Date().toISOString();
 
+    const newPostRecord: BlogPost = {
+      id: newPostId,
+      title,
+      summary,
+      original_content: extractedText,
+      post_url: cleanUrl,
+      author_name: author,
+      tags,
+      is_published: true,
+      image_url: ogImage,
+      published_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
     const { data: post, error: insertError } = await supabase
       .from("blog_posts")
-      .insert({
-        id: newPostId,
-        title,
-        summary,
-        original_content: extractedText,
-        post_url: cleanUrl,
-        author_name: author,
-        tags,
-        is_published: true,
-        image_url: ogImage,
-        published_at: nowIso,
-        created_at: nowIso,
-        updated_at: nowIso,
-      })
+      .insert(newPostRecord)
       .select("*")
       .single();
 
     if (insertError) {
+      if (isTableMissingError(insertError)) {
+        inMemoryBlogPosts = [newPostRecord, ...inMemoryBlogPosts];
+        try {
+          revalidatePath("/blogs");
+          revalidatePath("/");
+          revalidatePath("/admin");
+        } catch {}
+        return {
+          success: true,
+          post: newPostRecord,
+          warning: "Note: The blog_posts table is pending in Supabase. Run supabase/schema.sql in SQL Editor to persist to DB.",
+        };
+      }
       return { success: false, error: `Database error inserting blog post: ${insertError.message}` };
     }
 
