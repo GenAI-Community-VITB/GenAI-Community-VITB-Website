@@ -319,8 +319,8 @@ export function ProjectsManager({
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="relative my-auto w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
             {/* Fixed Header */}
             <div className="flex items-center justify-between border-b border-[#241c10] px-6 py-4 bg-[#14100b] shrink-0">
               <div className="flex items-center gap-2">

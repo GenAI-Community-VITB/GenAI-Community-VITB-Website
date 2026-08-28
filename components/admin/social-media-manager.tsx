@@ -384,8 +384,8 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
 
       {/* Ingestion & Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="relative my-auto w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl border-2 border-[#f5b642] bg-[#0d0a06] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden shrink-0">
             {/* Fixed Header */}
             <div className="flex items-center justify-between border-b border-[#221c12] px-6 py-4 bg-[#14100b] shrink-0">
               <div className="flex items-center gap-2">
@@ -586,8 +586,8 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
 
       {/* ── 1-CLICK INSTANT AI INGEST MODAL ── */}
       {showQuickModal && (
-        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black/95 backdrop-blur-2xl">
-          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#120e09] p-6 shadow-[0_20px_60px_rgba(245,182,66,0.15)] space-y-5 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-[99999] w-screen h-screen flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/95 backdrop-blur-2xl">
+          <div className="relative my-auto w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border-2 border-amber-500/50 bg-[#120e09] p-6 shadow-[0_20px_60px_rgba(245,182,66,0.15)] space-y-5 animate-in fade-in zoom-in-95 duration-150 shrink-0">
             <div className="flex items-center justify-between pb-3 border-b border-[#2a2216]">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-[#f5b642] border border-amber-500/30">

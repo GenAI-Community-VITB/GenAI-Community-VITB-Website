@@ -344,8 +344,8 @@ export function AdminDashboardClient(props: {
             <h3 className="text-xl font-extrabold text-white">Interactive Workspaces</h3>
           </div>
 
-          {/* Horizontal Workspace Selector Bar with Golden Glow */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {/* Symmetrical 2x4 Interactive Workspace Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
             {tabs.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               let count = 0;
