@@ -203,6 +203,7 @@ export function getHumanReadableRole(
 
   if (!role) return "Staff Member";
   const r = role.toLowerCase();
+  if (r === "root_admin" || r === "root admin" || r === "superadmin" || r === "root") return "ROOT ADMIN";
   if (r === "system_council") return "System Council";
   if (r === "top_executive") return "Top Executive";
   if (r === "tech" || r === "technical_lead") return "Technical Lead";
@@ -326,6 +327,9 @@ export function getMemberAssignedName(
 
   if (email) {
     const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail === "admin.club.core@genai.local" || cleanEmail.includes("admin.club.core")) {
+      return "ROOT ADMIN";
+    }
     if (OFFICIAL_ROSTER_NAMES[cleanEmail]) {
       return OFFICIAL_ROSTER_NAMES[cleanEmail];
     }

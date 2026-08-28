@@ -254,6 +254,10 @@ export function EventsManager({
         if (imageFile) fd.append("image_file", imageFile);
 
         const res = await upsertEvent(fd);
+        if (res && res.success === false) {
+          setMessage({ type: "error", text: res.error || "Failed to save event." });
+          return;
+        }
 
         setMessage({
           type: "success",
@@ -312,7 +316,11 @@ export function EventsManager({
       try {
         const fd = new FormData();
         fd.append("id", id);
-        await deleteEvent(fd);
+        const res = await deleteEvent(fd);
+        if (res && res.success === false) {
+          setMessage({ type: "error", text: res.error || "Failed to delete event." });
+          return;
+        }
         setEvents((prev) => prev.filter((ev) => ev.id !== id));
         setMessage({ type: "success", text: `Event "${eventTitle}" deleted successfully.` });
       } catch (err: any) {

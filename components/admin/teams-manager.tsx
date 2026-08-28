@@ -96,6 +96,10 @@ export function TeamsManager({ initialTeams, isAllowed = true }: TeamsManagerPro
         if (imageFile) fd.append("image_file", imageFile);
 
         const res = await upsertTeam(fd);
+        if (res && res.success === false) {
+          setMessage({ type: "error", text: res.error || "Failed to save team." });
+          return;
+        }
 
         setMessage({
           type: "success",
@@ -139,7 +143,11 @@ export function TeamsManager({ initialTeams, isAllowed = true }: TeamsManagerPro
       try {
         const fd = new FormData();
         fd.append("id", id);
-        await deleteTeam(fd);
+        const res = await deleteTeam(fd);
+        if (res && res.success === false) {
+          setMessage({ type: "error", text: res.error || "Failed to delete team." });
+          return;
+        }
         setTeams((prev) => prev.filter((t) => t.id !== id));
         setMessage({ type: "success", text: `Team "${teamName}" deleted successfully.` });
       } catch (err: any) {

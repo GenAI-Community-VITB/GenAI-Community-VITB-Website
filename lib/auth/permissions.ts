@@ -381,8 +381,8 @@ export async function getAuthenticatedStaff(): Promise<{
       const rootAdminProfile: UserProfile = {
         id: "00000000-0000-0000-0000-000000000001",
         email: process.env.HARDCODED_ADMIN_EMAIL || "admin.club.core@genai.local",
-        full_name: "Executive Root Admin",
-        role: "president",
+        full_name: "ROOT ADMIN",
+        role: "superadmin" as UserRole,
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -390,8 +390,8 @@ export async function getAuthenticatedStaff(): Promise<{
           {
             id: "root-role-1",
             user_id: "00000000-0000-0000-0000-000000000001",
-            team: "Executive Council",
-            position: "President",
+            team: "System Council",
+            position: "ROOT ADMIN",
             created_at: new Date().toISOString(),
           },
         ],
@@ -403,7 +403,7 @@ export async function getAuthenticatedStaff(): Promise<{
           email: rootAdminProfile.email,
         },
         profile: rootAdminProfile,
-        role: "president",
+        role: "superadmin" as UserRole,
         isTop6: true,
       };
     }
