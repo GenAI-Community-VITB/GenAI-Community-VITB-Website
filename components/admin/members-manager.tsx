@@ -67,7 +67,6 @@ export function MembersManager({
   }, [membersList, selectedTeamFilter, searchQuery]);
 
   if (!isAllowed) return null;
-
   function resetForm() {
     setEditingItem(null);
     setTeamId(teams[0]?.id || "");
