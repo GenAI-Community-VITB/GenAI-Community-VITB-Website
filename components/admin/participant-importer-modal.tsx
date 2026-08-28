@@ -14,6 +14,7 @@ import {
   Users,
   Download,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface ParticipantImporterModalProps {
   event: Event;
@@ -24,11 +25,16 @@ interface ParticipantImporterModalProps {
 interface ParsedRow {
   registrationId?: string;
   fullName: string;
-  email: string;
-  collegeEmail?: string;
-  phoneNumber?: string;
+  vitRegistrationNumber?: string;
   branch?: string;
+  collegeEmail?: string;
+  personalEmail?: string;
+  email?: string;
+  phoneNumber?: string;
+  transactionId?: string;
   college?: string;
+  amount?: number;
+  paymentStatus?: string;
 }
 
 export function ParticipantImporterModal({
@@ -36,6 +42,7 @@ export function ParticipantImporterModal({
   onClose,
   onSuccess,
 }: ParticipantImporterModalProps) {
+  useScrollLock(true);
   const [csvText, setCsvText] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [sendEmails, setSendEmails] = useState(false);
@@ -60,23 +67,109 @@ export function ParticipantImporterModal({
         rowObj[h] = values[idx] || "";
       });
 
-      const fullName = rowObj.name || rowObj.full_name || rowObj.participant_name || rowObj.student_name || values[1] || "";
-      const email = rowObj.email || rowObj.personal_email || rowObj.college_email || values[2] || "";
-      const regId = rowObj.registration_id || rowObj.reg_id || rowObj.id || rowObj.registration_number || undefined;
-      const vitReg = rowObj.vit_registration_number || rowObj.vit_reg || rowObj.reg_no || "";
-      const phone = rowObj.phone || rowObj.phone_number || rowObj.mobile || "";
-      const branch = rowObj.branch || rowObj.branch_name || rowObj.department || "General";
-      const college = rowObj.college || "VIT Bhopal University";
+      // 1. Full Name
+      const fullName =
+        rowObj.full_name ||
+        rowObj.name ||
+        rowObj.student_name ||
+        rowObj.participant_name ||
+        rowObj.candidate_name ||
+        rowObj.applicant_name ||
+        values[1] ||
+        "";
 
-      if (fullName && (email || vitReg)) {
+      // 2. VIT Registration Number
+      const vitReg =
+        rowObj.vit_registration_number ||
+        rowObj.vit_reg_no ||
+        rowObj.vit_reg ||
+        rowObj.reg_no ||
+        rowObj.registration_no ||
+        rowObj.roll_no ||
+        rowObj.enrollment_no ||
+        "";
+
+      // 3. Branch
+      const branch =
+        rowObj.branch_name ||
+        rowObj.branch ||
+        rowObj.specialization ||
+        rowObj.department ||
+        rowObj.dept ||
+        rowObj.degree ||
+        "BTECH CSE (Core)";
+
+      // 4. College Email & Personal Email
+      const collegeEmail =
+        rowObj.college_email ||
+        rowObj.vit_email ||
+        rowObj.official_email ||
+        rowObj.campus_email ||
+        "";
+
+      const personalEmail =
+        rowObj.personal_email ||
+        rowObj.gmail ||
+        rowObj.personal_mail ||
+        rowObj.email ||
+        rowObj.mail_id ||
+        rowObj.email_id ||
+        values[2] ||
+        "";
+
+      // 5. Phone Number
+      const phone =
+        rowObj.phone_number ||
+        rowObj.phone ||
+        rowObj.mobile ||
+        rowObj.contact ||
+        rowObj.contact_number ||
+        rowObj.mobile_number ||
+        rowObj.whatsapp ||
+        "";
+
+      // 6. Transaction ID / UTR
+      const transactionId =
+        rowObj.transaction_id ||
+        rowObj.utr ||
+        rowObj.txn_id ||
+        rowObj.payment_id ||
+        rowObj.ref_no ||
+        rowObj.reference_no ||
+        rowObj.payment_ref ||
+        rowObj.utr_number ||
+        "";
+
+      // 7. Registration ID
+      const regId =
+        rowObj.registration_id ||
+        rowObj.reg_id ||
+        rowObj.pass_id ||
+        rowObj.ticket_id ||
+        rowObj.registration_number ||
+        undefined;
+
+      // 8. College & Payment Details
+      const college = rowObj.college || rowObj.college_name || rowObj.university || "VIT Bhopal University";
+      const paymentStatus = rowObj.payment_status || rowObj.status || rowObj.approval_status || "verified";
+      const amount = rowObj.amount || rowObj.fee || rowObj.registration_fee ? Number(rowObj.amount || rowObj.fee || rowObj.registration_fee) : undefined;
+
+      const primaryEmail = personalEmail || collegeEmail || (vitReg ? `${vitReg.toLowerCase()}@vitbhopal.ac.in` : "");
+
+      if (fullName && (primaryEmail || vitReg)) {
         rows.push({
           registrationId: regId,
           fullName,
-          email: email || `${vitReg.toLowerCase()}@vitbhopal.ac.in`,
-          collegeEmail: email.includes("@vitbhopal.ac.in") ? email : undefined,
-          phoneNumber: phone,
+          vitRegistrationNumber: vitReg ? vitReg.toUpperCase() : undefined,
           branch,
+          collegeEmail: collegeEmail || (primaryEmail.includes("@vitbhopal.ac.in") ? primaryEmail : undefined),
+          personalEmail: personalEmail || (!primaryEmail.includes("@vitbhopal.ac.in") ? primaryEmail : undefined),
+          email: primaryEmail,
+          phoneNumber: phone,
+          transactionId: transactionId || undefined,
           college,
+          amount,
+          paymentStatus,
         });
       }
     }
@@ -106,12 +199,12 @@ export function ParticipantImporterModal({
   }
 
   function handleDownloadSample() {
-    const sample = `Registration ID,Name,Email,Phone Number,Branch,College\nGAC26-00101,Rahul Sharma,rahul.sharma@example.com,9876543210,CSE,VIT Bhopal University\nGAC26-00102,Aditi Singh,aditi.singh@example.com,9876543211,ECE,VIT Bhopal University\nGAC26-00103,Aryan Verma,aryan.verma@example.com,9876543212,AIML,VIT Bhopal University`;
+    const sample = `Registration ID,Full Name,VIT Reg No,Branch,College Email,Personal Email,Phone Number,Transaction ID (UTR),College,Payment Status\nGAC26-00101,Rahul Sharma,24BCE10511,BTECH CSE (AI & ML),rahul.24bce10511@vitbhopal.ac.in,rahul.sharma@gmail.com,9876543210,UPI492817291029,VIT Bhopal University,verified\nGAC26-00102,Aditi Singh,25BAI10079,BTECH CSE (AI & ML),aditi.25bai10079@vitbhopal.ac.in,aditi.singh@gmail.com,9876543211,TXN891726354123,VIT Bhopal University,verified\nGAC26-00103,Aryan Verma,24BSA10110,BTECH CSE (Cyber Security),aryan.24bsa10110@vitbhopal.ac.in,aryan.verma@gmail.com,9876543212,REF109283746519,VIT Bhopal University,verified`;
     const blob = new Blob([sample], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Sample_Participant_Import_${event.slug || "event"}.csv`;
+    a.download = `Registration_Form_CSV_Template_${event.slug || "event"}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -132,7 +225,7 @@ export function ParticipantImporterModal({
         if (res.success) {
           setFeedback({
             type: "success",
-            message: `Successfully imported ${res.importedCount} participants! Generated unique QR tokens and attendance records.`,
+            message: `Successfully imported ${res.importedCount} participants! Generated unique QR tokens and verified registrations with payment UTRs.`,
             details: res,
           });
           if (onSuccess) onSuccess();
@@ -147,7 +240,7 @@ export function ParticipantImporterModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-[#332714] bg-[#120f0a] p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-3xl rounded-2xl border border-[#332714] bg-[#120f0a] p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#221c12] pb-3">
           <div className="flex items-center gap-2.5">
@@ -156,7 +249,9 @@ export function ParticipantImporterModal({
             </div>
             <div>
               <h3 className="font-bold text-white text-sm">Bulk Participant Excel/CSV Import</h3>
-              <p className="text-[11px] text-zinc-400 font-mono">{event.title}</p>
+              <p className="text-[11px] text-zinc-400 font-mono">
+                {event.title} • Accepts all Registration Form fields
+              </p>
             </div>
           </div>
           <button
@@ -212,20 +307,20 @@ export function ParticipantImporterModal({
             className="text-[11px] font-semibold text-[#f5b642] hover:underline flex items-center gap-1 cursor-pointer"
           >
             <Download className="h-3 w-3" />
-            <span>Download CSV Template</span>
+            <span>Download Form-Aligned Template (CSV)</span>
           </button>
         </div>
 
         {/* Manual Paste / Text Area */}
         <div className="space-y-1.5">
           <label className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider block">
-            Or Paste CSV Content Directly (Header + Rows):
+            Or Paste CSV Content Directly (Supports: Name, VIT Reg No, Branch, College Email, Personal Email, Phone, UTR):
           </label>
           <textarea
-            rows={4}
+            rows={3}
             value={csvText}
             onChange={(e) => handleManualChange(e.target.value)}
-            placeholder="Registration ID,Name,Email,Phone Number,Branch,College&#10;GAC26-001,Rahul Sharma,rahul@example.com,9876543210,CSE,VIT Bhopal University"
+            placeholder="Registration ID,Full Name,VIT Reg No,Branch,College Email,Personal Email,Phone Number,Transaction ID (UTR)&#10;GAC26-001,Rahul Sharma,24BCE10511,BTECH CSE (AI & ML),rahul.24bce10511@vitbhopal.ac.in,rahul@gmail.com,9876543210,UPI492817291029"
             className="w-full rounded-xl border border-[#332714] bg-[#18140e] p-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none resize-none"
           />
         </div>
@@ -235,26 +330,36 @@ export function ParticipantImporterModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-zinc-300 font-bold">
               <span>Parsed Candidates ({parsedRows.length})</span>
-              <span className="text-[11px] text-[#f5b642] font-mono">Auto-generating QR Tokens</span>
+              <span className="text-[11px] text-[#f5b642] font-mono">Auto-generating QR Tokens & Verified Records</span>
             </div>
 
             <div className="max-h-48 overflow-y-auto rounded-xl border border-[#261f13] bg-[#14110b]">
               <table className="w-full text-left text-xs text-zinc-300">
-                <thead className="border-b border-[#221c12] bg-[#1c160e] text-[10px] uppercase font-bold text-zinc-400">
+                <thead className="border-b border-[#221c12] bg-[#1c160e] text-[10px] uppercase font-bold text-zinc-400 sticky top-0">
                   <tr>
                     <th className="p-2.5">Pass ID</th>
-                    <th className="p-2.5">Candidate Name</th>
-                    <th className="p-2.5">Email</th>
+                    <th className="p-2.5">Full Name</th>
+                    <th className="p-2.5">VIT Reg No</th>
                     <th className="p-2.5">Branch</th>
+                    <th className="p-2.5">College Email</th>
+                    <th className="p-2.5">Personal Email</th>
+                    <th className="p-2.5">Phone</th>
+                    <th className="p-2.5">Transaction ID</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#221c12]">
                   {parsedRows.slice(0, 50).map((row, idx) => (
                     <tr key={idx} className="hover:bg-[#1f1910]">
-                      <td className="p-2 font-mono text-[#f5b642]">{row.registrationId || `GAC26-${String(idx + 1).padStart(5, "0")}`}</td>
-                      <td className="p-2 font-semibold text-white">{row.fullName}</td>
-                      <td className="p-2 font-mono text-[11px] text-zinc-400">{row.email}</td>
-                      <td className="p-2 text-zinc-400">{row.branch || "General"}</td>
+                      <td className="p-2 font-mono text-[#f5b642] whitespace-nowrap">
+                        {row.registrationId || `GAC26-${String(idx + 1).padStart(5, "0")}`}
+                      </td>
+                      <td className="p-2 font-semibold text-white whitespace-nowrap">{row.fullName}</td>
+                      <td className="p-2 font-mono text-zinc-300 whitespace-nowrap">{row.vitRegistrationNumber || "Auto"}</td>
+                      <td className="p-2 text-zinc-400 whitespace-nowrap">{row.branch || "BTECH CSE (Core)"}</td>
+                      <td className="p-2 font-mono text-[11px] text-zinc-400 whitespace-nowrap">{row.collegeEmail || "—"}</td>
+                      <td className="p-2 font-mono text-[11px] text-zinc-400 whitespace-nowrap">{row.personalEmail || row.email || "—"}</td>
+                      <td className="p-2 font-mono text-[11px] text-zinc-400 whitespace-nowrap">{row.phoneNumber || "—"}</td>
+                      <td className="p-2 font-mono text-[11px] text-emerald-400 whitespace-nowrap">{row.transactionId || "Auto"}</td>
                     </tr>
                   ))}
                 </tbody>

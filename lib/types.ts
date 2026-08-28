@@ -140,9 +140,14 @@ export interface UserProfile {
   password?: string | null;
   role: UserRole;
   is_active: boolean;
-  is_voided?: boolean;
+  is_login_disabled?: boolean;
+  login_disabled_at?: string | null;
+  login_disabled_reason?: string | null;
+  is_voided?: boolean; // legacy compatibility alias
   voided_at?: string | null;
   voided_reason?: string | null;
+  github_url?: string | null;
+  official_email?: string | null;
   roles?: MemberRoleAssignment[];
   created_at: string;
   updated_at: string;
@@ -221,6 +226,9 @@ export interface Event {
   allowed_degrees?: string[] | null;
   allowed_branches?: string[] | null;
   eligibility_notes?: string | null;
+  is_spotlight?: boolean;
+  spotlight_message?: string | null;
+  spotlight_priority?: number;
   registered_count?: number;
   created_at: string;
   updated_at: string;

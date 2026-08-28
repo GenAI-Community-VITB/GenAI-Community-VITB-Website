@@ -152,7 +152,10 @@ alter table public.events
   add column if not exists event_end_time timestamptz,
   add column if not exists is_registration_open boolean not null default true,
   add column if not exists upi_id text default 'genai.community@okaxis',
-  add column if not exists upi_qr_image_url text;
+  add column if not exists upi_qr_image_url text,
+  add column if not exists is_spotlight boolean not null default true,
+  add column if not exists spotlight_message text,
+  add column if not exists spotlight_priority integer not null default 1;
 
 do $$
 begin
@@ -761,6 +764,10 @@ alter table public.user_profiles drop constraint if exists user_profiles_role_ch
 alter table public.user_profiles
   add column if not exists assigned_to_name text,
   add column if not exists initial_password text,
+  add column if not exists is_login_disabled boolean not null default false,
+  add column if not exists login_disabled_at timestamptz,
+  add column if not exists login_disabled_reason text,
+  add column if not exists github_url text,
   add column if not exists is_voided boolean not null default false,
   add column if not exists voided_at timestamptz,
   add column if not exists voided_reason text;

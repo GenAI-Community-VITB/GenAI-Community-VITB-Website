@@ -16,6 +16,7 @@ import {
   FileText,
   Search,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface ProjectsManagerProps {
   initialProjects: Project[];
@@ -28,6 +29,7 @@ export function ProjectsManager({
 }: ProjectsManagerProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [showModal, setShowModal] = useState(false);
+  useScrollLock(showModal);
   const [editingItem, setEditingItem] = useState<Project | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -104,6 +106,10 @@ export function ProjectsManager({
         if (imageFile) fd.append("image_file", imageFile);
 
         const res = await upsertProject(fd);
+        if (res && res.success === false) {
+          setMessage({ type: "error", text: res.error || "Failed to save project." });
+          return;
+        }
 
         setMessage({
           type: "success",
@@ -149,7 +155,11 @@ export function ProjectsManager({
       try {
         const fd = new FormData();
         fd.append("id", id);
-        await deleteProject(fd);
+        const res = await deleteProject(fd);
+        if (res && res.success === false) {
+          setMessage({ type: "error", text: res.error || "Failed to delete project." });
+          return;
+        }
         setProjects((prev) => prev.filter((p) => p.id !== id));
         setMessage({ type: "success", text: `Project "${projectTitle}" deleted successfully.` });
       } catch (err: any) {

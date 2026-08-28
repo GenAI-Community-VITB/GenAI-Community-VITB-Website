@@ -281,6 +281,8 @@ export async function upsertStaffUserAction(formData: FormData) {
       }
     }
 
+    const githubUrl = formData.get("github_url") ? String(formData.get("github_url")).trim() : undefined;
+
     const updatePayload: Record<string, unknown> = {
       full_name: fullName,
       assigned_to_name: assignedToName,
@@ -288,6 +290,9 @@ export async function upsertStaffUserAction(formData: FormData) {
       is_active: isActive,
       updated_at: new Date().toISOString(),
     };
+    if (githubUrl !== undefined) {
+      updatePayload.github_url = githubUrl || null;
+    }
     if (password && password.length >= 8) {
       updatePayload.password = password;
     }
@@ -448,9 +453,9 @@ export async function upsertStaffUserAction(formData: FormData) {
 }
 
 /**
- * Top-6 only: Completely VOIDS an account, revokes login credentials, and invalidates access.
+ * Admin Action: Disables login access for a staff member without deleting their records, password, or roles.
  */
-export async function voidStaffUserAction(userId: string, reason: string) {
+export async function disableStaffLoginAction(userId: string, reason: string) {
   const { user, profile, role } = await requireStaffRole("tech");
   const supabase = createAdminSupabase();
 
@@ -465,47 +470,40 @@ export async function voidStaffUserAction(userId: string, reason: string) {
     throw new Error("Target user not found");
   }
 
-  // Guard against voiding yourself
+  // Guard against disabling yourself
   if (userId === user.id) {
-    throw new Error("You cannot void your own account.");
+    throw new Error("You cannot disable login access for your own account.");
   }
 
-  // Guard against voiding Top Executive accounts
+  // Guard against disabling Top Executive accounts
   if (isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
-    throw new Error("Action blocked: Top Executive accounts are protected and cannot be voided.");
+    throw new Error("Action blocked: Top Executive accounts are protected and cannot be disabled.");
   }
 
-  const { error: voidErr } = await supabase
+  const { error: disableErr } = await supabase
     .from("user_profiles")
     .update({
       is_active: false,
-      is_voided: true,
+      is_login_disabled: true,
+      login_disabled_at: new Date().toISOString(),
+      login_disabled_reason: reason.trim() || "Login access disabled by executive administration",
+      is_voided: true, // legacy compatibility
       voided_at: new Date().toISOString(),
-      voided_reason: reason.trim() || "Account voided by executive administration",
+      voided_reason: reason.trim() || "Login access disabled",
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);
 
-  if (voidErr) throw new Error(voidErr.message);
-
-  // Invalidate and delete from Supabase Auth so login is completely blocked
-  try {
-    await supabase.auth.admin.deleteUser(userId);
-  } catch (err: any) {
-    console.warn("Could not delete auth user during voiding:", err.message);
-  }
-
-  // Remove role assignments
-  await supabase.from("member_roles").delete().eq("user_id", userId);
+  if (disableErr) throw new Error(disableErr.message);
 
   await logAuditEvent({
     actorUserId: user.id,
     actorEmail: profile.email || user.email,
     actorRole: role,
-    action: "user_voided",
+    action: "user_login_disabled",
     targetType: "user",
     targetId: userId,
-    reason: reason.trim() || "Account voided and access permanently revoked",
+    reason: reason.trim() || "Account login access disabled",
     metadata: {
       target_email: targetProfile.email,
       target_name: targetProfile.full_name,
@@ -518,10 +516,13 @@ export async function voidStaffUserAction(userId: string, reason: string) {
   return { success: true };
 }
 
+/** Legacy alias */
+export const voidStaffUserAction = disableStaffLoginAction;
+
 /**
- * Top-6 only: Unvoids a previously voided member profile, restores active status, and assigns a new random password.
+ * Admin Action: Enables login access for a staff member profile, restores active status, and assigns/synchronizes credentials.
  */
-export async function unvoidStaffUserAction(userId: string, customPassword?: string) {
+export async function enableStaffLoginAction(userId: string, customPassword?: string) {
   const { user, profile, role } = await requireStaffRole("tech");
   const supabase = createAdminSupabase();
 
@@ -536,9 +537,12 @@ export async function unvoidStaffUserAction(userId: string, customPassword?: str
   }
 
   // Generate random strong password if none provided
-  const newPassword = customPassword && customPassword.trim().length >= 8
-    ? customPassword.trim()
-    : `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+  const newPassword =
+    customPassword && customPassword.trim().length >= 8
+      ? customPassword.trim()
+      : targetProfile.password && targetProfile.password.length >= 8
+      ? targetProfile.password
+      : `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
 
   // Re-create or update Supabase Auth User
   try {
@@ -556,17 +560,21 @@ export async function unvoidStaffUserAction(userId: string, customPassword?: str
       });
     }
   } catch (err: any) {
-    console.warn("Auth unvoid notice:", err.message);
+    console.warn("Auth user synchronization notice:", err.message);
   }
 
-  // Unvoid user profile
+  // Enable user profile
   const { error: updateErr } = await supabase
     .from("user_profiles")
     .update({
       is_active: true,
-      is_voided: false,
+      is_login_disabled: false,
+      login_disabled_at: null,
+      login_disabled_reason: null,
+      is_voided: false, // legacy compatibility
       voided_at: null,
       voided_reason: null,
+      password: newPassword,
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);
@@ -588,10 +596,10 @@ export async function unvoidStaffUserAction(userId: string, customPassword?: str
     actorUserId: user.id,
     actorEmail: profile.email || user.email,
     actorRole: role,
-    action: "user_unvoided",
+    action: "user_login_enabled",
     targetType: "user",
     targetId: userId,
-    reason: "Account unvoided and login credentials re-issued by executive",
+    reason: "Account login enabled and credentials synchronized by administrator",
     metadata: {
       target_email: targetProfile.email,
       target_name: targetProfile.full_name,
@@ -605,6 +613,66 @@ export async function unvoidStaffUserAction(userId: string, customPassword?: str
   revalidatePath("/");
 
   return { success: true, newPassword, email: targetProfile.email };
+}
+
+/** Legacy alias */
+export const unvoidStaffUserAction = enableStaffLoginAction;
+
+/**
+ * Admin-only: Updates GitHub Profile URL for a member.
+ */
+export async function updateMemberGitHubUrlAction(userId: string, githubUrl: string) {
+  const { user, profile, role } = await requireStaffRole("tech");
+  const cleanUrl = (githubUrl || "").trim();
+
+  const supabase = createAdminSupabase();
+
+  // 1. Update user_profiles
+  const { data: updatedProfile, error: profileErr } = await supabase
+    .from("user_profiles")
+    .update({
+      github_url: cleanUrl || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId)
+    .select("id, email, full_name, assigned_to_name")
+    .maybeSingle();
+
+  if (profileErr) throw new Error(profileErr.message);
+
+  // 2. Sync to members table
+  try {
+    const matchName = updatedProfile?.assigned_to_name || updatedProfile?.full_name;
+    if (matchName || updatedProfile?.email) {
+      await supabase
+        .from("members")
+        .update({
+          github_url: cleanUrl || null,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`official_email.ilike.${updatedProfile?.email},name.ilike.${matchName}`);
+    }
+  } catch (syncErr) {
+    console.warn("Public member github sync notice:", syncErr);
+  }
+
+  await logAuditEvent({
+    actorUserId: user.id,
+    actorEmail: profile.email || user.email,
+    actorRole: role,
+    action: "github_url_updated",
+    targetType: "user",
+    targetId: userId,
+    metadata: {
+      github_url: cleanUrl,
+      target_email: updatedProfile?.email,
+    },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/team");
+  revalidatePath("/");
+  return { success: true };
 }
 
 /**
@@ -1031,7 +1099,7 @@ export async function getEventVolunteersAction(eventId: string) {
 }
 
 /**
- * Top-6 only: Assigns a club member as a scanner volunteer for an event.
+ * Top-6 & Event Lead: Assigns a club member as a scanner volunteer for an event, automatically enabling their login and sending credentials.
  */
 export async function assignEventVolunteerAction(formData: FormData) {
   const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
@@ -1063,6 +1131,100 @@ export async function assignEventVolunteerAction(formData: FormData) {
     throw new Error(error.message || "Failed to assign volunteer to event.");
   }
 
+  // Load target user profile and automatically enable account with random password
+  const { data: targetProfile } = await supabase
+    .from("user_profiles")
+    .select("id, email, full_name, assigned_to_name, role, password")
+    .eq("id", targetUserId)
+    .maybeSingle();
+
+  if (targetProfile) {
+    const volunteerPassword = `GenAI#VOL!${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // Enable account & set new password
+    await supabase
+      .from("user_profiles")
+      .update({
+        is_active: true,
+        is_login_disabled: false,
+        login_disabled_at: null,
+        login_disabled_reason: null,
+        password: volunteerPassword,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", targetUserId);
+
+    // Sync to Supabase Auth
+    try {
+      const { error: authErr } = await supabase.auth.admin.updateUserById(targetUserId, {
+        password: volunteerPassword,
+        email_confirm: true,
+      });
+      if (authErr && authErr.message.includes("not found")) {
+        await supabase.auth.admin.createUser({
+          email: targetProfile.email,
+          password: volunteerPassword,
+          email_confirm: true,
+          user_metadata: { full_name: targetProfile.full_name, role: "volunteer" },
+        });
+      }
+    } catch (e: any) {
+      console.warn("Volunteer auth update notice:", e?.message);
+    }
+
+    // Fetch event title for email context
+    const { data: eventData } = await supabase
+      .from("events")
+      .select("title, venue, event_date")
+      .eq("id", eventId)
+      .maybeSingle();
+
+    // Send credentials to official VIT email
+    if (targetProfile.email) {
+      const { sendEmail } = await import("@/lib/email/mailer");
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://genai-vitbhopal.vercel.app";
+      await sendEmail({
+        to: targetProfile.email,
+        emailType: "custom_email",
+        eventId: eventId,
+        subject: `Gate Volunteer Assignment & Access Credentials — ${eventData?.title || "GenAI Club Event"}`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0c0a08; color: #ffffff; padding: 32px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #2e2618;">
+            <div style="border-bottom: 1px solid #2e2618; padding-bottom: 16px; margin-bottom: 20px;">
+              <span style="font-size: 11px; font-weight: 800; color: #f5b642; text-transform: uppercase; letter-spacing: 0.1em; background: rgba(245, 182, 66, 0.1); padding: 4px 10px; border-radius: 9999px; border: 1px solid rgba(245, 182, 66, 0.2);">Official Assignment</span>
+              <h2 style="color: #ffffff; margin: 12px 0 4px 0; font-size: 22px; font-weight: 800;">Gate Scanner Volunteer Credentials</h2>
+              <p style="color: #a1a1aa; font-size: 13px; margin: 0;">Event: <strong style="color: #f5b642;">${eventData?.title || "Upcoming Community Event"}</strong></p>
+            </div>
+            
+            <p style="font-size: 14px; line-height: 1.6; color: #d4d4d8;">
+              Hello <strong>${targetProfile.assigned_to_name || targetProfile.full_name}</strong>,<br/>
+              You have been appointed as an official gate scanner volunteer. Your volunteer login account has been automatically activated.
+            </p>
+
+            <div style="background-color: #14110b; border: 1px solid #2e2618; padding: 20px; border-radius: 12px; margin: 24px 0;">
+              <div style="margin-bottom: 12px;">
+                <span style="font-size: 11px; color: #71717a; text-transform: uppercase; font-weight: 700;">Volunteer Portal URL</span><br/>
+                <a href="${appUrl}/admin/login" style="color: #f5b642; font-size: 14px; font-weight: 600; text-decoration: none;">${appUrl}/admin/login</a>
+              </div>
+              <div style="margin-bottom: 12px;">
+                <span style="font-size: 11px; color: #71717a; text-transform: uppercase; font-weight: 700;">Official Login Email</span><br/>
+                <strong style="color: #ffffff; font-size: 15px;">${targetProfile.email}</strong>
+              </div>
+              <div>
+                <span style="font-size: 11px; color: #71717a; text-transform: uppercase; font-weight: 700;">Temporary Access Key</span><br/>
+                <strong style="color: #4ade80; font-family: monospace; font-size: 18px; letter-spacing: 0.05em;">${volunteerPassword}</strong>
+              </div>
+            </div>
+
+            <p style="font-size: 12px; color: #71717a; line-height: 1.5;">
+              🔒 <strong>Permissions Notice:</strong> Your volunteer account is restricted exclusively to the QR Scanner, attendance check-ins, and scan history for your assigned event. Login access will automatically expire upon event completion.
+            </p>
+          </div>
+        `,
+      }).catch((err: any) => console.warn("Failed to dispatch volunteer email:", err));
+    }
+  }
+
   // Audit log
   try {
     await logAuditEvent({
@@ -1072,7 +1234,7 @@ export async function assignEventVolunteerAction(formData: FormData) {
       action: "event_volunteer_assigned",
       targetType: "event",
       targetId: eventId,
-      newState: { eventId, assignedUserId: targetUserId },
+      newState: { eventId, assignedUserId: targetUserId, email: targetProfile?.email },
     });
   } catch {}
 
@@ -1082,7 +1244,7 @@ export async function assignEventVolunteerAction(formData: FormData) {
 }
 
 /**
- * Top-6 only: Revokes a member's scanner volunteer role for an event.
+ * Top-6 & Event Lead: Revokes a member's scanner volunteer role for an event and disables login if no other active duties.
  */
 export async function removeEventVolunteerAction(formData: FormData) {
   const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
@@ -1110,6 +1272,33 @@ export async function removeEventVolunteerAction(formData: FormData) {
     throw new Error(error.message || "Failed to remove volunteer from event.");
   }
 
+  // Check if volunteer has other active volunteer assignments
+  const { data: remainingAssignments } = await supabase
+    .from("event_volunteers")
+    .select("id")
+    .eq("user_id", targetUserId);
+
+  if (!remainingAssignments || remainingAssignments.length === 0) {
+    const { data: targetProfile } = await supabase
+      .from("user_profiles")
+      .select("*, roles:member_roles(*)")
+      .eq("id", targetUserId)
+      .maybeSingle();
+
+    if (targetProfile && !isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
+      await supabase
+        .from("user_profiles")
+        .update({
+          is_active: false,
+          is_login_disabled: true,
+          login_disabled_at: new Date().toISOString(),
+          login_disabled_reason: "Volunteer assignment revoked or completed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", targetUserId);
+    }
+  }
+
   // Audit log
   try {
     await logAuditEvent({
@@ -1129,6 +1318,40 @@ export async function removeEventVolunteerAction(formData: FormData) {
 }
 
 /**
+ * Tech/Superadmin Action: Manually overrides attendance status for a participant with full audit trail.
+ */
+export async function overrideAttendanceStatusAction(formData: FormData) {
+  const { user, profile, role } = await requireStaffRole("tech");
+
+  const registrationId = String(formData.get("registration_id") || "").trim();
+  const newStatus = String(formData.get("new_status") || "checked_in").trim();
+  const reason = String(formData.get("reason") || "").trim();
+
+  if (!registrationId || !reason || reason.length < 3) {
+    throw new Error("Registration ID and a valid reason are required for attendance override.");
+  }
+
+  const { overrideAttendanceStatus } = await import("@/lib/data/registrations");
+  const result = await overrideAttendanceStatus({
+    registrationId,
+    newStatus,
+    reason,
+    actorId: user.id,
+    actorName: profile.full_name || profile.assigned_to_name || user.email,
+    actorRole: role,
+  });
+
+  if (!result.success) {
+    throw new Error(result.error || "Failed to override attendance status.");
+  }
+
+  revalidatePath("/admin/scanner");
+  revalidatePath("/admin/events");
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+/**
  * Bulk imports registered candidates from Excel/CSV and dispatches cryptographic QR passes.
  */
 export async function importParticipantsBulkAction(params: {
@@ -1136,11 +1359,19 @@ export async function importParticipantsBulkAction(params: {
   participants: Array<{
     registrationId?: string;
     fullName: string;
-    email: string;
-    collegeEmail?: string;
-    phoneNumber?: string;
+    vitRegistrationNumber?: string;
     branch?: string;
+    branchName?: string;
+    collegeEmail?: string;
+    personalEmail?: string;
+    email?: string;
+    phoneNumber?: string;
+    phone?: string;
+    transactionId?: string;
+    utr?: string;
     college?: string;
+    amount?: number;
+    paymentStatus?: string;
   }>;
   sendEmailDirectly?: boolean;
 }) {

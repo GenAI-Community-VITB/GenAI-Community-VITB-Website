@@ -23,6 +23,7 @@ import {
   SwitchCamera,
 } from "lucide-react";
 import { formatISTDate } from "@/lib/utils/format";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface QrScannerProps {
   currentUserRole: UserRole;
@@ -69,6 +70,9 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [lastScannedToken, setLastScannedToken] = useState<string | null>(null);
+
+  // Global scroll lock when tech override modal is open
+  useScrollLock(showOverrideModal);
 
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>("");

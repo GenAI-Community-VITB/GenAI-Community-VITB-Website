@@ -33,18 +33,21 @@ import { AdminInactivityChip } from "@/components/admin/inactivity-timer";
 import { ProjectsManager } from "@/components/admin/projects-manager";
 import { AchievementsManager } from "@/components/admin/achievements-manager";
 import { WinnersManager } from "@/components/admin/winners-manager";
+import { SocialMediaManager } from "@/components/admin/social-media-manager";
 import { Exec6Notifications, Exec6PendingBanner } from "@/components/admin/exec6-notifications";
 import type { Achievement } from "@/lib/types";
 import type { EventWinner } from "@/lib/data/winners";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen } from "lucide-react";
 
-type TabId = "teams" | "events" | "projects" | "achievements" | "winners";
+type TabId = "teams" | "events" | "projects" | "blogs" | "achievements" | "winners";
 
 const tabs: { id: TabId; label: string; icon: any }[] = [
   { id: "teams", label: "Teams", icon: Network },
   { id: "events", label: "Events", icon: Calendar },
   { id: "projects", label: "Projects", icon: FolderKanban },
+  { id: "blogs", label: "Blogs & LinkedIn AI", icon: BookOpen },
   { id: "achievements", label: "Achievements", icon: Trophy },
   { id: "winners", label: "Event Winners", icon: Medal },
 ];
@@ -340,7 +343,7 @@ export function AdminDashboardClient(props: {
           </div>
 
           {/* Horizontal Workspace Selector Bar with Golden Glow */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {tabs.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               let count = 0;
@@ -349,6 +352,7 @@ export function AdminDashboardClient(props: {
               else if (id === "projects") count = projects.length;
               else if (id === "achievements") count = achievements.length;
               else if (id === "winners") count = winners.length;
+              else if (id === "blogs") count = 6;
 
               return (
                 <button
@@ -383,7 +387,7 @@ export function AdminDashboardClient(props: {
                         {label}
                       </span>
                       <span className="text-[10px] text-zinc-400 font-mono block">
-                        {count} {count === 1 ? "item" : "items"}
+                        {id === "blogs" ? "AI Ingest" : `${count} ${count === 1 ? "item" : "items"}`}
                       </span>
                     </div>
                   </div>
@@ -442,7 +446,14 @@ export function AdminDashboardClient(props: {
                 />
               </div>
 
-              {/* ── 4. Achievements Management ── */}
+              {/* ── 4. Blogs & LinkedIn AI Management ── */}
+              <div className={tab === "blogs" ? "block space-y-8" : "hidden"}>
+                <SocialMediaManager
+                  isAllowed={isTop6 || userRole === "tech"}
+                />
+              </div>
+
+              {/* ── 5. Achievements Management ── */}
               <div className={tab === "achievements" ? "block space-y-8" : "hidden"}>
                 <AchievementsManager
                   initialAchievements={achievements}
@@ -450,7 +461,7 @@ export function AdminDashboardClient(props: {
                 />
               </div>
 
-              {/* ── 5. Event Winners & Podium Management ── */}
+              {/* ── 6. Event Winners & Podium Management ── */}
               <div className={tab === "winners" ? "block space-y-8" : "hidden"}>
                 <WinnersManager
                   initialWinners={winners}

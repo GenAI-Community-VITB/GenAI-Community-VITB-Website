@@ -316,7 +316,7 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
     const adminSupabase = createAdminSupabase();
     const { data: profile, error: profileErr } = await adminSupabase
       .from("user_profiles")
-      .select("id, email, password, is_active, is_voided, role, full_name, assigned_to_name")
+      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name")
       .ilike("email", email)
       .maybeSingle();
 
@@ -334,10 +334,10 @@ export async function loginStaff(formData: FormData): Promise<{ ok: true } | { o
       };
     }
 
-    if (profile.is_voided || profile.is_active === false) {
+    if (profile.is_login_disabled || profile.is_voided || profile.is_active === false) {
       return {
         ok: false,
-        error: `Account Deactivated: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has been voided or marked inactive.`,
+        error: `Account Login Disabled: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has login access disabled. Please contact the Technical Lead or President.`,
       };
     }
 
@@ -400,396 +400,434 @@ export async function logoutStaff(): Promise<void> {
 
 export const logoutAdmin = logoutStaff;
 
-export async function upsertMember(formData: FormData) {
-  const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
-  const rawId = formOptionalId(formData);
-  const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
+export async function upsertMember(formData: FormData): Promise<{ success: boolean; member?: any; error?: string }> {
+  try {
+    const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
+    const rawId = formOptionalId(formData);
+    const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
 
-  const parsed = memberSchema.safeParse({
-    id: isEdit ? rawId : undefined,
-    team_id: formString(formData, "team_id"),
-    name: formString(formData, "name"),
-    role: formString(formData, "role"),
-    position: formString(formData, "position"),
-    linkedin_url: formString(formData, "linkedin_url"),
-    image_url: uploaded ?? formString(formData, "image_url"),
-    status: (formString(formData, "status") as "active" | "pending") || "active",
-  });
-  if (!parsed.success) throw new Error(zodIssuesMessage(parsed.error));
-  const supabase = createAdminSupabase();
+    const parsed = memberSchema.safeParse({
+      id: isEdit ? rawId : undefined,
+      team_id: formString(formData, "team_id"),
+      name: formString(formData, "name"),
+      role: formString(formData, "role"),
+      position: formString(formData, "position"),
+      linkedin_url: formString(formData, "linkedin_url"),
+      image_url: uploaded ?? formString(formData, "image_url"),
+      status: (formString(formData, "status") as "active" | "pending") || "active",
+    });
+    if (!parsed.success) return { success: false, error: `Invalid member details: ${zodIssuesMessage(parsed.error)}` };
+    const supabase = createAdminSupabase();
 
-  const payload: Record<string, unknown> = { ...parsed.data };
-  let result: any = null;
+    const payload: Record<string, unknown> = { ...parsed.data };
+    let result: any = null;
 
-  if (isEdit) {
-    const { data, error } = await supabase.from("members").update(payload).eq("id", rawId).select().single();
-    if (error) throw new Error(error.message);
-    result = data;
-  } else {
-    delete payload.id;
-    const { data, error } = await supabase.from("members").insert(payload).select().single();
-    if (error) throw new Error(error.message);
-    result = data;
+    if (isEdit) {
+      const { data, error } = await supabase.from("members").update(payload).eq("id", rawId).select().single();
+      if (error) return { success: false, error: `Database error updating member: ${error.message}` };
+      result = data;
+    } else {
+      delete payload.id;
+      const { data, error } = await supabase.from("members").insert(payload).select().single();
+      if (error) return { success: false, error: `Database error inserting member: ${error.message}` };
+      result = data;
+    }
+
+    // Log to Internal Management Log sheet (fire-and-forget)
+    logInternalChange(
+      isEdit ? "MEMBER_UPDATED" : "MEMBER_CREATED",
+      "member",
+      result?.id || "new",
+      parsed.data.name || "",
+      `${parsed.data.role || "Core Member"} in team ${parsed.data.team_id}`,
+      "",
+      JSON.stringify({ name: parsed.data.name, role: parsed.data.role, position: parsed.data.position }),
+    );
+
+    // Revalidate the specific team page so the change is live immediately
+    if (parsed.data.team_id) {
+      const { data: team } = await supabase
+        .from("teams")
+        .select("slug")
+        .eq("id", parsed.data.team_id)
+        .maybeSingle();
+      if (team?.slug) revalidatePath(`/team/${team.slug}`);
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, member: result };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to save member." };
   }
+}
 
-  // Log to Internal Management Log sheet (fire-and-forget)
-  logInternalChange(
-    isEdit ? "MEMBER_UPDATED" : "MEMBER_CREATED",
-    "member",
-    result?.id || "new",
-    parsed.data.name || "",
-    `${parsed.data.role || "Core Member"} in team ${parsed.data.team_id}`,
-    "",
-    JSON.stringify({ name: parsed.data.name, role: parsed.data.role, position: parsed.data.position }),
-  );
+export async function deleteMember(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const id = String(formData.get("id") || "").trim();
+    if (!id) return { success: false, error: "Member ID is required." };
+    const supabase = createAdminSupabase();
 
-  // Revalidate the specific team page so the change is live immediately
-  if (parsed.data.team_id) {
-    const { data: team } = await supabase
-      .from("teams")
-      .select("slug")
-      .eq("id", parsed.data.team_id)
+    // Look up the team slug before deleting so we can revalidate that page
+    const { data: existing } = await supabase
+      .from("members")
+      .select("team_id, name")
+      .eq("id", id)
       .maybeSingle();
-    if (team?.slug) revalidatePath(`/team/${team.slug}`);
-  }
 
-  revalidatePath("/");
-  revalidatePath("/admin");
-  return { success: true, member: result };
-}
+    const { error } = await supabase.from("members").delete().eq("id", id);
+    if (error) return { success: false, error: `Database error deleting member: ${error.message}` };
 
-
-export async function deleteMember(formData: FormData) {
-  const id = String(formData.get("id") || "").trim();
-  if (!id) throw new Error("Member ID is required.");
-  const supabase = createAdminSupabase();
-
-  // Look up the team slug before deleting so we can revalidate that page
-  const { data: existing } = await supabase
-    .from("members")
-    .select("team_id, name")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { error } = await supabase.from("members").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-
-  if (existing?.team_id) {
-    const { data: team } = await supabase
-      .from("teams")
-      .select("slug")
-      .eq("id", existing.team_id)
-      .maybeSingle();
-    if (team?.slug) revalidatePath(`/team/${team.slug}`);
-  }
-
-  logInternalChange("MEMBER_DELETED", "member", id, existing?.name || id, "Member permanently deleted", existing?.name || "", "");
-
-  revalidatePath("/");
-  revalidatePath("/admin");
-  return { success: true };
-}
-
-export async function upsertProject(formData: FormData) {
-  const { getAuthenticatedStaff } = await import("@/lib/auth/permissions");
-  const { user } = await getAuthenticatedStaff();
-  if (!user) {
-    throw new Error("Unauthorized: Please sign in to manage projects.");
-  }
-
-  const rawId = formOptionalId(formData);
-  const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
-  const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
-  const parsed = projectSchema.safeParse({
-    id: isEdit ? rawId : undefined,
-    title: formString(formData, "title"),
-    short_description: formString(formData, "short_description"),
-    image_url: uploaded ?? formString(formData, "image_url"),
-    github_url: formString(formData, "github_url"),
-    live_url: formString(formData, "live_url"),
-    blog_url: formString(formData, "blog_url"),
-  });
-  if (!parsed.success) throw new Error(`Invalid project: ${zodIssuesMessage(parsed.error)}`);
-  const supabase = createAdminSupabase();
-
-  const payload: Record<string, unknown> = { ...parsed.data };
-  let result: any = null;
-
-  if (isEdit) {
-    const { data, error } = await supabase.from("projects").update(payload).eq("id", rawId).select().single();
-    if (error) throw new Error(error.message);
-    result = data;
-  } else {
-    delete payload.id;
-    const { data, error } = await supabase.from("projects").insert(payload).select().single();
-    if (error) throw new Error(error.message);
-    result = data;
-  }
-
-  // Log to Internal Management Log (fire-and-forget)
-  logInternalChange(
-    isEdit ? "PROJECT_UPDATED" : "PROJECT_CREATED",
-    "project",
-    result?.id || "new",
-    parsed.data.title || "",
-    parsed.data.short_description || "",
-    "",
-    JSON.stringify({ title: parsed.data.title, github_url: parsed.data.github_url }),
-  );
-
-  revalidatePath("/projects");
-  revalidatePath("/admin");
-  return { success: true, project: result };
-}
-
-export async function deleteProject(formData: FormData) {
-  const { getAuthenticatedStaff } = await import("@/lib/auth/permissions");
-  const { user } = await getAuthenticatedStaff();
-  if (!user) {
-    throw new Error("Unauthorized: Please sign in.");
-  }
-
-  const id = String(formData.get("id") || "").trim();
-  if (!id) throw new Error("Project ID is required.");
-
-  const supabase = createAdminSupabase();
-
-  // Fetch title before deleting for the log
-  const { data: proj } = await supabase.from("projects").select("title").eq("id", id).maybeSingle();
-  const { error } = await supabase.from("projects").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-
-  // Log deletion
-  logInternalChange("PROJECT_DELETED", "project", id, proj?.title || id, "Project permanently deleted", proj?.title || "", "");
-
-  revalidatePath("/projects");
-  revalidatePath("/admin");
-  return { success: true };
-}
-
-export async function upsertEvent(formData: FormData) {
-  const rawId = formOptionalId(formData);
-  const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
-  const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
-  const rawGuidelines = formString(formData, "guidelines");
-  const guidelines = rawGuidelines
-    ? rawGuidelines
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean)
-    : undefined;
-
-  const title = formString(formData, "title");
-  const rawSlug = formString(formData, "slug");
-  const autoSlug = (rawSlug || title)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || `event-${Date.now()}`;
-
-  const registrationDeadline = formString(formData, "registration_deadline");
-  const eventStartTime = formString(formData, "event_start_time");
-  const eventEndTime = formString(formData, "event_end_time");
-  const isRegOpenVal = formData.get("is_registration_open");
-  const isRegistrationOpen = isRegOpenVal === "true" || isRegOpenVal === "on" || isRegOpenVal === "1";
-
-  const parsed = eventSchema.safeParse({
-    id: isEdit ? rawId : undefined,
-    title,
-    slug: autoSlug,
-    description: formString(formData, "description"),
-    venue: formString(formData, "venue"),
-    event_date: formString(formData, "event_date"),
-    status: (formString(formData, "status") as "upcoming" | "live" | "past") || "upcoming",
-    registration_fee: formData.has("registration_fee") ? Number(formData.get("registration_fee")) : 200,
-    max_capacity: formData.has("max_capacity") ? Number(formData.get("max_capacity")) : 2000,
-    registration_deadline: registrationDeadline || null,
-    event_start_time: eventStartTime || null,
-    event_end_time: eventEndTime || null,
-    is_registration_open: isRegistrationOpen,
-    image_url: uploaded ?? (formString(formData, "image_url") || null),
-    register_url: formString(formData, "register_url") || null,
-    google_form_url: formString(formData, "google_form_url") || null,
-    upi_id: formString(formData, "upi_id") || "genai.community@okaxis",
-    upi_qr_image_url: formString(formData, "upi_qr_image_url") || null,
-    guidelines: guidelines && guidelines.length > 0 ? guidelines : undefined,
-  });
-  if (!parsed.success) throw new Error(zodIssuesMessage(parsed.error));
-  const supabase = createAdminSupabase();
-  const eventPayload: Record<string, unknown> = { ...parsed.data };
-
-  // Parse allowed degrees & branches for event eligibility
-  const allowedDegreesRaw = formString(formData, "allowed_degrees");
-  if (allowedDegreesRaw) {
-    try {
-      const parsedDegs = JSON.parse(allowedDegreesRaw);
-      eventPayload.allowed_degrees = Array.isArray(parsedDegs) && parsedDegs.length > 0
-        ? parsedDegs
-        : ["B.Tech", "M.Tech"];
-    } catch {
-      const splitDegs = allowedDegreesRaw.split(",").map((d) => d.trim()).filter(Boolean);
-      eventPayload.allowed_degrees = splitDegs.length > 0 ? splitDegs : ["B.Tech", "M.Tech"];
+    if (existing?.team_id) {
+      const { data: team } = await supabase
+        .from("teams")
+        .select("slug")
+        .eq("id", existing.team_id)
+        .maybeSingle();
+      if (team?.slug) revalidatePath(`/team/${team.slug}`);
     }
-  } else {
-    eventPayload.allowed_degrees = ["B.Tech", "M.Tech"];
+
+    logInternalChange("MEMBER_DELETED", "member", id, existing?.name || id, "Member permanently deleted", existing?.name || "", "");
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete member." };
   }
-
-  const allowedBranchesRaw = formString(formData, "allowed_branches");
-  if (allowedBranchesRaw) {
-    try {
-      eventPayload.allowed_branches = JSON.parse(allowedBranchesRaw);
-    } catch {
-      eventPayload.allowed_branches = allowedBranchesRaw.split(",").map((b) => b.trim()).filter(Boolean);
-    }
-  }
-
-  let result: any = null;
-
-  if (isEdit) {
-    let { data, error } = await supabase.from("events").update(eventPayload).eq("id", rawId).select().single();
-    if (error && error.message.includes("guidelines")) {
-      delete eventPayload.guidelines;
-      const retry = await supabase.from("events").update(eventPayload).eq("id", rawId).select().single();
-      error = retry.error;
-      data = retry.data;
-    }
-    if (error) throw new Error(error.message);
-    result = data;
-  } else {
-    delete eventPayload.id;
-    let { data, error } = await supabase.from("events").insert(eventPayload).select().single();
-    if (error && error.message.includes("guidelines")) {
-      delete eventPayload.guidelines;
-      const retry = await supabase.from("events").insert(eventPayload).select().single();
-      error = retry.error;
-      data = retry.data;
-    }
-    if (error) throw new Error(error.message);
-    result = data;
-  }
-
-  // Log event lifecycle to Event Lifecycle Log (fire-and-forget)
-  logEventLifecycle(
-    isEdit ? "EVENT_UPDATED" : "EVENT_CREATED",
-    result?.id || "new",
-    parsed.data.title || "",
-    isEdit ? "title, status, venue, event_date, registration_fee, is_registration_open" : "all fields",
-    "",
-    JSON.stringify({
-      title: parsed.data.title,
-      status: parsed.data.status,
-      venue: parsed.data.venue,
-      event_date: parsed.data.event_date,
-      registration_fee: parsed.data.registration_fee,
-      is_registration_open: parsed.data.is_registration_open,
-    }),
-    isEdit ? "Event details updated via admin panel" : "New event created via admin panel",
-  );
-
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath("/admin");
-  return { success: true, event: result };
 }
 
-export async function deleteEvent(formData: FormData) {
-  const id = String(formData.get("id") || "").trim();
-  if (!id) throw new Error("Event ID is required.");
-  const supabase = createAdminSupabase();
+export async function upsertProject(formData: FormData): Promise<{ success: boolean; project?: any; error?: string }> {
+  try {
+    const { getAuthenticatedStaff } = await import("@/lib/auth/permissions");
+    const { user } = await getAuthenticatedStaff();
+    if (!user) {
+      return { success: false, error: "Unauthorized: Please sign in to manage projects." };
+    }
 
-  // Fetch event details before deleting for the log
-  const { data: evt } = await supabase.from("events").select("title, status, event_date").eq("id", id).maybeSingle();
-  const { error } = await supabase.from("events").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+    const rawId = formOptionalId(formData);
+    const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
+    const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
+    const parsed = projectSchema.safeParse({
+      id: isEdit ? rawId : undefined,
+      title: formString(formData, "title"),
+      short_description: formString(formData, "short_description"),
+      image_url: uploaded ?? formString(formData, "image_url"),
+      github_url: formString(formData, "github_url"),
+      live_url: formString(formData, "live_url"),
+      blog_url: formString(formData, "blog_url"),
+    });
+    if (!parsed.success) return { success: false, error: `Invalid project details: ${zodIssuesMessage(parsed.error)}` };
+    const supabase = createAdminSupabase();
 
-  // Log to Event Lifecycle Log
-  logEventLifecycle(
-    "EVENT_DELETED",
-    id,
-    evt?.title || id,
-    "all",
-    JSON.stringify({ title: evt?.title, status: evt?.status, event_date: evt?.event_date }),
-    "",
-    "Event permanently deleted from admin panel",
-  );
+    const payload: Record<string, unknown> = { ...parsed.data };
+    let result: any = null;
 
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath("/admin");
-  return { success: true };
-}
+    if (isEdit) {
+      const { data, error } = await supabase.from("projects").update(payload).eq("id", rawId).select().single();
+      if (error) return { success: false, error: `Database error updating project: ${error.message}` };
+      result = data;
+    } else {
+      delete payload.id;
+      const { data, error } = await supabase.from("projects").insert(payload).select().single();
+      if (error) return { success: false, error: `Database error inserting project: ${error.message}` };
+      result = data;
+    }
 
-export async function upsertTeam(formData: FormData) {
-  const rawId = formOptionalId(formData);
-  const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
-  const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
-  const name = formString(formData, "name");
-  const rawSlug = formString(formData, "slug");
-  const autoSlug = (rawSlug || name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || `team-${Date.now()}`;
+    // Log to Internal Management Log (fire-and-forget)
+    logInternalChange(
+      isEdit ? "PROJECT_UPDATED" : "PROJECT_CREATED",
+      "project",
+      result?.id || "new",
+      parsed.data.title || "",
+      parsed.data.short_description || "",
+      "",
+      JSON.stringify({ title: parsed.data.title, github_url: parsed.data.github_url }),
+    );
 
-  const parsed = teamSchema.safeParse({
-    id: isEdit ? rawId : undefined,
-    name,
-    slug: autoSlug,
-    description: formString(formData, "description"),
-    image_url: uploaded ?? formString(formData, "image_url"),
-  });
-  if (!parsed.success) throw new Error(zodIssuesMessage(parsed.error));
-  const supabase = createAdminSupabase();
-
-  const payload: Record<string, unknown> = { ...parsed.data };
-  let result: any = null;
-
-  if (isEdit) {
-    const { data, error } = await supabase.from("teams").update(payload).eq("id", rawId).select().single();
-    if (error) throw new Error(error.message);
-    result = data;
-  } else {
-    delete payload.id;
-    const { data, error } = await supabase.from("teams").insert(payload).select().single();
-    if (error) throw new Error(error.message);
-    result = data;
+    revalidatePath("/projects");
+    revalidatePath("/admin");
+    return { success: true, project: result };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to save project." };
   }
-
-  // Log to Internal Management Log (fire-and-forget)
-  logInternalChange(
-    isEdit ? "TEAM_UPDATED" : "TEAM_CREATED",
-    "team",
-    result?.id || "new",
-    parsed.data.name || "",
-    parsed.data.description || "",
-    "",
-    JSON.stringify({ name: parsed.data.name, slug: parsed.data.slug }),
-  );
-
-  // Ping Webhook
-  pingGoogleFormWebhook();
-
-  revalidatePath(`/team/${parsed.data.slug}`);
-  revalidatePath("/");
-  revalidatePath("/admin");
-  return { success: true, team: result };
 }
 
-export async function deleteTeam(formData: FormData) {
-  const id = String(formData.get("id") || "").trim();
-  if (!id) throw new Error("Team ID is required.");
-  const supabase = createAdminSupabase();
-  const { data: team } = await supabase.from("teams").select("slug, name").eq("id", id).maybeSingle();
-  const { error } = await supabase.from("teams").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+export async function deleteProject(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { getAuthenticatedStaff } = await import("@/lib/auth/permissions");
+    const { user } = await getAuthenticatedStaff();
+    if (!user) {
+      return { success: false, error: "Unauthorized: Please sign in." };
+    }
 
-  // Log deletion
-  logInternalChange("TEAM_DELETED", "team", id, team?.name || id, "Team permanently deleted", team?.name || "", "");
+    const id = String(formData.get("id") || "").trim();
+    if (!id) return { success: false, error: "Project ID is required." };
 
-  // Ping Webhook
-  pingGoogleFormWebhook();
+    const supabase = createAdminSupabase();
 
-  revalidatePath("/");
-  revalidatePath("/admin");
-  return { success: true };
+    // Fetch title before deleting for the log
+    const { data: proj } = await supabase.from("projects").select("title").eq("id", id).maybeSingle();
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+    if (error) return { success: false, error: `Database error deleting project: ${error.message}` };
+
+    // Log deletion
+    logInternalChange("PROJECT_DELETED", "project", id, proj?.title || id, "Project permanently deleted", proj?.title || "", "");
+
+    revalidatePath("/projects");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete project." };
+  }
+}
+
+export async function upsertEvent(formData: FormData): Promise<{ success: boolean; event?: any; error?: string }> {
+  try {
+    const rawId = formOptionalId(formData);
+    const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
+    const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
+    const rawGuidelines = formString(formData, "guidelines");
+    const guidelines = rawGuidelines
+      ? rawGuidelines
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean)
+      : undefined;
+
+    const title = formString(formData, "title");
+    const rawSlug = formString(formData, "slug");
+    const autoSlug = (rawSlug || title)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || `event-${Date.now()}`;
+
+    const registrationDeadline = formString(formData, "registration_deadline");
+    const eventStartTime = formString(formData, "event_start_time");
+    const eventEndTime = formString(formData, "event_end_time");
+    const isRegOpenVal = formData.get("is_registration_open");
+    const isRegistrationOpen = isRegOpenVal === null ? true : (isRegOpenVal === "true" || isRegOpenVal === "on" || isRegOpenVal === "1");
+    const isSpotlightVal = formData.get("is_spotlight");
+    const isSpotlight = isSpotlightVal === "true" || isSpotlightVal === "on" || isSpotlightVal === "1";
+    const spotlightMessage = formString(formData, "spotlight_message");
+    const spotlightPriority = formData.has("spotlight_priority") ? Number(formData.get("spotlight_priority")) : 1;
+
+    const parsed = eventSchema.safeParse({
+      id: isEdit ? rawId : undefined,
+      title,
+      slug: autoSlug,
+      description: formString(formData, "description"),
+      venue: formString(formData, "venue"),
+      event_date: formString(formData, "event_date"),
+      status: (formString(formData, "status") as "upcoming" | "live" | "past") || "upcoming",
+      registration_fee: formData.has("registration_fee") ? Number(formData.get("registration_fee")) : 200,
+      max_capacity: formData.has("max_capacity") ? Number(formData.get("max_capacity")) : 2000,
+      registration_deadline: registrationDeadline || null,
+      event_start_time: eventStartTime || null,
+      event_end_time: eventEndTime || null,
+      is_registration_open: isRegistrationOpen,
+      image_url: uploaded ?? (formString(formData, "image_url") || null),
+      register_url: formString(formData, "register_url") || null,
+      google_form_url: formString(formData, "google_form_url") || null,
+      upi_id: formString(formData, "upi_id") || "genai.community@okaxis",
+      upi_qr_image_url: formString(formData, "upi_qr_image_url") || null,
+      guidelines: guidelines && guidelines.length > 0 ? guidelines : undefined,
+      is_spotlight: isSpotlight,
+      spotlight_message: spotlightMessage || null,
+      spotlight_priority: spotlightPriority,
+    });
+    if (!parsed.success) return { success: false, error: `Invalid event details: ${zodIssuesMessage(parsed.error)}` };
+    const supabase = createAdminSupabase();
+    const eventPayload: Record<string, unknown> = { ...parsed.data };
+
+    // Parse allowed degrees & branches for event eligibility
+    const allowedDegreesRaw = formString(formData, "allowed_degrees");
+    if (allowedDegreesRaw) {
+      try {
+        const parsedDegs = JSON.parse(allowedDegreesRaw);
+        eventPayload.allowed_degrees = Array.isArray(parsedDegs) && parsedDegs.length > 0
+          ? parsedDegs
+          : ["B.Tech", "M.Tech"];
+      } catch {
+        const splitDegs = allowedDegreesRaw.split(",").map((d) => d.trim()).filter(Boolean);
+        eventPayload.allowed_degrees = splitDegs.length > 0 ? splitDegs : ["B.Tech", "M.Tech"];
+      }
+    } else {
+      eventPayload.allowed_degrees = ["B.Tech", "M.Tech"];
+    }
+
+    const allowedBranchesRaw = formString(formData, "allowed_branches");
+    if (allowedBranchesRaw) {
+      try {
+        eventPayload.allowed_branches = JSON.parse(allowedBranchesRaw);
+      } catch {
+        eventPayload.allowed_branches = allowedBranchesRaw.split(",").map((b) => b.trim()).filter(Boolean);
+      }
+    }
+
+    let result: any = null;
+
+    if (isEdit) {
+      let { data, error } = await supabase.from("events").update(eventPayload).eq("id", rawId).select().single();
+      if (error && error.message.includes("guidelines")) {
+        delete eventPayload.guidelines;
+        const retry = await supabase.from("events").update(eventPayload).eq("id", rawId).select().single();
+        error = retry.error;
+        data = retry.data;
+      }
+      if (error) return { success: false, error: `Database error updating event: ${error.message}` };
+      result = data;
+    } else {
+      delete eventPayload.id;
+      let { data, error } = await supabase.from("events").insert(eventPayload).select().single();
+      if (error && error.message.includes("guidelines")) {
+        delete eventPayload.guidelines;
+        const retry = await supabase.from("events").insert(eventPayload).select().single();
+        error = retry.error;
+        data = retry.data;
+      }
+      if (error) return { success: false, error: `Database error inserting event: ${error.message}` };
+      result = data;
+    }
+
+    // Log event lifecycle to Event Lifecycle Log (fire-and-forget)
+    logEventLifecycle(
+      isEdit ? "EVENT_UPDATED" : "EVENT_CREATED",
+      result?.id || "new",
+      parsed.data.title || "",
+      isEdit ? "title, status, venue, event_date, registration_fee, is_registration_open" : "all fields",
+      "",
+      JSON.stringify({
+        title: parsed.data.title,
+        status: parsed.data.status,
+        venue: parsed.data.venue,
+        event_date: parsed.data.event_date,
+        registration_fee: parsed.data.registration_fee,
+        is_registration_open: parsed.data.is_registration_open,
+      }),
+      isEdit ? "Event details updated via admin panel" : "New event created via admin panel",
+    );
+
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/admin");
+    return { success: true, event: result };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to save event." };
+  }
+}
+
+export async function deleteEvent(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const id = String(formData.get("id") || "").trim();
+    if (!id) return { success: false, error: "Event ID is required." };
+    const supabase = createAdminSupabase();
+
+    // Fetch event details before deleting for the log
+    const { data: evt } = await supabase.from("events").select("title, status, event_date").eq("id", id).maybeSingle();
+    const { error } = await supabase.from("events").delete().eq("id", id);
+    if (error) return { success: false, error: `Database error deleting event: ${error.message}` };
+
+    // Log to Event Lifecycle Log
+    logEventLifecycle(
+      "EVENT_DELETED",
+      id,
+      evt?.title || id,
+      "all",
+      JSON.stringify({ title: evt?.title, status: evt?.status, event_date: evt?.event_date }),
+      "",
+      "Event permanently deleted from admin panel",
+    );
+
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete event." };
+  }
+}
+
+export async function upsertTeam(formData: FormData): Promise<{ success: boolean; team?: any; error?: string }> {
+  try {
+    const rawId = formOptionalId(formData);
+    const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
+    const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
+    const name = formString(formData, "name");
+    const rawSlug = formString(formData, "slug");
+    const autoSlug = (rawSlug || name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || `team-${Date.now()}`;
+
+    const parsed = teamSchema.safeParse({
+      id: isEdit ? rawId : undefined,
+      name,
+      slug: autoSlug,
+      description: formString(formData, "description"),
+      image_url: uploaded ?? formString(formData, "image_url"),
+    });
+    if (!parsed.success) return { success: false, error: `Invalid team details: ${zodIssuesMessage(parsed.error)}` };
+    const supabase = createAdminSupabase();
+
+    const payload: Record<string, unknown> = { ...parsed.data };
+    let result: any = null;
+
+    if (isEdit) {
+      const { data, error } = await supabase.from("teams").update(payload).eq("id", rawId).select().single();
+      if (error) return { success: false, error: `Database error updating team: ${error.message}` };
+      result = data;
+    } else {
+      delete payload.id;
+      const { data, error } = await supabase.from("teams").insert(payload).select().single();
+      if (error) return { success: false, error: `Database error inserting team: ${error.message}` };
+      result = data;
+    }
+
+    // Log to Internal Management Log (fire-and-forget)
+    logInternalChange(
+      isEdit ? "TEAM_UPDATED" : "TEAM_CREATED",
+      "team",
+      result?.id || "new",
+      parsed.data.name || "",
+      parsed.data.description || "",
+      "",
+      JSON.stringify({ name: parsed.data.name, slug: parsed.data.slug }),
+    );
+
+    // Ping Webhook
+    pingGoogleFormWebhook();
+
+    revalidatePath(`/team/${parsed.data.slug}`);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, team: result };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to save team." };
+  }
+}
+
+export async function deleteTeam(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const id = String(formData.get("id") || "").trim();
+    if (!id) return { success: false, error: "Team ID is required." };
+    const supabase = createAdminSupabase();
+    const { data: team } = await supabase.from("teams").select("slug, name").eq("id", id).maybeSingle();
+    const { error } = await supabase.from("teams").delete().eq("id", id);
+    if (error) return { success: false, error: `Database error deleting team: ${error.message}` };
+
+    // Log deletion
+    logInternalChange("TEAM_DELETED", "team", id, team?.name || id, "Team permanently deleted", team?.name || "", "");
+
+    // Ping Webhook
+    pingGoogleFormWebhook();
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete team." };
+  }
 }
 
 export async function approveMember(formData: FormData) {

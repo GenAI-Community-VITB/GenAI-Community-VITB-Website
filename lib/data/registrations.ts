@@ -12,6 +12,7 @@ import {
   checkinOverrideSchema,
   generateSecureQRToken,
   validateEventEligibility,
+  ALL_APPROVED_BRANCHES,
 } from "@/lib/validation";
 import { generateEntryPassQRCodeBuffer } from "@/lib/qr/generator";
 import { sendEmail } from "@/lib/email/mailer";
@@ -670,14 +671,9 @@ export async function reviewPayment(params: {
         senderRole: params.reviewerRole,
         attachments: [
           {
-            filename: `QR_Pass_${reg.registration_number}_inline.png`,
-            content: qrBuffer,
-            cid: qrCid,
-            contentType: "image/png",
-          },
-          {
             filename: `Official_Entry_Pass_${reg.registration_number}.png`,
             content: qrBuffer,
+            cid: qrCid,
             contentType: "image/png",
           },
         ],
@@ -1577,16 +1573,93 @@ export async function getDeletedRegistrations(): Promise<DeletedRegistration[]> 
  * Bulk imports registered candidates from Excel/CSV, generates cryptographic QR tokens,
  * creates verified registration and payment records, and optionally dispatches QR pass emails.
  */
+/**
+ * Normalizes user-entered branch strings to official approved academic verticals.
+ */
+function normalizeImportBranch(rawBranch?: string): string {
+  if (!rawBranch) return "BTECH CSE (Core)";
+  const clean = rawBranch.trim();
+  const lower = clean.toLowerCase();
+
+  // Exact match
+  const exact = ALL_APPROVED_BRANCHES.find((b) => b.toLowerCase() === lower);
+  if (exact) return exact;
+
+  // Keyword match
+  if (lower.includes("mtech") || lower.includes("m.tech") || lower.includes("integrated")) {
+    return "MTECH and ALLIED Branches";
+  }
+  if (lower.includes("ai & ml") || lower.includes("aiml") || lower.includes("artificial intelligence") || lower.includes("machine learning")) {
+    return "BTECH CSE (AI & ML)";
+  }
+  if (lower.includes("cyber") || lower.includes("security")) {
+    return "BTECH CSE (Cyber Security)";
+  }
+  if (lower.includes("cloud")) {
+    return "BTECH CSE (Cloud)";
+  }
+  if (lower.includes("gaming") || lower.includes("game")) {
+    return "BTECH CSE (Gaming)";
+  }
+  if (lower.includes("health") || lower.includes("medical")) {
+    return "BTECH CSE (Health Informatics)";
+  }
+  if (lower.includes("commerce") || lower.includes("e-commerce")) {
+    return "BTECH CSE (E-Commerce)";
+  }
+  if (lower.includes("edtech") || lower.includes("education")) {
+    return "BTECH CSE (EdTech)";
+  }
+  if (lower.includes("leadership")) {
+    return "BTECH CSE (AI & Leadership)";
+  }
+  if (lower.includes("ece") || lower.includes("electronics")) {
+    if (lower.includes("ai") || lower.includes("cybernetics")) return "BTECH ECE (AI & Cybernetics)";
+    return "BTECH ECE (Core)";
+  }
+  if (lower.includes("electrical") || lower.includes("ee")) {
+    return "BTECH Electrical & Computer";
+  }
+  if (lower.includes("mechanical") || lower.includes("mech")) {
+    if (lower.includes("robotics") || lower.includes("ai")) return "BTECH Mechanical (AI & Robotics)";
+    return "BTECH Mechanical (Core)";
+  }
+  if (lower.includes("aero") || lower.includes("aerospace")) {
+    return "BTECH Aerospace";
+  }
+  if (lower.includes("bio") || lower.includes("bioengineering")) {
+    return "BTECH Bioengineering";
+  }
+  if (lower.includes("cse") || lower.includes("computer")) {
+    return "BTECH CSE (Core)";
+  }
+
+  return clean;
+}
+
+/**
+ * Bulk imports registered candidates from Excel/CSV, generates cryptographic QR tokens,
+ * creates verified registration and payment records with all registration form fields,
+ * and optionally dispatches QR pass emails.
+ */
 export async function importParticipantsBulkAction(params: {
   eventId: string;
   participants: Array<{
     registrationId?: string;
     fullName: string;
-    email: string;
-    collegeEmail?: string;
-    phoneNumber?: string;
+    vitRegistrationNumber?: string;
     branch?: string;
+    branchName?: string;
+    collegeEmail?: string;
+    personalEmail?: string;
+    email?: string;
+    phoneNumber?: string;
+    phone?: string;
+    transactionId?: string;
+    utr?: string;
     college?: string;
+    amount?: number;
+    paymentStatus?: string;
   }>;
   sendEmailDirectly?: boolean;
 }): Promise<{
@@ -1605,34 +1678,72 @@ export async function importParticipantsBulkAction(params: {
   // Fetch event details
   const { data: event } = await supabase
     .from("events")
-    .select("title, event_date, venue")
+    .select("title, event_date, venue, registration_fee")
     .eq("id", eventId)
     .single();
 
   const eventTitle = event?.title || "GenAI Community Event";
   const eventDate = event?.event_date ? formatISTDate(event.event_date) : "Event Date";
   const venue = event?.venue || "Main Auditorium / Campus";
+  const defaultFee = event?.registration_fee ?? 0;
 
   let importedCount = 0;
 
   for (let i = 0; i < participants.length; i++) {
     const p = participants[i];
     const cleanName = (p.fullName || "").trim();
-    const cleanEmail = (p.email || "").trim().toLowerCase();
-    if (!cleanName || !cleanEmail) continue;
+    const rawEmail = (p.personalEmail || p.email || p.collegeEmail || "").trim().toLowerCase();
+    if (!cleanName || !rawEmail) continue;
 
-    const registrationNumber = p.registrationId
+    // 1. Registration Pass ID
+    const registrationNumber = p.registrationId && p.registrationId.trim().length > 0
       ? p.registrationId.trim()
       : `GAC26-${String(Date.now() % 100000).padStart(5, "0")}-${String(i + 1).padStart(3, "0")}`;
-    const cleanVitReg = cleanEmail.includes("@vitbhopal.ac.in")
-      ? cleanEmail.split("@")[0].toUpperCase()
-      : `VITB-${String(Date.now()).slice(-6)}`;
-    const branch = p.branch || "General";
-    const phone = p.phoneNumber || "";
 
-    // Generate secure QR Token
+    // 2. VIT Registration Number
+    let cleanVitReg = (p.vitRegistrationNumber || "").trim().toUpperCase();
+    if (!cleanVitReg) {
+      if (rawEmail.includes("@vitbhopal.ac.in")) {
+        const localPart = rawEmail.split("@")[0].toUpperCase();
+        const match = localPart.match(/[0-9]{2}[A-Z]{3}[0-9]{5}/);
+        cleanVitReg = match ? match[0] : localPart;
+      } else {
+        cleanVitReg = `24BCE${String(10000 + (i % 9000))}`;
+      }
+    }
+
+    // 3. College & Personal Email
+    let collegeEmail = (p.collegeEmail || "").trim().toLowerCase();
+    let personalEmail = (p.personalEmail || (rawEmail.includes("@gmail.com") ? rawEmail : "")).trim().toLowerCase();
+
+    if (!collegeEmail) {
+      collegeEmail = rawEmail.includes("@vitbhopal.ac.in")
+        ? rawEmail
+        : `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${cleanVitReg.toLowerCase()}@vitbhopal.ac.in`;
+    }
+    if (!personalEmail) {
+      personalEmail = rawEmail.includes("@gmail.com") ? rawEmail : rawEmail;
+    }
+
+    // 4. Branch Name (Normalized to official approved branches)
+    const rawBranch = p.branch || p.branchName || "BTECH CSE (Core)";
+    const branchName = normalizeImportBranch(rawBranch);
+
+    // 5. Phone Number
+    const phone = (p.phoneNumber || p.phone || "").replace(/[\s\-\+]/g, "").replace(/^91/, "").slice(-10);
+
+    // 6. Transaction ID / UTR
+    const transactionId = (p.transactionId || p.utr || "").trim() || `EXCEL_IMPORT_${registrationNumber}`;
+
+    // 7. College / Institute
+    const college = (p.college || "VIT Bhopal University").trim();
+
+    // 8. Payment Status & Amount
+    const paymentStatus = p.paymentStatus === "pending" ? "pending" : "verified";
+    const amount = typeof p.amount === "number" && !isNaN(p.amount) ? p.amount : defaultFee;
+
+    // Generate secure cryptographic QR Token
     const qrToken = generateSecureQRToken();
-
     const regId = crypto.randomUUID();
 
     try {
@@ -1643,28 +1754,28 @@ export async function importParticipantsBulkAction(params: {
         registration_number: registrationNumber,
         full_name: cleanName,
         vit_registration_number: cleanVitReg,
-        branch_name: branch,
-        personal_email: cleanEmail,
-        college_email: p.collegeEmail || cleanEmail,
-        phone_number: phone,
-        registration_status: "verified",
-        registration_source: "online",
+        branch_name: branchName,
+        personal_email: personalEmail,
+        college_email: collegeEmail,
+        phone_number: phone || "9876543210",
+        registration_status: paymentStatus === "verified" ? "verified" : "pending",
+        registration_source: "excel_import",
         qr_token: qrToken,
-        college: p.college || "VIT Bhopal University",
+        college,
         created_at: new Date().toISOString(),
       });
 
-      // 2. Insert verified payment
+      // 2. Insert payment record with UTR
       await supabase.from("payments").insert({
         registration_id: regId,
-        amount: 0,
-        transaction_id: `EXCEL_IMPORT_${registrationNumber}`,
-        payment_status: "verified",
-        verified_at: new Date().toISOString(),
+        amount,
+        transaction_id: transactionId,
+        payment_status: paymentStatus,
+        verified_at: paymentStatus === "verified" ? new Date().toISOString() : null,
       });
 
-      // 3. Optionally dispatch QR email with downloadable attachment
-      if (sendEmailDirectly) {
+      // 3. Optionally dispatch official QR Pass email with single inline attachment
+      if (sendEmailDirectly && paymentStatus === "verified") {
         try {
           const qrBuffer = await generateEntryPassQRCodeBuffer({
             qrToken,
@@ -1684,8 +1795,9 @@ export async function importParticipantsBulkAction(params: {
             qrContentId: qrCid,
           });
 
+          const recipientTarget = personalEmail || collegeEmail;
           await sendEmail({
-            to: cleanEmail,
+            to: recipientTarget,
             subject: emailData.subject,
             html: emailData.html,
             emailType: "payment_approved_qr",
@@ -1693,14 +1805,9 @@ export async function importParticipantsBulkAction(params: {
             eventId,
             attachments: [
               {
-                filename: `QR_Pass_${registrationNumber}_inline.png`,
-                content: qrBuffer,
-                cid: qrCid,
-                contentType: "image/png",
-              },
-              {
                 filename: `Official_Entry_Pass_${registrationNumber}.png`,
                 content: qrBuffer,
+                cid: qrCid,
                 contentType: "image/png",
               },
             ],
@@ -1739,7 +1846,111 @@ export async function importParticipantsBulkAction(params: {
 }
 
 /**
- * Exports real-time event attendance data in CSV format.
+ * Tech/Admin Action: Manually overrides attendance status for a participant with complete audit trail.
+ */
+export async function overrideAttendanceStatus(params: {
+  registrationId: string;
+  newStatus: string;
+  reason: string;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const supabase = createAdminSupabase();
+  const nowIso = new Date().toISOString();
+  const istTime = formatISTDate(new Date(), true);
+
+  // 1. Fetch current registration
+  const { data: reg, error: fetchErr } = await supabase
+    .from("registrations")
+    .select("*, event:events(title)")
+    .eq("id", params.registrationId)
+    .maybeSingle();
+
+  if (fetchErr || !reg) {
+    return { success: false, error: "Registration not found." };
+  }
+
+  const prevStatus = reg.registration_status;
+  const newStatus = params.newStatus.toLowerCase().trim();
+
+  // 2. Update registration status
+  const updatePayload: Record<string, unknown> = {
+    registration_status: newStatus,
+    updated_at: nowIso,
+  };
+  if (newStatus === "checked_in") {
+    updatePayload.checked_in_at = reg.checked_in_at || nowIso;
+    updatePayload.checked_in_by = params.actorId;
+  }
+
+  const { error: updateErr } = await supabase
+    .from("registrations")
+    .update(updatePayload)
+    .eq("id", reg.id);
+
+  if (updateErr) {
+    return { success: false, error: updateErr.message };
+  }
+
+  // 3. If new status is checked_in, upsert checkin record
+  if (newStatus === "checked_in") {
+    await supabase.from("checkins").insert({
+      id: `checkin-ovr-${Date.now()}`,
+      registration_id: reg.id,
+      event_id: reg.event_id,
+      scanned_by: params.actorId,
+      scanned_by_name: params.actorName,
+      scanner_role: params.actorRole,
+      status: "overridden",
+      is_override: true,
+      override_reason: params.reason,
+      scan_timestamp: nowIso,
+    });
+  }
+
+  // 4. Log Audit Event
+  await logAuditEvent({
+    actorUserId: params.actorId,
+    actorEmail: params.actorName,
+    actorRole: params.actorRole,
+    action: "attendance_override",
+    targetType: "registration",
+    targetId: reg.id,
+    previousState: { status: prevStatus },
+    newState: { status: newStatus, reason: params.reason },
+    reason: params.reason,
+    metadata: {
+      registration_number: reg.registration_number,
+      participant_name: reg.full_name,
+      vit_registration_number: reg.vit_registration_number,
+    },
+  });
+
+  // 5. Mirror to Google Sheets
+  appendToGoogleSheet("Attendance", [
+    [
+      reg.id,
+      reg.full_name,
+      reg.vit_registration_number,
+      reg.college_email || "",
+      istTime,
+      reg.event?.title || "GenAI Event",
+      reg.registration_number,
+      reg.branch_name || reg.branch || "N/A",
+      "overridden",
+      "YES",
+      params.reason,
+      params.actorName,
+    ],
+  ]).catch((err) => console.error("Error mirroring override to Attendance Sheet:", err));
+
+  return { success: true };
+}
+
+/**
+ * Exports real-time event registrations & attendance data in comprehensive CSV format.
+ * Includes: Name, Registration Number, Email, VIT Email, Year, Branch, UTR / Transaction ID, Payment Status, Approval Status, QR Generated Status, Attendance Status.
  */
 export async function exportAttendanceDataAction(eventId: string): Promise<{
   success: boolean;
@@ -1762,7 +1973,7 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
 
     const { data: registrations } = await supabase
       .from("registrations")
-      .select("id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, checkins(scan_timestamp, scanned_by_name, status)")
+      .select("id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, qr_token, academic_year, created_at, payments(utr_number, transaction_id, payment_status), checkins(scan_timestamp, scanned_by_name, status)")
       .eq("event_id", eventId)
       .order("created_at", { ascending: true });
 
@@ -1771,32 +1982,52 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
     }
 
     const headers = [
-      "Registration ID",
-      "Full Name",
-      "VIT Reg Number",
+      "Name",
+      "Registration Number",
+      "Personal Email",
+      "VIT College Email",
+      "Academic Year",
       "Branch",
-      "Email",
-      "Phone",
-      "Status",
-      "Attendance",
+      "UTR / Transaction ID",
+      "Payment Status",
+      "Approval Status",
+      "QR Generated Status",
+      "Attendance Status",
       "Check-in Time (IST)",
       "Scanned By",
     ];
 
     const rows = registrations.map((r: any) => {
       const checkin = Array.isArray(r.checkins) && r.checkins.length > 0 ? r.checkins[0] : null;
-      const isPresent = r.registration_status === "checked_in" || checkin?.status === "approved";
+      const isPresent = r.registration_status === "checked_in" || checkin?.status === "approved" || checkin?.status === "overridden";
       const checkinTime = checkin?.scan_timestamp ? formatISTDate(checkin.scan_timestamp, true) : "—";
       const scanner = checkin?.scanned_by_name || "—";
+      
+      const payment = Array.isArray(r.payments) && r.payments.length > 0 ? r.payments[0] : null;
+      const utr = payment?.utr_number || payment?.transaction_id || "N/A";
+      const paymentStatus = payment?.payment_status || (r.registration_status === "verified" || r.registration_status === "checked_in" ? "verified" : r.registration_status);
+      
+      // Calculate academic year if not explicitly saved
+      let year = r.academic_year || "";
+      if (!year && r.vit_registration_number && r.vit_registration_number.length >= 2) {
+        const batchPrefix = r.vit_registration_number.slice(0, 2);
+        year = `20${batchPrefix} Batch`;
+      }
+
+      const qrStatus = r.qr_token ? "GENERATED" : "NOT_GENERATED";
+      const approvalStatus = r.registration_status === "verified" || r.registration_status === "checked_in" ? "APPROVED" : r.registration_status === "rejected" ? "REJECTED" : "PENDING";
 
       return [
-        `"${r.registration_number || ""}"`,
         `"${r.full_name || ""}"`,
-        `"${r.vit_registration_number || ""}"`,
+        `"${r.registration_number || r.vit_registration_number || ""}"`,
+        `"${r.personal_email || ""}"`,
+        `"${r.college_email || ""}"`,
+        `"${year}"`,
         `"${r.branch_name || ""}"`,
-        `"${r.personal_email || r.college_email || ""}"`,
-        `"${r.phone_number || ""}"`,
-        `"${r.registration_status || ""}"`,
+        `"${utr}"`,
+        `"${paymentStatus}"`,
+        `"${approvalStatus}"`,
+        `"${qrStatus}"`,
         `"${isPresent ? "Present" : "Absent"}"`,
         `"${checkinTime}"`,
         `"${scanner}"`,
@@ -1805,7 +2036,7 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
 
     const csvContent = [headers.join(","), ...rows].join("\n");
     const safeTitle = (event?.title || "Event").replace(/[^a-zA-Z0-9]/g, "_");
-    const filename = `Attendance_${safeTitle}_${Date.now()}.csv`;
+    const filename = `Registrations_Attendance_${safeTitle}_${Date.now()}.csv`;
 
     return {
       success: true,
@@ -1813,9 +2044,11 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
       filename,
     };
   } catch (err: any) {
-    return { success: false, error: err.message || "Failed to generate attendance export." };
+    return { success: false, error: err.message || "Failed to generate export." };
   }
 }
+
+export const exportRegistrationsSheetAction = exportAttendanceDataAction;
 
 
 

@@ -203,6 +203,7 @@ export function getHumanReadableRole(
 
   if (!role) return "Staff Member";
   const r = role.toLowerCase();
+  if (r === "root_admin" || r === "root admin" || r === "superadmin" || r === "root") return "ROOT ADMIN";
   if (r === "system_council") return "System Council";
   if (r === "top_executive") return "Top Executive";
   if (r === "tech" || r === "technical_lead") return "Technical Lead";
@@ -326,6 +327,9 @@ export function getMemberAssignedName(
 
   if (email) {
     const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail === "admin.club.core@genai.local" || cleanEmail.includes("admin.club.core")) {
+      return "ROOT ADMIN";
+    }
     if (OFFICIAL_ROSTER_NAMES[cleanEmail]) {
       return OFFICIAL_ROSTER_NAMES[cleanEmail];
     }
@@ -349,7 +353,7 @@ export function getMemberAssignedName(
 /**
  * Normalizes any avatar, banner, or drive image URL into a working proxy/direct CDN URL.
  * Automatically resolves raw Google Drive links (uc?export=view, /file/d/..., open?id=...)
- * into the internal streaming proxy route /api/drive/asset/[fileId].
+ * into the authenticated streaming proxy route /api/drive/asset/[fileId].
  */
 export function normalizeDriveImageUrl(url?: string | null): string | null {
   if (!url) return null;
@@ -372,12 +376,18 @@ export function normalizeDriveImageUrl(url?: string | null): string | null {
   // 3. https://drive.google.com/open?id=FILE_ID
   // 4. https://lh3.googleusercontent.com/d/FILE_ID
   const fileIdMatch =
-    trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
-    trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
-    trimmed.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+    trimmed.match(/[?&]id=([a-zA-Z0-9_-]{20,})/) ||
+    trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/) ||
+    trimmed.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{20,})/) ||
+    trimmed.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
 
   if (fileIdMatch && fileIdMatch[1]) {
-    return `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}=s260`;
+    return `/api/drive/asset/${fileIdMatch[1]}`;
+  }
+
+  // If the string itself is a raw Drive file ID
+  if (/^[a-zA-Z0-9_-]{25,50}$/.test(trimmed)) {
+    return `/api/drive/asset/${trimmed}`;
   }
 
   return trimmed;

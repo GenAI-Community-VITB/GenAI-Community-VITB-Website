@@ -17,6 +17,7 @@ import {
   CreditCard,
   Sparkles,
 } from "lucide-react";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface OnSpotRegistrationModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export function OnSpotRegistrationModal({
   branches,
   onSuccess,
 }: OnSpotRegistrationModalProps) {
+  useScrollLock(isOpen);
   const [fullName, setFullName] = useState("");
   const [vitRegNumber, setVitRegNumber] = useState("");
   const [branchName, setBranchName] = useState<string>(ALL_APPROVED_BRANCHES[0] || "");

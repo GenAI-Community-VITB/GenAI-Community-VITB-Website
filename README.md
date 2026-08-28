@@ -1,31 +1,42 @@
-# ⚡ Generative AI Community VIT Bhopal — Official Web Engine & Event Platform
+# ⚡ Generative AI Community VIT Bhopal — Official Web Engine & Event Operations Platform
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.2.1-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![React 19](https://img.shields.io/badge/React-19.2.4-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database_%26_Auth-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![Google Drive](https://img.shields.io/badge/Google_Drive-Media_Storage-4285F4?style=for-the-badge&logo=google-drive)](https://developers.google.com/drive)
-[![Google Sheets](https://img.shields.io/badge/Google_Sheets-Live_Audit-34A853?style=for-the-badge&logo=google-sheets)](https://developers.google.com/sheets)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_%26_RLS-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Drive_%26_Sheets_API-4285F4?style=for-the-badge&logo=google-cloud)](https://cloud.google.com/)
+[![Google Gemini](https://img.shields.io/badge/Gemini-AI_Content_Engine-8E75B2?style=for-the-badge&logo=googlegemini)](https://ai.google.dev/)
+[![Cloudflare Turnstile](https://img.shields.io/badge/Cloudflare-Turnstile_Anti--Bot-F38020?style=for-the-badge&logo=cloudflare)](https://www.cloudflare.com/products/turnstile/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F5B642?style=for-the-badge)](LICENSE)
 
-An enterprise-grade, zero-cost web platform and event operations engine built for the **Generative AI Community at VIT Bhopal University**. Engineered for high concurrency, instant UPI payments, camera QR pass scanning, multi-tier executive rosters, and real-time multi-cloud data synchronization.
+
+An enterprise-grade, zero-cost web engine and real-time event operations platform built for the **Generative AI Community at VIT Bhopal University**. Engineered for extreme concurrency, atomic UPI payments, camera QR pass scanning, multi-tier executive rosters, and multi-cloud data synchronization.
 
 > 📖 **Handing over the codebase to incoming leads?**  
 > An official confidential **Master Developer Handover & Operations Manual** (PDF) is provided in person to authorized incoming technical leads, containing complete operational blueprints, database schemas, and recovery playbooks.
 
 ---
 
-## 📑 Quick Navigation
+## 📑 Table of Contents
 
 - [🏛 System Architecture](#-system-architecture)
 - [🚀 Key Features](#-key-features)
-- [🛠 Tech Stack](#-tech-stack)
+  - [1. Public Experience & Interactive Portals](#1-public-experience--interactive-portals)
+  - [2. Event Engine & Registration Gateway](#2-event-engine--registration-gateway)
+  - [3. Administrative Command Center (`/admin`)](#3-administrative-command-center-admin)
+  - [4. Multi-Cloud Sync & Storage Architecture](#4-multi-cloud-sync--storage-architecture)
+- [🛠 Tech Stack & Ecosystem](#-tech-stack--ecosystem)
 - [📂 Project Directory Structure](#-project-directory-structure)
 - [⚡ Quickstart & Local Setup](#-quickstart--local-setup)
-- [🛡️ 100-Point Automated Verification](#-100-point-automated-verification)
+- [⚙️ Environment Variables Reference](#️-environment-variables-reference)
+- [📜 Available Scripts & CLI Tools](#-available-scripts--cli-tools)
+- [🛡️ 100-Point Automated Verification Suite](#️-100-point-automated-verification-suite)
 - [🔒 Security & Penetration Hardening](#-security--penetration-hardening)
 - [🌐 Multi-Remote Git & Deployment](#-multi-remote-git--deployment)
-- [👥 Official Club Leadership](#-official-club-leadership)
+- [👥 Official Club Leadership (2026–2027)](#-official-club-leadership-20262027)
+- [🏗️ Platform System Architects & Handover Lineage](#️-platform-system-architects--handover-lineage)
+- [📄 License](#-license)
 
 ---
 
@@ -37,9 +48,10 @@ An enterprise-grade, zero-cost web platform and event operations engine built fo
                          ┌─────────────────┴─────────────────┐
                          ▼                                   ▼
                [ Public Web Portals ]              [ Event Registration ]
-               - Homepage & Live Ticker            - Real-Time Dynamic UPI QR
-               - Member Hierarchy Tree             - Payment Proof Upload (10MB)
-               - Technical Blogs (LinkedIn AI)     - Rate-Limited API Gateway
+               - Dynamic Hero & Ticker             - Dynamic UPI QR Intent
+               - 50-Member Hierarchy Tree          - 10MB Payment Proof Upload
+               - Gemini & LinkedIn Blogs           - Cloudflare Turnstile Bot Guard
+               - Winners & Project Showcase        - Strict In-Memory Rate Limiter
                          │                                   │
                          │                                   ▼
                          │                        [ Next.js Server Actions ]
@@ -50,45 +62,61 @@ An enterprise-grade, zero-cost web platform and event operations engine built fo
         ┌────────────────┴───────────────────────────────────┼──────────────────────────────┐
         ▼                                                    ▼                              ▼
   [ Supabase Postgres ]                              [ Google Drive ]              [ Google Sheets ]
-  - Events, Registrations, Payments                  - Shared Drive Media Engine   - 3-Tab Split Real-Time Sync
-  - Row-Level Security (RLS)                         - 15GB Personal Gate Bypass   - Failover Submission Ledger
-  - Audit Trail & Staff Roles                        - High-Speed Edge CDN         - Offline Check-in Buffer
+  - Events, Registrations, Payments                  - Shared Drive Media Engine   - 3-Workbook Split Architecture
+  - Relational Teams & Members Schema                - 15GB Personal Gate Bypass   - Failover Submission Ledger
+  - Row-Level Security (RLS)                         - High-Speed Edge CDN         - Real-Time Dual Cloud Sync
+  - Immutable Audit Logs & Admin RBAC                - Payment Proof Vault         - Offline Door Check-in Buffer
 ```
 
 ---
 
 ## 🚀 Key Features
 
-### 1. Public Portals & User Experience
-- **Dynamic Hero Banner**: Shows upcoming flagship events with countdown timer, live registration status, and 1-click entry pass CTAs.
-- **Interactive Team Hierarchy Tree**: Visualizes 50+ official student leaders across Executive Panel, AI/ML, Tech, Design, Events, HR, PR, Social, Content, and Finance verticals with large high-resolution modal profile cards.
-- **LinkedIn & Gemini AI Technical Blogs**: Automatically syncs authentic technical dispatches from the official LinkedIn company feed into responsive articles.
-- **Podium & Winners Showcase**: Celebrates champions from hackathons, ideathons, and coding sprints.
+### 1. Public Experience & Interactive Portals
+- **Dynamic Hero & Event Banner**: Live countdown timer, real-time ticket quotas, registration status badges, and 1-click entry pass triggers.
+- **50+ Member Interactive Hierarchy Tree**: Visualizes the complete student leadership across Executive Panel, AI/ML, Tech, Design, Events, HR, PR, Social, Content, and Finance verticals with high-resolution modal profile cards and LinkedIn integrations.
+- **LinkedIn & Gemini AI Technical Blogs**: Automatically ingests authentic technical dispatches from the official LinkedIn company feed into responsive, reader-friendly articles with Gemini summarization.
+- **Hall of Fame & Winners Showcase**: Celebrates winners, runner-ups, and notable projects from hackathons, ideathons, and coding sprints.
+- **Apple Dark Mode Design System**: Built with modern typography, frosted-glass backdrops (`backdrop-blur`), vibrant neon gradients, smooth Framer Motion micro-interactions, and hardware-accelerated transitions.
 
-### 2. Event Operations & Registration Engine
-- **Atomic Registration Flow**: Captures name, VIT registration number, verified branch, emails, and transaction ID with instantaneous validation.
-- **Dynamic UPI QR Code Generator**: Generates instant scan-to-pay intent for GPay, PhonePe, Paytm, and BHIM with pre-configured event fee.
-- **Camera Ticket Scanner (`/admin/scanner`)**: High-speed, real-time camera scanner that verifies HMAC-signed QR passes at the door with duplicate scan guards.
+### 2. Event Engine & Registration Gateway
+- **Atomic Registration Flow**: Captures name, VIT registration number, verified branch (including unified MTech & Allied branches), email, and transaction ID with instant client and server validation.
+- **Dynamic UPI QR Code Generator**: Generates instant scan-to-pay intent for GPay, PhonePe, Paytm, and BHIM with pre-configured event fee and reference codes.
+- **Bot & Abuse Prevention**: Integrated with 100% free Cloudflare Turnstile captcha and in-memory rate limiting to prevent spam and denial-of-service attempts.
+- **Instant HMAC-Signed QR Pass**: Automatically generates cryptographically signed QR passes upon approval, complete with unique hash tokens and pass verification URLs.
 
 ### 3. Administrative Command Center (`/admin`)
-- **Event Lifecycle Manager**: Create, edit, publish, and archive events with custom ticket quotas and banner artwork.
-- **Finance Review Queue**: Inspect 10MB payment screenshots with zoom preview, approving passes with 1-click automated email dispatch.
-- **On-Spot Desk Registration & Live QR**: Side-by-side live QR panel displaying UPI scan-to-pay and student self-registration portals for walk-in crowds.
-- **Top-Executive Unvoid Engine**: Top leadership can reactivate staff members and generate high-entropy credentials with 1-click clipboard export.
+- **Event Lifecycle Manager**: Create, edit, publish, schedule, and archive events with custom ticket quotas, registration windows, and banner artwork.
+- **Finance Review & Payment Queue**: Real-time payment verification queue with instant high-resolution receipt inspection (zoom & rotate), approval workflow, and 1-click automated email dispatch.
+- **Real-Time Camera QR Scanner (`/admin/scanner`)**: High-speed, in-browser camera scanner that verifies HMAC-signed QR passes at event entry with duplicate scan protection and offline check-in buffering.
+- **On-Spot Desk Registration & Live QR**: Side-by-side live QR display facilitating walk-in student registrations and on-the-spot UPI payments at registration desks.
+- **Top-Executive Unvoid & Recovery Engine**: Leadership portal to manage staff permissions, reactivate team members, reset passwords, and generate secure credentials with 1-click clipboard export.
+
+### 4. Multi-Cloud Sync & Storage Architecture
+- **Supabase PostgreSQL Layer**: Relational data schema linking teams, members, events, registrations, and audit logs with granular Row-Level Security (RLS).
+- **Google Cloud Drive Integration**: Service account-driven asset engine bypassing personal storage limits for storing banners, member avatars, and payment receipts.
+- **Google Sheets 3-Workbook Split**: Real-time dual sync separating event registrations, audit trails, and internal logs into dedicated spreadsheets for offline resilience.
+- **Dual Email Delivery Engine**: Google Apps Script (GAS) Web App email relay backed by Nodemailer fallback with automatic retries and rate throttling.
 
 ---
 
-## 🛠 Tech Stack
+## 🛠 Tech Stack & Ecosystem
 
-- **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
-- **Language**: [TypeScript 5.x](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/)
-- **Database & Auth**: [Supabase PostgreSQL](https://supabase.com/) with Row-Level Security (RLS)
-- **File Storage**: Google Drive API v3 (15GB Personal Quota Bypass)
-- **Live Audit Ledger**: Google Sheets API v4 (3-Tab Real-Time Sync)
-- **Email Delivery**: Google Apps Script (GAS) + Gmail Transactional Relay (`gen_ai@vitbhopal.ac.in`)
-- **AI Intelligence**: Google Gemini Pro (`@google/genai`)
-- **Validation**: [Zod 3.x](https://zod.dev/)
+| Layer | Technology / Library | Description |
+| :--- | :--- | :--- |
+| **Core Framework** | [Next.js 16 (App Router)](https://nextjs.org/) | Hybrid SSR, React Server Components, Server Actions, Webpack bundler |
+| **UI Library** | [React 19](https://react.dev/) | Concurrent rendering, modern hooks, and component lifecycle |
+| **Language** | [TypeScript 5.x](https://www.typescriptlang.org/) | Strict type safety, end-to-end data contracts, and schema verification |
+| **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) | Modern utility engine, CSS variables, and fluid responsive layouts |
+| **Animations** | [Framer Motion](https://www.framer.com/motion/) | Hardware-accelerated UI transitions, modal entrance, and micro-interactions |
+| **Database & Auth** | [Supabase PostgreSQL](https://supabase.com/) | Managed PostgreSQL with RLS, auth sessions, and foreign key relations |
+| **Bot Protection** | [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) | Invisible, privacy-friendly bot verification on registrations & login |
+| **File Storage** | [Google Drive API v3](https://developers.google.com/drive) | Service account asset hosting and payment proof storage |
+| **Audit Ledger** | [Google Sheets API v4](https://developers.google.com/sheets) | 3-Workbook split real-time sync for operational failover |
+| **Email Relay** | Google Apps Script + Gmail | Zero-cost transactional email engine with Nodemailer fallback |
+| **AI Processing** | Google Gemini API (`@google/genai`) | LinkedIn feed extraction and technical article summarization |
+| **Validation** | [Zod 3.x](https://zod.dev/) | Runtime request validation, type-safe API inputs, and sanitization |
+| **QR Code Scanner** | [html5-qrcode](https://github.com/mebjas/html5-qrcode) + [qrcode](https://github.com/soldair/node-qrcode) | Real-time camera scan validation and vector QR generation |
 
 ---
 
@@ -127,7 +155,11 @@ An enterprise-grade, zero-cost web platform and event operations engine built fo
 │   └── validation/               # Zod schemas, branches, and regex validators
 ├── scripts/
 │   ├── verify-100-checkpoints.js # Automated 100-system preflight test suite
-│   └── gas-email-relay.js        # Google Apps Script transactional email script
+│   ├── seed-logins.ts            # Admin and staff credential seeding utility
+│   ├── sync-linkedin.ts          # Manual LinkedIn dispatch ingestion script
+│   ├── init-google-sheets.js     # Google Sheets 3-workbook tab initializer
+│   ├── populate-member-emails.js # Synchronize authentic VIT student emails
+│   └── apps-script.js            # Google Apps Script transactional email engine
 └── README.md                     # Repository documentation
 ```
 
@@ -136,10 +168,10 @@ An enterprise-grade, zero-cost web platform and event operations engine built fo
 ## ⚡ Quickstart & Local Setup
 
 ### Prerequisites
-- Node.js 20.x or higher
-- npm 10.x or higher
-- A free [Supabase](https://supabase.com/) account
-- A Google Cloud Service Account with Drive & Sheets API enabled
+- **Node.js**: `v20.x` or higher (LTS recommended)
+- **npm**: `v10.x` or higher
+- **Supabase Project**: Free tier or hosted PostgreSQL database
+- **Google Cloud Console**: Service Account with Google Drive & Sheets API enabled
 
 ### Installation Steps
 
@@ -153,43 +185,116 @@ npm install
 
 # 3. Configure environment variables
 cp .env.example .env.local
-# Open .env.local and populate your Supabase and Google Cloud keys
+# Edit .env.local and populate Supabase, Google Cloud, and email credentials
 
-# 4. Start the local development server
+# 4. Run database migrations / seedings (if setting up fresh DB)
+npm run seed:logins
+
+# 5. Launch development server
 npm run dev
-# Access the web app at http://localhost:3000
+# Open http://localhost:3000 in your browser
 ```
 
 ---
 
-## 🛡️ 100-Point Automated Verification
+## ⚙️ Environment Variables Reference
 
-The repository includes a comprehensive 100-system preflight verification suite checking route health, Supabase connectivity, Google Cloud clients, failover relays, and security guards:
+Copy `.env.example` to `.env.local` and set the following parameters:
 
 ```bash
-# Run the automated verification suite
-npm run preflight
+# --- Application URL ---
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-# Expected output:
-# ================================================================================
-#  📊 SUMMARY: 100/100 PASSED (100%) | 0 WARNINGS | 0 FAILURES
-#  🎯 STATUS : ALL 100 SYSTEMS OPERATIONAL & VERIFIED ✅
-# ================================================================================
+# --- Supabase Database & Auth (Required) ---
+NEXT_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-public-key"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-secret-key"
+
+# --- Google Cloud Service Account (Drive & Sheets) ---
+GOOGLE_SERVICE_ACCOUNT_EMAIL="genai-club-service-account@your-gcp-project.iam.gserviceaccount.com"
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_DRIVE_ROOT_FOLDER_ID="your_google_drive_folder_id"
+
+# --- Google Sheets 3-Workbook Split ---
+GOOGLE_SPREADSHEET_ID_EVENTS="your_events_spreadsheet_id"
+GOOGLE_SPREADSHEET_ID_LOGS="your_logs_spreadsheet_id"
+GOOGLE_SPREADSHEET_ID_INTERNAL="your_internal_spreadsheet_id"
+
+# --- Google Apps Script + Transactional Email Relay ---
+GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbx.../exec"
+GOOGLE_APPS_SCRIPT_TOKEN="GENAI_GAS_EMAIL_SECRET_2026"
+EMAIL_SENDER_NAME="GENAI Community VIT Bhopal"
+EMAIL_REPLY_TO="gen_ai@vitbhopal.ac.in"
+
+# --- Google Gemini AI Engine ---
+GEMINI_API_KEY="your-gemini-api-key"
+
+# --- Gmail Nodemailer Fallback (Optional) ---
+GMAIL_USER="genaicommunityvitbofficial@gmail.com"
+GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
+
+# --- Cloudflare Turnstile Bot Guard ---
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"
 ```
 
-To run a production build:
+---
+
+## 📜 Available Scripts & CLI Tools
+
+| Command | Purpose |
+| :--- | :--- |
+| `npm run dev` | Starts local Next.js development server with Webpack |
+| `npm run build` | Builds production-optimized Next.js bundle |
+| `npm run start` | Starts production server |
+| `npm run lint` | Runs ESLint validation across code and routes |
+| `npm run preflight` | Executes the **100-Point Automated Verification Suite** |
+| `npm run test:diagnostics` | Alias for preflight verification suite |
+| `npm run seed:logins` | Seeds executive & staff accounts into Supabase |
+| `npm run sync:linkedin` | Fetches and syncs latest LinkedIn posts via Gemini AI |
+| `npm run null-invalid-emails`| Data cleanup script for sanitizing member contact records |
+| `npm run send-testing-emails`| Verifies transactional email pipeline and receipt templates |
+
+---
+
+## 🛡️ 100-Point Automated Verification Suite
+
+The repository includes an automated 100-point preflight verification engine that validates every critical layer before deployment:
+
 ```bash
-npm run build
+# Run the verification engine
+npm run preflight
+```
+
+```text
+================================================================================
+ 🚀 GENAI COMMUNITY VIT BHOPAL — 100-CHECKPOINT FULL STARTUP VERIFICATION
+================================================================================
+ [01] Performance & Runtime Turbo Engine      -> 10/10 PASS
+ [02] Security, RBAC & Secrets                -> 10/10 PASS
+ [03] Database & Hierarchy Roster             -> 10/10 PASS
+ [04] Google Cloud & Drive Architecture       -> 10/10 PASS
+ [05] Failsafe Google Forms & AppScript Relay -> 10/10 PASS
+ [06] AI & LinkedIn Content Pipeline          -> 10/10 PASS
+ [07] Google Transactional Email Delivery     -> 10/10 PASS
+ [08] Top-Executive Admin & Unvoid Engine     -> 10/10 PASS
+ [09] Event & Financial Operations            -> 10/10 PASS
+ [10] Multi-Remote Git & Site Verification    -> 10/10 PASS
+================================================================================
+ 📊 SUMMARY: 100/100 PASSED (100%) | 0 WARNINGS | 0 FAILURES
+ 🎯 STATUS : ALL 100 SYSTEMS OPERATIONAL & VERIFIED ✅
+================================================================================
 ```
 
 ---
 
 ## 🔒 Security & Penetration Hardening
 
-- **Cryptographic Pass Verification**: Registration QR passes use HMAC-SHA256 signatures to prevent counterfeit tickets.
-- **Strict Rate Limiting**: Built-in in-memory rate limiting blocks DDoS attempts (10 registrations per 10 minutes per IP; 5 auth attempts per 10 minutes).
-- **MIME Type & File Inspection**: Uploaded payment receipts are sanitized on the server side with a strict 10MB ceiling (supporting JPG, PNG, WEBP, and HEIC).
-- **Row-Level Security (RLS)**: Public users cannot read private registration records or financial data directly from Postgres.
+- **Cryptographic Pass Verification**: Registration QR passes use HMAC-SHA256 signatures with secret key salting to eliminate pass duplication and forging.
+- **Bot Mitigation**: Cloudflare Turnstile prevents automated scraping and fraudulent registrations without intrusive puzzle captchas.
+- **Rate Limiting Engine**: Multi-tiered in-memory token bucket rate limiter restricting registrations (10 requests/10 min/IP) and admin logins (5 requests/10 min/IP).
+- **MIME Type & Buffer Inspection**: Uploaded payment receipts undergo strict server-side magic byte inspection and a strict 10MB ceiling (supporting JPG, PNG, WEBP, and HEIC).
+- **Postgres Row-Level Security (RLS)**: Enforced database policies ensure unauthenticated clients cannot read private attendee data, phone numbers, or payment records.
 
 ---
 
@@ -199,11 +304,16 @@ The codebase is pushed simultaneously to two redundant GitHub remotes:
 - **`origin`**: `git@github.com:GenAI-Community-VITB/GenAI-Community-VITB-Website.git` (Official Org)
 - **`personal`**: `git@github.com:klakshya007/GenAI-Community-VITB-Website.git` (Lead Backup)
 
-To push changes to both remotes:
+To synchronize both remotes simultaneously:
 ```bash
 git push origin main
 git push personal main
 ```
+
+### Production Deployment
+The application is pre-configured for instant zero-configuration deployment on **Vercel** or **Render**:
+- **Vercel**: Set Build Command to `npm run build` and output directory to `.next`. Add environment variables in project settings.
+- **Render**: Configured via [`render.yaml`](file:///c:/Code/GenAI-Community-VITB-Website/render.yaml) with Docker or Node.js web service runtime.
 
 ---
 
@@ -229,13 +339,12 @@ git push personal main
 | **Edition 1.0 & 2.0** *(Foundational)* | **Ayush Mishra** | **Founding Architect & Platform Pioneer**<br/>• Founding Web Lead & Core Platform Architect<br/>• Personal: `ayushmishra2005.official@gmail.com`<br/>• College: `ayush.24bce10224@vitbhopal.ac.in`<br/>• Original Next.js 14 Setup & Supabase Architecture |
 | **Edition 4.0+** *(Future Cohort)* | **Incoming Successor** | *To be authored, updated, and signed by incoming technical leadership during formal handover.* |
 
-> 📘 **Master Developer Handover Manual**: A private 22-page operations manual (`GenAI_Community_Master_Handover_Book.pdf`) is provided directly in person to incoming technical leads, containing complete PostgreSQL schemas, Google Cloud failover topologies, HMAC ticket verification algorithms, and disaster recovery playbooks.
+> 📘 **Master Developer Handover Manual**: A private operations manual (`GenAI_Community_Master_Handover_Book.pdf`) is provided directly in person to incoming technical leads, containing complete PostgreSQL schemas, Google Cloud failover topologies, HMAC ticket verification algorithms, and disaster recovery playbooks.
 
 ---
 
 ## 📄 License
 
-Distributed under the **MIT License**. See `LICENSE` for details.
+Distributed under the **MIT License**. See [`LICENSE`](file:///c:/Code/GenAI-Community-VITB-Website/LICENSE) for details.
 
 *Engineered with ⚡ by the GenAI Community Technical Core Team at VIT Bhopal University.*
-

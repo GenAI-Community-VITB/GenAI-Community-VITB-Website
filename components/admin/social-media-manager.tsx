@@ -7,7 +7,8 @@ import {
   generateAiSummaryAction,
   upsertBlogPostAction,
   deleteBlogPostAction,
-} from "@/lib/data/blog";
+  importFromLinkedInUrlAction,
+} from "@/app/admin/blog-actions";
 import {
   Share2,
   Plus,
@@ -24,9 +25,11 @@ import {
   Globe,
   Tag,
   FileText,
+  Link as LinkIcon,
 } from "lucide-react";
 import { LinkedinIcon } from "@/components/ui/icons";
 import { formatISTDate } from "@/lib/utils/format";
+import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 interface SocialMediaManagerProps {
   isAllowed?: boolean;
@@ -41,6 +44,8 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
   // Form State
   const [showModal, setShowModal] = useState(false);
   const [showQuickModal, setShowQuickModal] = useState(false);
+  useScrollLock(showModal || showQuickModal);
+
   const [quickPostUrl, setQuickPostUrl] = useState("");
   const [quickRawContent, setQuickRawContent] = useState("");
   const [quickIngesting, setQuickIngesting] = useState(false);
@@ -192,49 +197,35 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
 
   async function handleInstantOneClickPublish(e: React.FormEvent) {
     e.preventDefault();
-    if (!quickRawContent.trim()) {
-      setMessage({ type: "error", text: "Please paste the LinkedIn post content/caption." });
+    const cleanUrl = quickPostUrl.trim();
+    if (!cleanUrl) {
+      setMessage({ type: "error", text: "Please paste a valid LinkedIn post URL." });
       return;
     }
     setQuickIngesting(true);
     setMessage(null);
 
     try {
-      // 1. Generate AI Summary using Gemini AI
-      const aiRes = await generateAiSummaryAction({
-        rawContent: quickRawContent.trim(),
-        postUrl: quickPostUrl.trim() || "https://www.linkedin.com/company/genai-community-vit-bhopal/posts/",
+      const res = await importFromLinkedInUrlAction({
+        postUrl: cleanUrl,
+        rawContentHint: quickRawContent.trim() || undefined,
+        authorName: "GENAI Social Media Team",
       });
 
-      if (!aiRes.success) {
-        throw new Error(aiRes.error || "Failed to analyze post with AI.");
-      }
-
-      // 2. Insert into database
-      const fd = new FormData();
-      fd.append("title", aiRes.headline || "GenAI Community LinkedIn Dispatch");
-      fd.append("summary", aiRes.summary || quickRawContent.slice(0, 200));
-      fd.append("original_content", quickRawContent.trim());
-      fd.append("post_url", quickPostUrl.trim() || "https://www.linkedin.com/company/genai-community-vit-bhopal/posts/");
-      fd.append("author_name", "GENAI Social Media Team");
-      fd.append("tags", (aiRes.tags || ["AI", "Research"]).join(", "));
-      fd.append("is_published", "true");
-
-      const upsertRes = await upsertBlogPostAction(fd);
-      if (upsertRes.success && upsertRes.post) {
-        setPosts((prev) => [upsertRes.post!, ...prev.filter((p) => p.id !== upsertRes.post!.id)]);
+      if (res.success && res.post) {
+        setPosts((prev) => [res.post!, ...prev.filter((p) => p.id !== res.post!.id)]);
         setMessage({
           type: "success",
-          text: `⚡ 1-Click Success! Post "${upsertRes.post.title}" summarized by Gemini AI and published live to /blogs!`,
+          text: `⚡ AI Success! Post "${res.post.title}" synthesized by Gemini AI and published live to /blogs!`,
         });
         setQuickRawContent("");
         setQuickPostUrl("");
         setShowQuickModal(false);
       } else {
-        throw new Error(upsertRes.error || "Failed to save post to database.");
+        throw new Error(res.error || "Failed to process LinkedIn URL with AI.");
       }
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Failed to execute 1-click publishing." });
+      setMessage({ type: "error", text: err.message || "Failed to execute 1-click LinkedIn URL import." });
     } finally {
       setQuickIngesting(false);
     }
@@ -260,10 +251,10 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
           <button
             type="button"
             onClick={() => setShowQuickModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-500/20 to-amber-600/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:from-amber-500/30 hover:to-amber-600/20 hover:border-amber-400 transition cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/60 bg-gradient-to-r from-amber-500/25 to-amber-600/15 px-4 py-2.5 text-xs font-extrabold text-amber-300 hover:from-amber-500/35 hover:to-amber-600/25 hover:border-amber-400 transition cursor-pointer shadow-[0_0_15px_rgba(245,182,66,0.2)]"
           >
-            <Sparkles className="h-4 w-4 text-[#f5b642]" />
-            ⚡ 1-Click Fast Ingest
+            <Sparkles className="h-4 w-4 text-[#f5b642] animate-pulse" />
+            <span>⚡ Paste LinkedIn URL (AI Blog)</span>
           </button>
 
           <button
@@ -598,14 +589,14 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">1-Click Fast LinkedIn Ingest</h3>
-                  <p className="text-[11px] text-zinc-400">Gemini AI automatically summarizes & publishes immediately</p>
+                  <h3 className="text-base font-bold text-white">Paste LinkedIn URL (AI Blog Creator)</h3>
+                  <p className="text-[11px] text-zinc-400">Gemini AI synthesizes headline, summary, tags & publishes directly to /blogs</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowQuickModal(false)}
-                className="text-zinc-400 hover:text-white text-sm"
+                className="text-zinc-400 hover:text-white text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -613,36 +604,36 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
 
             <form onSubmit={handleInstantOneClickPublish} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  LinkedIn Post URL
+                <label className="text-xs font-bold text-zinc-200 block mb-1">
+                  LinkedIn Post or Activity URL <span className="text-amber-400 font-bold">*</span>
                 </label>
                 <input
                   type="url"
                   value={quickPostUrl}
                   onChange={(e) => setQuickPostUrl(e.target.value)}
-                  placeholder="https://www.linkedin.com/posts/genai-community-vit-bhopal_..."
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900/90 px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:border-[#f5b642] focus:outline-none"
+                  placeholder="https://www.linkedin.com/posts/genai-community-vit-bhopal_ai-research-workshop-activity-..."
+                  required
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900/90 px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:border-[#f5b642] focus:outline-none font-mono"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Paste Post Content / Caption <span className="text-amber-400 font-bold">*</span>
+                <label className="text-xs font-semibold text-zinc-400 block mb-1">
+                  Optional: Extra Notes or Raw Caption <span className="text-zinc-500 text-[10px]">(AI auto-extracts from URL if left empty)</span>
                 </label>
                 <textarea
-                  rows={6}
+                  rows={4}
                   value={quickRawContent}
                   onChange={(e) => setQuickRawContent(e.target.value)}
-                  placeholder="Paste the caption or announcement directly copied from your LinkedIn post..."
-                  required
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900/90 p-3.5 text-xs text-white placeholder:text-zinc-500 focus:border-[#f5b642] focus:outline-none"
+                  placeholder="Optional: Paste caption or notes if LinkedIn requires login for this specific post..."
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900/90 p-3 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none resize-none"
                 />
               </div>
 
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200/90 flex items-start gap-2">
                 <Sparkles className="h-4 w-4 text-[#f5b642] shrink-0 mt-0.5" />
                 <span>
-                  <strong>Instant Pipeline:</strong> Google Gemini AI will generate a concise executive headline, synthesize bullet points, extract research hashtags, and publish the live card directly to <code>/blogs</code>.
+                  <strong>Instant AI Pipeline:</strong> Paste any LinkedIn post URL. Google Gemini AI will generate a crisp executive headline, synthesize key points, extract topic tags, and create a live blog entry on <code>/blogs</code> with 1 click.
                 </span>
               </div>
 
@@ -656,18 +647,18 @@ export function SocialMediaManager({ isAllowed = true }: SocialMediaManagerProps
                 </button>
                 <button
                   type="submit"
-                  disabled={quickIngesting}
+                  disabled={quickIngesting || !quickPostUrl.trim()}
                   className="flex-1 rounded-xl bg-gradient-to-r from-[#f5b642] to-amber-500 py-2.5 text-xs font-bold text-black hover:brightness-110 transition cursor-pointer disabled:opacity-50 shadow-md flex items-center justify-center gap-1.5"
                 >
                   {quickIngesting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin text-black" />
-                      AI Summarizing & Publishing...
+                      <span>Generating with Gemini AI...</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4" />
-                      ⚡ Summarize & Publish Now
+                      <span>⚡ Generate & Publish Live</span>
                     </>
                   )}
                 </button>
