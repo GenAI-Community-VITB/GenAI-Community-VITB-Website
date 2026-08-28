@@ -8,6 +8,8 @@ import {
   enableStaffLoginAction,
   resetStaffPasswordAction,
   enforceTeamLoginPolicyAction,
+  sendStaffCredentialsEmailAction,
+  broadcastAllEnabledStaffCredentialsAction,
 } from "@/app/admin/events-actions";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
 import {
@@ -43,11 +45,13 @@ import {
   Search,
   LayoutGrid,
   Table as TableIcon,
-  Upload,
-  ImageIcon,
-  User,
+  Crown,
   KeyRound,
+  Mail,
+  User,
   Clock,
+  ImageIcon,
+  Upload,
 } from "lucide-react";
 import { isTop6Admin, isSupremeExecutive, isExecutiveAccount, normalizeDriveImageUrl } from "@/lib/utils/format";
 import {
@@ -582,6 +586,59 @@ export function UserManagement({
     });
   }
 
+  const [emailBroadcastLoading, setEmailBroadcastLoading] = useState(false);
+  const [emailSendingUserId, setEmailSendingUserId] = useState<string | null>(null);
+
+  async function handleBroadcastCredentials() {
+    const enabledCount = userList.filter((u) => u.is_active !== false && !u.is_login_disabled && !u.is_voided).length;
+    if (
+      !confirm(
+        `Send Login Credentials by Email:\n\nThis will dispatch an official email with User ID, Portal URL, and Password to all ${enabledCount} enabled staff accounts.\n\nProceed?`
+      )
+    )
+      return;
+
+    setEmailBroadcastLoading(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const res = await broadcastAllEnabledStaffCredentialsAction();
+      if (res.success) {
+        setActionSuccess(
+          `Credentials dispatched to ${res.sentCount} staff members (${res.failedCount} failed).`
+        );
+      } else {
+        setActionError(res.error || "Failed to broadcast credentials.");
+      }
+    } catch (err: any) {
+      setActionError(err.message || "Failed to broadcast credentials.");
+    } finally {
+      setEmailBroadcastLoading(false);
+    }
+  }
+
+  async function handleSendSingleCredentials(userId: string, targetEmail: string) {
+    if (!confirm(`Send login credentials email to ${targetEmail}?`)) return;
+
+    setEmailSendingUserId(userId);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const res = await sendStaffCredentialsEmailAction(userId);
+      if (res.success) {
+        setActionSuccess(`Login credentials successfully emailed to ${targetEmail}.`);
+      } else {
+        setActionError("Failed to deliver credentials email.");
+      }
+    } catch (err: any) {
+      setActionError(err.message || "Failed to send credentials email.");
+    } finally {
+      setEmailSendingUserId(null);
+    }
+  }
+
   function handleCopyCredentials() {
     if (!generatedCredentials) return;
     const text = `Generative AI Community 2026-27 Portal Access\nAssigned To: ${generatedCredentials.assignedTo}\nEmail / User ID: ${generatedCredentials.email}\nPassword: ${generatedCredentials.password || "Unchanged"}\nLogin Portal: https://genai-club.vercel.app/admin/login`;
@@ -635,6 +692,19 @@ export function UserManagement({
             >
               <Shield className="h-4 w-4 text-[#f5b642]" />
               <span>Enforce Active Team Logins</span>
+            </button>
+          )}
+
+          {isTop6Admin(currentUserRole) && (
+            <button
+              type="button"
+              onClick={handleBroadcastCredentials}
+              disabled={emailBroadcastLoading}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-sky-500/40 bg-gradient-to-r from-[#0c1c2e] to-[#08121f] px-3.5 py-2 text-xs font-bold text-sky-300 hover:border-sky-400 hover:text-white transition shadow-sm shrink-0 cursor-pointer disabled:opacity-50"
+              title="Send login portal credentials to all enabled staff members via official email"
+            >
+              <Mail className="h-4 w-4 text-sky-400" />
+              <span>{emailBroadcastLoading ? "Dispatching..." : "Email Credentials to Enabled Staff"}</span>
             </button>
           )}
 
@@ -985,6 +1055,19 @@ export function UserManagement({
 
                       return (
                         <div className="inline-flex items-center gap-1.5">
+                          {isTop6Admin(currentUserRole) && (
+                            <button
+                              type="button"
+                              onClick={() => handleSendSingleCredentials(u.id, u.email)}
+                              disabled={emailSendingUserId === u.id}
+                              title={`Email login credentials directly to ${u.email}`}
+                              className="rounded-xl border border-sky-500/40 bg-sky-950/40 px-2 py-1 text-xs font-semibold text-sky-300 hover:border-sky-400 hover:text-white transition cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                              <Mail className="h-3 w-3" />
+                              <span>{emailSendingUserId === u.id ? "Sending..." : "Email"}</span>
+                            </button>
+                          )}
+
                           {canEditTarget ? (
                             <button
                               type="button"

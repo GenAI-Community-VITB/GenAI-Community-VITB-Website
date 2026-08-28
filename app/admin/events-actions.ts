@@ -1539,6 +1539,195 @@ export async function getAllStaffMembersAction(): Promise<{ success: boolean; me
   }
 }
 
+/**
+ * Dispatches official Administrative Portal Login Credentials email to a single staff member.
+ */
+export async function sendStaffCredentialsEmailAction(userId: string) {
+  const { user, profile, role } = await requireStaffRole("superadmin");
+  const supabase = createAdminSupabase();
+
+  // Fetch target profile
+  const { data: targetProfile, error: profileErr } = await supabase
+    .from("user_profiles")
+    .select("id, email, full_name, role, assigned_to_name, password, is_active, is_login_disabled, is_voided, roles")
+    .eq("id", userId)
+    .single();
+
+  if (profileErr || !targetProfile) {
+    throw new Error("Staff user profile not found.");
+  }
+
+  if (targetProfile.is_login_disabled || targetProfile.is_voided || targetProfile.is_active === false) {
+    throw new Error("Cannot send credentials: This user's login access is currently disabled/voided.");
+  }
+
+  // Ensure password exists or generate fresh one
+  let activePassword = targetProfile.password;
+  if (!activePassword) {
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    activePassword = `GenAI#2026!${randomSuffix}`;
+    await supabase
+      .from("user_profiles")
+      .update({ password: activePassword, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    try {
+      await supabase.auth.admin.updateUserById(userId, {
+        password: activePassword,
+        email_confirm: true,
+      });
+    } catch (err: any) {
+      console.warn("Supabase Auth sync notice:", err.message);
+    }
+  }
+
+  const { EmailService } = await import("@/lib/email/service");
+  const recipientName = targetProfile.assigned_to_name || targetProfile.full_name || "Admin Member";
+  const portalUrl = process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/admin/login` : "https://genai-vitb.vercel.app/admin/login";
+
+  const emailHtml = `
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0c0a08; color: #f5f5f7; border: 1px solid #2e2618; border-radius: 20px; overflow: hidden; padding: 32px;">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; padding: 8px 16px; background: rgba(245, 182, 66, 0.1); border: 1px solid rgba(245, 182, 66, 0.4); border-radius: 999px; color: #f5b642; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+        Administrative Operations Portal
+      </div>
+      <h1 style="color: #ffffff; font-size: 22px; font-weight: 900; margin: 16px 0 6px; letter-spacing: -0.5px;">
+        Your Administrative Access Credentials
+      </h1>
+      <p style="color: #a1a1aa; font-size: 13px; margin: 0;">
+        Generative AI Community &bull; VIT Bhopal University
+      </p>
+    </div>
+
+    <div style="background-color: #14100b; border: 1px solid #2e2618; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+      <p style="font-size: 14px; color: #e4e4e7; margin: 0 0 16px;">
+        Hello <strong>${recipientName}</strong>,
+      </p>
+      <p style="font-size: 13px; color: #a1a1aa; line-height: 1.6; margin: 0 0 16px;">
+        Your administrative portal access for the <strong>GenAI Community Operations Matrix</strong> is active and enabled. Use the secure credentials below to access your executive workspace:
+      </p>
+
+      <div style="background-color: #070707; border: 1px solid #332b1d; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="color: #71717a; padding: 6px 0; width: 140px; font-weight: 600;">Login Portal:</td>
+            <td style="color: #f5b642; padding: 6px 0; font-weight: bold;"><a href="${portalUrl}" style="color: #f5b642; text-decoration: none;">${portalUrl}</a></td>
+          </tr>
+          <tr>
+            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">Email / User ID:</td>
+            <td style="color: #ffffff; padding: 6px 0; font-family: monospace; font-weight: bold;">${targetProfile.email}</td>
+          </tr>
+          <tr>
+            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">User UUID:</td>
+            <td style="color: #a1a1aa; padding: 6px 0; font-family: monospace; font-size: 11px;">${targetProfile.id}</td>
+          </tr>
+          <tr>
+            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">Assigned Role:</td>
+            <td style="color: #38bdf8; padding: 6px 0; font-weight: bold; text-transform: uppercase; font-size: 11px;">${targetProfile.role}</td>
+          </tr>
+          <tr>
+            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">Access Password:</td>
+            <td style="color: #4ade80; padding: 6px 0; font-family: monospace; font-size: 14px; font-weight: bold;">${activePassword}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin: 20px 0 10px;">
+        <a href="${portalUrl}" style="display: inline-block; background: linear-gradient(135deg, #f5b642, #ffd06a); color: #000000; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 28px; border-radius: 12px; text-decoration: none; box-shadow: 0 0 20px rgba(245, 182, 66, 0.3);">
+          Log In To Admin Matrix &rarr;
+        </a>
+      </div>
+    </div>
+
+    <div style="border-top: 1px solid #1f1a12; padding-top: 16px; font-size: 11px; color: #71717a; line-height: 1.5; text-align: center;">
+      <p style="margin: 0 0 6px;">
+        🔒 <strong>Security Policy:</strong> For maximum account security, please change your password upon your first login using the profile settings in the upper-right corner.
+      </p>
+      <p style="margin: 0;">
+        This automated transmission was dispatched on behalf of the Executive Directorate, GenAI Community VIT Bhopal.
+      </p>
+    </div>
+  </div>
+  `;
+
+  const sendResult = await EmailService.send({
+    to: targetProfile.email,
+    recipientName,
+    subject: `🔐 Your Administrative Portal Login Credentials - GenAI Community VIT Bhopal`,
+    html: emailHtml,
+    emailType: "custom_email",
+    senderId: user.id,
+    senderRole: role || "superadmin",
+    forceResend: true,
+  });
+
+  return { success: sendResult.success, email: targetProfile.email, sendResult };
+}
+
+/**
+ * Broadcasts official login credentials to ALL enabled/active staff members.
+ */
+export async function broadcastAllEnabledStaffCredentialsAction() {
+  const { user, profile, role } = await requireStaffRole("superadmin");
+  const supabase = createAdminSupabase();
+
+  // Query all enabled staff members
+  const { data: staffList, error: staffErr } = await supabase
+    .from("user_profiles")
+    .select("id, email, full_name, role, assigned_to_name, password, is_active, is_login_disabled, is_voided, roles")
+    .order("created_at", { ascending: true });
+
+  if (staffErr) throw new Error(staffErr.message);
+
+  const enabledStaff = (staffList || []).filter(
+    (s) => s.is_active !== false && s.is_login_disabled !== true && s.is_voided !== true && s.email && s.email.includes("@")
+  );
+
+  if (enabledStaff.length === 0) {
+    return { success: false, error: "No enabled staff accounts found to receive credentials." };
+  }
+
+  let sentCount = 0;
+  let failedCount = 0;
+  const results: { email: string; success: boolean; error?: string }[] = [];
+
+  for (const staff of enabledStaff) {
+    try {
+      const res = await sendStaffCredentialsEmailAction(staff.id);
+      if (res.success) {
+        sentCount++;
+        results.push({ email: staff.email, success: true });
+      } else {
+        failedCount++;
+        results.push({ email: staff.email, success: false, error: "Delivery failed" });
+      }
+    } catch (err: any) {
+      failedCount++;
+      results.push({ email: staff.email, success: false, error: err.message });
+    }
+  }
+
+  // Audit log
+  await logAuditEvent({
+    actorUserId: user.id,
+    actorEmail: profile.email || user.email,
+    actorRole: role,
+    action: "staff_credentials_broadcasted",
+    targetType: "user",
+    targetId: user.id,
+    reason: `Dispatched portal login credentials via email to ${sentCount} enabled staff accounts`,
+    metadata: { sentCount, failedCount, total: enabledStaff.length },
+  });
+
+  return {
+    success: true,
+    sentCount,
+    failedCount,
+    totalEnabled: enabledStaff.length,
+    results,
+  };
+}
+
 
 
 

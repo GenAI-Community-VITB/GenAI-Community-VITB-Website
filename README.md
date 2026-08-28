@@ -73,11 +73,11 @@ An enterprise-grade, zero-cost web engine and real-time event operations platfor
 ## 🚀 Key Features
 
 ### 1. Public Experience & Interactive Portals
-- **Dynamic Hero & Event Banner**: Live countdown timer, real-time ticket quotas, registration status badges, and 1-click entry pass triggers.
-- **50+ Member Interactive Hierarchy Tree**: Visualizes the complete student leadership across Executive Panel, AI/ML, Tech, Design, Events, HR, PR, Social, Content, and Finance verticals with high-resolution modal profile cards and LinkedIn integrations.
+- **Dynamic Hero & Glowing Live Event Banner**: Live countdown timer, real-time ticket quotas, registration status badges, glowing pulsating navbar live badge, and 1-click entry pass triggers.
+- **50+ Member Interactive Hierarchy Tree**: Visualizes the complete student leadership across Executive Panel, AI/ML, Tech, Design, Events, HR, PR, Social, Content, and Finance verticals with high-resolution modal profile cards and standardized feed redirects.
 - **LinkedIn & Gemini AI Technical Blogs**: Automatically ingests authentic technical dispatches from the official LinkedIn company feed into responsive, reader-friendly articles with Gemini summarization.
 - **Hall of Fame & Winners Showcase**: Celebrates winners, runner-ups, and notable projects from hackathons, ideathons, and coding sprints.
-- **Apple Dark Mode Design System**: Built with modern typography, frosted-glass backdrops (`backdrop-blur`), vibrant neon gradients, smooth Framer Motion micro-interactions, and hardware-accelerated transitions.
+- **Apple Dark Mode Design System**: Built with modern typography, frosted-glass backdrops (`backdrop-blur`), vibrant neon gradients, hardware-accelerated 60FPS animations, and sub-150ms page transitions.
 
 ### 2. Event Engine & Registration Gateway
 - **Atomic Registration Flow**: Captures name, VIT registration number, verified branch (including unified MTech & Allied branches), email, and transaction ID with instant client and server validation.
@@ -87,8 +87,10 @@ An enterprise-grade, zero-cost web engine and real-time event operations platfor
 
 ### 3. Administrative Command Center (`/admin`)
 - **Event Lifecycle Manager**: Create, edit, publish, schedule, and archive events with custom ticket quotas, registration windows, and banner artwork.
+- **Multi-Tier Attendance CSV Export**: Robust 1-click export of event registrations and check-in attendance matching by event UUID, slug, and title with complete IST timestamps and UTR records.
 - **Finance Review & Payment Queue**: Real-time payment verification queue with instant high-resolution receipt inspection (zoom & rotate), approval workflow, and 1-click automated email dispatch.
-- **Real-Time Camera QR Scanner (`/admin/scanner`)**: High-speed, in-browser camera scanner that verifies HMAC-signed QR passes at event entry with duplicate scan protection and offline check-in buffering.
+- **Real-Time Camera QR Scanner (`/admin/scanner`)**: High-speed, in-browser camera scanner with instant **ALREADY SCANNED** duplicate scan detection, prior check-in audit timestamps, and **Executive Tech Override Admittance** for authorized leads.
+- **Staff Credential Email Dispatcher**: 1-click individual and bulk broadcast of official login credentials (Portal URL, Email/User ID, and Password) directly to all enabled staff accounts via the Google Apps Script email relay.
 - **On-Spot Desk Registration & Live QR**: Side-by-side live QR display facilitating walk-in student registrations and on-the-spot UPI payments at registration desks.
 - **Top-Executive Unvoid & Recovery Engine**: Leadership portal to manage staff permissions, reactivate team members, reset passwords, and generate secure credentials with 1-click clipboard export.
 

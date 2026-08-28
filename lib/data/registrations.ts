@@ -1961,21 +1961,57 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
   const supabase = createAdminSupabase();
 
   try {
-    const { data: event } = await supabase
-      .from("events")
-      .select("title")
-      .eq("id", eventId)
-      .single();
+    // 1. Resolve event by UUID, Slug, or title
+    const cleanId = eventId.trim();
+    let eventTitle = "Event";
+    const candidateEventIds = [cleanId];
 
-    const { data: registrations } = await supabase
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+    let eventQuery = supabase.from("events").select("id, title, slug");
+    if (isUuid) {
+      eventQuery = eventQuery.or(`id.eq.${cleanId},slug.eq.${cleanId}`);
+    } else {
+      eventQuery = eventQuery.or(`slug.eq.${cleanId},title.ilike.%${cleanId}%`);
+    }
+
+    const { data: event } = await eventQuery.limit(1).maybeSingle();
+    if (event) {
+      eventTitle = event.title || "Event";
+      if (event.id && !candidateEventIds.includes(event.id)) candidateEventIds.push(event.id);
+      if (event.slug && !candidateEventIds.includes(event.slug)) candidateEventIds.push(event.slug);
+    }
+
+    // 2. Fetch registrations matching any candidate ID
+    let { data: registrations, error: regErr } = await supabase
       .from("registrations")
-      .select("id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, qr_token, academic_year, created_at, payments(utr_number, transaction_id, payment_status), checkins(scan_timestamp, scanned_by_name, status)")
-      .eq("event_id", eventId)
+      .select(
+        "id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, qr_token, academic_year, created_at, is_deleted, payments(utr_number, transaction_id, payment_status), checkins(scan_timestamp, scanned_by_name, status)"
+      )
+      .in("event_id", candidateEventIds)
       .order("created_at", { ascending: true });
+
+    // Fallback: If no records found, try fetching all non-deleted registrations where event_id matches
+    if ((!registrations || registrations.length === 0) && isUuid) {
+      const { data: fallbackRegs } = await supabase
+        .from("registrations")
+        .select(
+          "id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, qr_token, academic_year, created_at, is_deleted, payments(utr_number, transaction_id, payment_status), checkins(scan_timestamp, scanned_by_name, status)"
+        )
+        .eq("event_id", cleanId)
+        .order("created_at", { ascending: true });
+      if (fallbackRegs && fallbackRegs.length > 0) {
+        registrations = fallbackRegs;
+      }
+    }
 
     if (!registrations || registrations.length === 0) {
       return { success: false, error: "No registration records found for this event." };
     }
+
+    // Filter out archived/soft-deleted records unless all are deleted
+    const activeRegistrations = registrations.some((r: any) => !r.is_deleted)
+      ? registrations.filter((r: any) => !r.is_deleted)
+      : registrations;
 
     const headers = [
       "Name",
@@ -1991,18 +2027,26 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
       "Attendance Status",
       "Check-in Time (IST)",
       "Scanned By",
+      "Registration Date (IST)",
     ];
 
-    const rows = registrations.map((r: any) => {
+    const rows = activeRegistrations.map((r: any) => {
       const checkin = Array.isArray(r.checkins) && r.checkins.length > 0 ? r.checkins[0] : null;
-      const isPresent = r.registration_status === "checked_in" || checkin?.status === "approved" || checkin?.status === "overridden";
+      const isPresent =
+        r.registration_status === "checked_in" ||
+        checkin?.status === "approved" ||
+        checkin?.status === "overridden";
       const checkinTime = checkin?.scan_timestamp ? formatISTDate(checkin.scan_timestamp, true) : "—";
       const scanner = checkin?.scanned_by_name || "—";
-      
+
       const payment = Array.isArray(r.payments) && r.payments.length > 0 ? r.payments[0] : null;
       const utr = payment?.utr_number || payment?.transaction_id || "N/A";
-      const paymentStatus = payment?.payment_status || (r.registration_status === "verified" || r.registration_status === "checked_in" ? "verified" : r.registration_status);
-      
+      const paymentStatus =
+        payment?.payment_status ||
+        (r.registration_status === "verified" || r.registration_status === "checked_in"
+          ? "verified"
+          : r.registration_status);
+
       // Calculate academic year if not explicitly saved
       let year = r.academic_year || "";
       if (!year && r.vit_registration_number && r.vit_registration_number.length >= 2) {
@@ -2011,27 +2055,35 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
       }
 
       const qrStatus = r.qr_token ? "GENERATED" : "NOT_GENERATED";
-      const approvalStatus = r.registration_status === "verified" || r.registration_status === "checked_in" ? "APPROVED" : r.registration_status === "rejected" ? "REJECTED" : "PENDING";
+      const approvalStatus =
+        r.registration_status === "verified" || r.registration_status === "checked_in"
+          ? "APPROVED"
+          : r.registration_status === "rejected"
+          ? "REJECTED"
+          : "PENDING";
+
+      const regDate = r.created_at ? formatISTDate(r.created_at, true) : "—";
 
       return [
-        `"${r.full_name || ""}"`,
-        `"${r.registration_number || r.vit_registration_number || ""}"`,
-        `"${r.personal_email || ""}"`,
-        `"${r.college_email || ""}"`,
-        `"${year}"`,
-        `"${r.branch_name || ""}"`,
-        `"${utr}"`,
-        `"${paymentStatus}"`,
+        `"${(r.full_name || "").replace(/"/g, '""')}"`,
+        `"${(r.registration_number || r.vit_registration_number || "").replace(/"/g, '""')}"`,
+        `"${(r.personal_email || "").replace(/"/g, '""')}"`,
+        `"${(r.college_email || "").replace(/"/g, '""')}"`,
+        `"${(year || "").replace(/"/g, '""')}"`,
+        `"${(r.branch_name || "").replace(/"/g, '""')}"`,
+        `"${(utr || "").replace(/"/g, '""')}"`,
+        `"${(paymentStatus || "").replace(/"/g, '""')}"`,
         `"${approvalStatus}"`,
         `"${qrStatus}"`,
         `"${isPresent ? "Present" : "Absent"}"`,
         `"${checkinTime}"`,
-        `"${scanner}"`,
+        `"${(scanner || "").replace(/"/g, '""')}"`,
+        `"${regDate}"`,
       ].join(",");
     });
 
     const csvContent = [headers.join(","), ...rows].join("\n");
-    const safeTitle = (event?.title || "Event").replace(/[^a-zA-Z0-9]/g, "_");
+    const safeTitle = (eventTitle || "Event").replace(/[^a-zA-Z0-9]/g, "_");
     const filename = `Registrations_Attendance_${safeTitle}_${Date.now()}.csv`;
 
     return {

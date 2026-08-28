@@ -83,14 +83,26 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
 
+  const roleLower = (currentUserRole || "").toLowerCase();
   const isTechUser =
-    currentUserRole === "tech" ||
-    currentUserRole === "president" ||
-    currentUserRole === "vice_president" ||
-    currentUserRole === "technical_lead" ||
-    currentUserRole === "technical_co_lead" ||
-    currentUserRole === "aiml_lead" ||
-    currentUserRole === "aiml_co_lead";
+    roleLower === "tech" ||
+    roleLower === "technical_lead" ||
+    roleLower === "technical_co_lead" ||
+    roleLower === "aiml_lead" ||
+    roleLower === "aiml_co_lead" ||
+    roleLower === "president" ||
+    roleLower === "vice_president" ||
+    roleLower === "superadmin" ||
+    roleLower === "admin" ||
+    roleLower === "lead" ||
+    roleLower === "co_lead" ||
+    roleLower === "events_lead" ||
+    roleLower === "finance_lead" ||
+    roleLower === "hr_lead" ||
+    roleLower.includes("lead") ||
+    roleLower.includes("tech") ||
+    roleLower.includes("admin") ||
+    roleLower.includes("pres");
 
   // Discover available cameras on mount
   useEffect(() => {
@@ -387,13 +399,87 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
     };
   }, []);
 
-  function handleOverrideSubmit(e: React.FormEvent) {
+  const [overrideTarget, setOverrideTarget] = useState("");
+
+  async function handleOverrideSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!overrideReason.trim()) return;
 
-    setShowOverrideModal(false);
-    handleConfirmAttendance(true, overrideReason.trim());
-    setOverrideReason("");
+    // If participant is already loaded in scanState
+    if (scanState?.participant?.id) {
+      setShowOverrideModal(false);
+      handleConfirmAttendance(true, overrideReason.trim());
+      setOverrideReason("");
+      setOverrideTarget("");
+      return;
+    }
+
+    // If participant is not yet loaded, look up by overrideTarget or manualToken
+    const target = (overrideTarget || manualToken || lastScannedToken || "").trim();
+    if (!target) {
+      setScannerError("Please provide a Registration Number, VIT Reg No, or Email to override.");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const verifyRes = await fetch("/api/checkin/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", qrToken: target }),
+      });
+      const verifyData = await verifyRes.json();
+      const regId = verifyData.participant?.id;
+      if (!regId) {
+        setScannerError(verifyData.message || "Target participant not found for override.");
+        setIsProcessing(false);
+        return;
+      }
+
+      const confirmRes = await fetch("/api/checkin/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm",
+          registrationId: regId,
+          isOverride: true,
+          overrideReason: overrideReason.trim(),
+        }),
+      });
+      const confirmData = await confirmRes.json();
+
+      if (confirmData.success) {
+        const p = confirmData.participant || verifyData.participant;
+        setScanState({
+          stage: "approved",
+          message: confirmData.message || "Executive Override Admitted & Recorded.",
+          participant: p,
+          isOverride: true,
+        });
+        setSessionCount((prev) => ({ ...prev, approved: prev.approved + 1 }));
+        setScanHistory((prev) => [
+          {
+            name: p.full_name || "Participant",
+            time: new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }),
+            status: "overridden",
+            regId: p.registration_number || p.id.slice(0, 8),
+          },
+          ...prev.slice(0, 7),
+        ]);
+        playBeep("success");
+        setShowOverrideModal(false);
+        setOverrideReason("");
+        setOverrideTarget("");
+      } else {
+        setScannerError(confirmData.message || "Failed to process override.");
+        playBeep("error");
+      }
+    } catch (err: any) {
+      setScannerError(err.message || "Network error while processing override.");
+      playBeep("error");
+    } finally {
+      setIsProcessing(false);
+    }
   }
 
   return (
@@ -738,14 +824,14 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                   </button>
                 )}
 
-                {scanState.stage === "rejected" && isTechUser && (
+                {(scanState.stage === "rejected" || scanState.isAlreadyCheckedIn) && isTechUser && (
                   <button
                     type="button"
                     onClick={() => setShowOverrideModal(true)}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/40 bg-amber-950/40 hover:bg-amber-900/50 py-3 text-xs font-bold text-amber-200 transition active:scale-[0.99] cursor-pointer"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/60 to-amber-900/60 hover:from-amber-900/80 hover:to-amber-800/80 py-3.5 text-xs font-black uppercase tracking-wider text-amber-200 shadow-[0_0_20px_rgba(245,182,66,0.25)] transition active:scale-[0.99] cursor-pointer"
                   >
                     <ShieldAlert className="h-4 w-4 text-amber-400" />
-                    Executive Tech Override
+                    [ Executive Tech Override Admittance ]
                   </button>
                 )}
               </div>
@@ -759,6 +845,24 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
               <p className="text-xs text-zinc-500 max-w-xs mx-auto leading-relaxed">
                 Point the camera at an official event pass QR code or type a registration ID to preview attendee credentials.
               </p>
+              {isTechUser && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (manualToken.trim()) {
+                        handleVerifyToken(manualToken);
+                      } else {
+                        setShowOverrideModal(true);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition cursor-pointer"
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+                    Executive Tech Override
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -815,6 +919,22 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
             </p>
 
             <form onSubmit={handleOverrideSubmit} className="space-y-4">
+              {!scanState?.participant && (
+                <div>
+                  <label className="text-xs font-bold text-zinc-300 block mb-1.5 uppercase tracking-wider">
+                    Registration No / VIT Reg No / Email *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={overrideTarget}
+                    onChange={(e) => setOverrideTarget(e.target.value)}
+                    placeholder="e.g. 24BCE10000 or attendee@vitbhopal.ac.in"
+                    className="w-full rounded-2xl border border-[#2d2416] bg-[#0c0a07] p-3 text-xs text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none font-mono"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-bold text-zinc-300 block mb-1.5 uppercase tracking-wider">
                   Override Justification *

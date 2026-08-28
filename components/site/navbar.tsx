@@ -72,18 +72,32 @@ export function Navbar() {
         <nav className="hidden items-center gap-1 rounded-2xl border border-[#2d2416] bg-[#110e09]/90 p-1.5 backdrop-blur-md shadow-inner md:flex">
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href;
+            const isEvents = link.href === "/events";
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 prefetch={true}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition duration-200 ${
+                className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition duration-200 ${
                   isActive
-                    ? "bg-[#1f190e] text-[#f5b642] border border-[#f5b642]/50 shadow-[0_0_12px_rgba(245,182,66,0.15)]"
+                    ? "bg-[#1f190e] text-[#f5b642] border border-[#f5b642]/50 shadow-[0_0_15px_rgba(245,182,66,0.3)]"
+                    : isEvents
+                    ? "border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:border-amber-400 hover:bg-amber-500/20 hover:text-white shadow-[0_0_12px_rgba(245,182,66,0.2)]"
                     : "text-zinc-400 border border-transparent hover:border-zinc-800 hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
-                {link.label}
+                {isEvents && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f5b642] opacity-80" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#f5b642]" />
+                  </span>
+                )}
+                <span>{link.label}</span>
+                {isEvents && (
+                  <span className="rounded-md bg-[#f5b642] px-1 py-0.2 text-[9px] font-black uppercase text-black tracking-tight ml-0.5">
+                    Live
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -94,9 +108,16 @@ export function Navbar() {
           <Link
             href="/events"
             prefetch={true}
-            className="rounded-xl bg-[#f5b642] px-3 py-1.5 text-xs font-bold text-black shadow-[0_0_12px_rgba(245,182,66,0.35)]"
+            className="relative inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] px-3.5 py-1.5 text-xs font-black text-black shadow-[0_0_18px_rgba(245,182,66,0.6)] animate-pulse"
           >
-            Events
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-black" />
+            </span>
+            <span>Events</span>
+            <span className="rounded bg-black/20 px-1 py-0.2 text-[8px] font-extrabold uppercase text-black">
+              Live
+            </span>
           </Link>
           <button
             type="button"
