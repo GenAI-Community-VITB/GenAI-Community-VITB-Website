@@ -96,6 +96,60 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
     setScreenshotPreview(URL.createObjectURL(file));
   }
 
+  /**
+   * Compresses an image file client-side using Canvas API.
+   * Targets ≤2MB output to stay well under Vercel's body size limit.
+   */
+  async function compressScreenshot(file: File): Promise<File> {
+    // If already small enough, skip compression
+    if (file.size <= 2 * 1024 * 1024) return file;
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(file); return; }
+
+        // Scale down to max 1920px on longest side
+        const MAX_DIM = 1920;
+        let { width, height } = img;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            const compressed = new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve(compressed);
+          },
+          "image/jpeg",
+          0.75
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file); // Fallback to original on error
+      };
+
+      img.src = url;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -150,6 +204,9 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
     setPending(true);
 
     try {
+      // Compress screenshot client-side to stay under server body limits
+      const compressedFile = await compressScreenshot(screenshot);
+
       const formData = new FormData();
       formData.append("event_id", event.id);
       formData.append("full_name", fullName.trim());
@@ -159,13 +216,20 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
       formData.append("college_email", cleanCollege);
       formData.append("phone_number", cleanPhone);
       formData.append("transaction_id", transactionId.trim());
-      formData.append("screenshot_file", screenshot);
+      formData.append("screenshot_file", compressedFile);
       formData.append("cf_turnstile_response", turnstileToken || "cf-test-pass");
+
+      // 35-second client-side timeout for clear user feedback
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 35_000);
 
       const res = await fetch("/api/register", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -192,7 +256,15 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
       setPending(false);
     } catch (err: any) {
       console.error("Submission error:", err);
-      setError(err.message || "An unexpected network error occurred. Please try again.");
+      if (err.name === "AbortError") {
+        setError(
+          "The server took too long to respond. Your registration may have been submitted — please check your email before retrying."
+        );
+      } else {
+        setError(
+          "Could not connect to the registration server. Please check your internet connection and try again."
+        );
+      }
       setPending(false);
     }
   }

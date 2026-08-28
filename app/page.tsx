@@ -46,7 +46,7 @@ export default async function Home() {
   const achievementsCount = achievements?.length || 0;
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black">
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       {/* Schema.org Structured Data */}
       <OrganizationJsonLd />
       <WebSiteJsonLd />

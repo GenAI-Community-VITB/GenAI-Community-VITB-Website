@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     description:
       "Explore the student leaders, technical vertical leads, and coordinators of GENAI Community at VIT Bhopal University.",
     url: "https://www.genaiclubvitb.in/team",
+    images: [{ url: "/ClubIcon.png", width: 512, height: 512, alt: "GenAI Community VIT Bhopal" }],
   },
 };
 
@@ -29,7 +30,7 @@ export default async function TeamHierarchyPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", url: "https://www.genaiclubvitb.in" },

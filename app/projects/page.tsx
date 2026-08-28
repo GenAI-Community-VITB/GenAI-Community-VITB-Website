@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     description:
       "Discover open-source AI systems and agentic toolkits built by GENAI Community at VIT Bhopal University.",
     url: "https://www.genaiclubvitb.in/projects",
+    images: [{ url: "/ClubIcon.png", width: 512, height: 512, alt: "GenAI Community VIT Bhopal" }],
   },
 };
 

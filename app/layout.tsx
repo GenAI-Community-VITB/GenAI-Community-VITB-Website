@@ -111,12 +111,15 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <head>
+        {/* Critical resource hints for fast loading */}
+        <link rel="preload" href="/ClubIcon.png" as="image" type="image/png" />
         <link rel="preconnect" href="https://lh3.googleusercontent.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
         <link rel="preconnect" href="https://drive.google.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://drive.google.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
         <meta name="color-scheme" content="dark" />
       </head>
       <body className="min-h-full flex flex-col bg-black text-white selection:bg-[#f5b642] selection:text-black">

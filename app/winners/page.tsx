@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     description:
       "Celebrating the top builders and champions from our hackathons and challenges at VIT Bhopal University.",
     url: "https://www.genaiclubvitb.in/winners",
+    images: [{ url: "/ClubIcon.png", width: 512, height: 512, alt: "GenAI Community VIT Bhopal" }],
   },
 };
 

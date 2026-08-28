@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
       "lucide-react",
       "framer-motion",
       "zod",
+      "@supabase/supabase-js",
+      "@supabase/ssr",
     ],
     serverActions: {
       bodySizeLimit: "10mb",
@@ -36,17 +38,10 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Aggressive caching for static assets — served from CDN, zero server cost.
-        source: "/_next/static/:path*",
+        // Public images and static assets — cache for 7 days with revalidation
+        source: "/:file(ClubIcon\\.png|favicon\\.png|favicon\\.ico|apple-icon\\.png)",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
-      {
-        // Public images can be cached for 24 hours
-        source: "/public/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=3600" },
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
         ],
       },
     ];

@@ -20,12 +20,13 @@ export function OrganizationJsonLd({
 }: OrganizationJsonLdProps) {
   const schema = {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": ["Organization", "EducationalOrganization"],
     name,
     url,
     logo,
     description,
     sameAs,
+    foundingDate: "2023",
     parentOrganization: {
       "@type": "CollegeOrUniversity",
       name: "VIT Bhopal University",
@@ -38,6 +39,13 @@ export function OrganizationJsonLd({
       postalCode: "466114",
       addressCountry: "IN",
     },
+    contactPoint: {
+      "@type": "ContactPoint",
+      contactType: "General Inquiries",
+      url: "https://www.genaiclubvitb.in/about",
+      availableLanguage: ["English", "Hindi"],
+    },
+    keywords: "Generative AI, Machine Learning, Deep Learning, VIT Bhopal, AI Community, Hackathons, Workshops",
   };
 
   return (
@@ -70,6 +78,15 @@ export function WebSiteJsonLd({
       name: "GENAI Community VIT Bhopal",
       logo: "https://www.genaiclubvitb.in/ClubIcon.png",
     },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${url}/events?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+    inLanguage: "en-IN",
   };
 
   return (

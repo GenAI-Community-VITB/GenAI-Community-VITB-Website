@@ -46,9 +46,9 @@ export default async function TeamMembersPage({ params }: TeamPageParams) {
   const memberList: MemberData[] = (members as MemberData[]) ?? [];
 
   return (
-    <>
+    <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       <Navbar />
-      <main className="min-h-screen bg-black">
+      <main className="bg-black">
         {/* Hero banner */}
         <section className="relative overflow-hidden border-b border-[#1e1e1e] py-16 sm:py-20">
           {/* Background glows */}
@@ -108,7 +108,7 @@ export default async function TeamMembersPage({ params }: TeamPageParams) {
         </section>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }
 

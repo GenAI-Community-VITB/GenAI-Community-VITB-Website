@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     description:
       "Explore the latest AI research, agentic architectures, hackathon wins, and workshop takeaways from the Generative AI Community at VIT Bhopal.",
     url: "https://www.genaiclubvitb.in/blogs",
+    images: [{ url: "/ClubIcon.png", width: 512, height: 512, alt: "GenAI Community VIT Bhopal" }],
   },
 };
 

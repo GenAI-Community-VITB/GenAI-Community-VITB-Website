@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     description:
       "Learn about GENAI Community VIT Bhopal — our mission to accelerate AI literacy and our campus research pillars.",
     url: "https://www.genaiclubvitb.in/about",
+    images: [{ url: "/ClubIcon.png", width: 512, height: 512, alt: "GenAI Community VIT Bhopal" }],
   },
 };
 

@@ -5,7 +5,7 @@ import { Home, Calendar, Info, ArrowLeft } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-black text-white selection:bg-[#f5b642] selection:text-black">
+    <div className="min-h-screen flex flex-col justify-between bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
       <Navbar />
 
       <main className="container-wrap flex-1 flex items-center justify-center py-20 relative overflow-hidden">
