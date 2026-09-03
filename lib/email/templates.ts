@@ -204,6 +204,22 @@ export function getRegistrationConfirmedTemplate(params: {
         </tr>
       </table>
     </div>
+
+    <!-- WhatsApp Community Group CTA -->
+    <div style="background-color: #0a1a0f; border: 1px solid #1a4a2a; border-radius: 16px; padding: 24px 20px; margin-bottom: 20px; text-align: center;">
+      <p style="margin: 0 0 6px 0; font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; font-family: monospace;">
+        Stay Connected
+      </p>
+      <p style="margin: 0 0 16px 0; font-size: 15px; font-weight: 700; color: #ffffff; line-height: 1.5;">
+        Join our official WhatsApp group for live updates, announcements \&amp; coordination on event day.
+      </p>
+      <a href="https://chat.whatsapp.com/HUSH9eDJR7v7P5mX50TuiO" target="_blank" style="display: inline-block; background-color: #25D366; color: #ffffff; font-size: 14px; font-weight: 800; padding: 12px 28px; border-radius: 9999px; text-decoration: none; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);">
+        💬 Join WhatsApp Group
+      </a>
+      <p style="margin: 12px 0 0 0; font-size: 11px; color: #71717a;">
+        Tap the button above or copy this link: <a href="https://chat.whatsapp.com/HUSH9eDJR7v7P5mX50TuiO" style="color: ${GOLD_COLOR}; text-decoration: none; word-break: break-all;">chat.whatsapp.com/HUSH9eDJR7v7P5mX50TuiO</a>
+      </p>
+    </div>
   `;
 
   return {
