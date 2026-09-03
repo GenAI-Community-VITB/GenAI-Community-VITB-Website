@@ -271,14 +271,6 @@ export default async function EventRegistrationPage(props: {
                   </a>
                 </div>
               </div>
-              <a
-                href="https://chat.whatsapp.com/HUSH9eDJR7v7P5mX50TuiO?s=cl&p=a&mlu=4&ilr=4"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-xl border border-green-500/30 bg-green-500/10 p-2.5 text-center text-[10px] font-bold text-green-300 hover:bg-green-500/20 transition-colors"
-              >
-                Join the WhatsApp Group
-              </a>
             </div>
 
             {/* 5. Google Form Failsafe Box */}
