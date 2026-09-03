@@ -238,39 +238,47 @@ export default async function EventRegistrationPage(props: {
                 {/* Support Desk */}
                 <div className="rounded-xl border border-[#2a2215] bg-[#120e09] p-2.5 space-y-1 hover:border-[#f5b642]/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-[11px]">Executive Secretariat</span>
+                    <span className="font-bold text-white text-[11px]">Prince Agrawal</span>
                     <span className="text-[8px] font-bold uppercase font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
                       Official
                     </span>
                   </div>
                   <span className="text-[9.5px] text-zinc-400 font-mono block">Operations & Reg</span>
                   <a
-                    href="mailto:genaicommunityvitbofficial@gmail.com"
+                    href="tel:+919937702380"
                     className="text-[9.5px] text-[#f5b642] hover:underline font-mono break-all block font-medium leading-tight flex items-center gap-1"
                   >
-                    <Mail className="h-2.5 w-2.5 text-[#f5b642] shrink-0" />
-                    <span>genaicommunityvitbofficial@gmail.com</span>
+                    <Phone className="h-2.5 w-2.5 text-[#f5b642] shrink-0" />
+                    <span>9937702380</span>
                   </a>
                 </div>
 
                 {/* Coordinator 2 */}
                 <div className="rounded-xl border border-[#2a2215] bg-[#120e09] p-2.5 space-y-1 hover:border-[#f5b642]/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-[11px]">Prince Agrawal</span>
+                    <span className="font-bold text-white text-[11px]">Ishani Verma</span>
                     <span className="text-[8px] font-bold uppercase font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
                       Coord
                     </span>
                   </div>
                   <span className="text-[9.5px] text-zinc-400 font-mono block">Campus Support</span>
                   <a
-                    href="mailto:prince.25bai11117@vitbhopal.ac.in"
+                    href="tel:+918368428983"
                     className="text-[9.5px] text-[#f5b642] hover:underline font-mono break-all block font-medium leading-tight flex items-center gap-1"
                   >
-                    <Mail className="h-2.5 w-2.5 text-[#f5b642] shrink-0" />
-                    <span>prince.25bai11117@vitbhopal.ac.in</span>
+                    <Phone className="h-2.5 w-2.5 text-[#f5b642] shrink-0" />
+                    <span>8368428983</span>
                   </a>
                 </div>
               </div>
+              <a
+                href="https://chat.whatsapp.com/HUSH9eDJR7v7P5mX50TuiO?s=cl&p=a&mlu=4&ilr=4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-xl border border-green-500/30 bg-green-500/10 p-2.5 text-center text-[10px] font-bold text-green-300 hover:bg-green-500/20 transition-colors"
+              >
+                Join the WhatsApp Group
+              </a>
             </div>
 
             {/* 5. Google Form Failsafe Box */}
