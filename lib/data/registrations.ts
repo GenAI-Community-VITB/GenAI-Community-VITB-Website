@@ -1021,7 +1021,9 @@ export async function confirmAttendance(params: {
       p_override_reason: params.overrideReason || null,
     });
 
-    if (!error && data) {
+    if (error) {
+      console.warn("RPC confirm_attendance_action error, falling back to direct DB transaction:", error.message);
+    } else if (data) {
       if (!data.success) {
         return {
           success: false,
@@ -1131,48 +1133,87 @@ export async function confirmAttendance(params: {
     }
 
     // 3. Update registration status to checked_in
-    await supabase
+    const isScannerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.scannerUserId || "");
+
+    // Try updating with checked_in_at first; if that column doesn't exist, update just registration_status
+    let updateSuccess = false;
+    const { error: updateErr1 } = await supabase
       .from("registrations")
       .update({
         registration_status: "checked_in",
-        checked_in_at: reg.checked_in_at || nowIso,
-        checked_in_by: params.scannerUserId,
+        checked_in_at: nowIso,
+        updated_at: nowIso,
       })
       .eq("id", reg.id);
 
-    // 4. Insert into checkins table
-    const checkinId = `checkin-${Date.now()}`;
-    const { error: insertErr } = await supabase.from("checkins").insert({
-      id: checkinId,
+    if (!updateErr1) {
+      updateSuccess = true;
+    } else {
+      // Fallback: column checked_in_at might not exist in table, update registration_status safely
+      const { error: updateErr2 } = await supabase
+        .from("registrations")
+        .update({
+          registration_status: "checked_in",
+          updated_at: nowIso,
+        })
+        .eq("id", reg.id);
+
+      if (updateErr2) {
+        console.error("[confirmAttendance] Error updating registration status:", updateErr2);
+        return {
+          success: false,
+          message: `Database error updating registration: ${updateErr2.message}`,
+          errorCode: "UPDATE_FAILED",
+        };
+      }
+      updateSuccess = true;
+    }
+
+    // 4. Insert into checkins table (let PostgreSQL generate UUID via default gen_random_uuid())
+    const checkinRecord: Record<string, any> = {
       registration_id: reg.id,
       event_id: reg.event_id,
-      scanned_by: params.scannerUserId,
       scanned_by_name: params.scannerName,
-      scanner_role: params.scannerRole,
+      scanned_by_role: params.scannerRole,
       status: isOverride ? "overridden" : "approved",
       is_override: isOverride,
       override_reason: params.overrideReason || null,
       scan_timestamp: nowIso,
-    });
+    };
 
-    if (insertErr && !isOverride && (insertErr.code === "23505" || insertErr.message?.includes("unique"))) {
-      const { data: priorCheckin } = await supabase
-        .from("checkins")
-        .select("scan_timestamp, scanned_by_name")
-        .eq("registration_id", reg.id)
-        .in("status", ["approved", "overridden"])
-        .order("scan_timestamp", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    if (isScannerUuid) {
+      checkinRecord.scanned_by = params.scannerUserId;
+    }
 
+    const { error: insertErr } = await supabase.from("checkins").insert(checkinRecord);
+
+    if (insertErr) {
+      console.error("[confirmAttendance] Error inserting checkin record:", insertErr);
+      if (!isOverride && (insertErr.code === "23505" || insertErr.message?.includes("unique"))) {
+        const { data: priorCheckin } = await supabase
+          .from("checkins")
+          .select("scan_timestamp, scanned_by_name")
+          .eq("registration_id", reg.id)
+          .in("status", ["approved", "overridden"])
+          .order("scan_timestamp", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        return {
+          success: false,
+          message: "ALREADY SCANNED: Participant was checked in simultaneously by another scanner.",
+          errorCode: "ALREADY_CHECKED_IN",
+          isAlreadyCheckedIn: true,
+          priorCheckinTime: priorCheckin?.scan_timestamp || nowIso,
+          priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
+          participant: participantData,
+        };
+      }
+      // If checkins insert failed for another reason, report it
       return {
         success: false,
-        message: "ALREADY SCANNED: Participant was checked in simultaneously by another scanner.",
-        errorCode: "ALREADY_CHECKED_IN",
-        isAlreadyCheckedIn: true,
-        priorCheckinTime: priorCheckin?.scan_timestamp || nowIso,
-        priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
-        participant: participantData,
+        message: `Database error recording check-in: ${insertErr.message}`,
+        errorCode: "CHECKIN_INSERT_FAILED",
       };
     }
 
@@ -1744,7 +1785,7 @@ export async function importParticipantsBulkAction(params: {
 
     try {
       // 1. Insert into registrations
-      await supabase.from("registrations").insert({
+      const regPayload: Record<string, any> = {
         id: regId,
         event_id: eventId,
         registration_number: registrationNumber,
@@ -1757,18 +1798,33 @@ export async function importParticipantsBulkAction(params: {
         registration_status: paymentStatus === "verified" ? "verified" : "pending",
         registration_source: "excel_import",
         qr_token: qrToken,
-        college,
         created_at: new Date().toISOString(),
-      });
+      };
 
-      // 2. Insert payment record with UTR
-      await supabase.from("payments").insert({
+      const { error: regErr } = await supabase.from("registrations").insert(regPayload);
+      if (regErr) {
+        console.error(`[bulkImport] Error inserting registration for ${cleanName}:`, regErr);
+        continue;
+      }
+
+      // 2. Insert payment record with UTR and non-null Drive placeholder values
+      const { error: payErr } = await supabase.from("payments").insert({
         registration_id: regId,
+        event_id: eventId,
         amount,
         transaction_id: transactionId,
         payment_status: paymentStatus,
+        drive_file_id: "bulk_imported_csv",
+        drive_file_name: "bulk_import_entry.csv",
+        drive_mime_type: "text/csv",
+        drive_folder_id: "bulk_import",
+        drive_view_url: null,
         verified_at: paymentStatus === "verified" ? new Date().toISOString() : null,
       });
+
+      if (payErr) {
+        console.warn(`[bulkImport] Payment insert warning for ${cleanName}:`, payErr.message);
+      }
 
       // 3. Optionally dispatch official QR Pass email with single inline attachment
       if (sendEmailDirectly && paymentStatus === "verified") {
@@ -1963,44 +2019,83 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
   try {
     // 1. Resolve event by UUID, Slug, or title
     const cleanId = eventId.trim();
+    let targetEventId = cleanId;
     let eventTitle = "Event";
-    const candidateEventIds = [cleanId];
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
-    let eventQuery = supabase.from("events").select("id, title, slug");
+
     if (isUuid) {
-      eventQuery = eventQuery.or(`id.eq.${cleanId},slug.eq.${cleanId}`);
+      const { data: ev } = await supabase
+        .from("events")
+        .select("id, title, slug")
+        .eq("id", cleanId)
+        .maybeSingle();
+      if (ev) {
+        targetEventId = ev.id;
+        eventTitle = ev.title || "Event";
+      }
     } else {
-      eventQuery = eventQuery.or(`slug.eq.${cleanId},title.ilike.%${cleanId}%`);
+      const { data: ev } = await supabase
+        .from("events")
+        .select("id, title, slug")
+        .or(`slug.eq.${cleanId},title.ilike.%${cleanId}%`)
+        .limit(1)
+        .maybeSingle();
+      if (ev) {
+        targetEventId = ev.id;
+        eventTitle = ev.title || "Event";
+      } else {
+        return { success: false, error: `Event could not be found for identifier: ${cleanId}` };
+      }
     }
 
-    const { data: event } = await eventQuery.limit(1).maybeSingle();
-    if (event) {
-      eventTitle = event.title || "Event";
-      if (event.id && !candidateEventIds.includes(event.id)) candidateEventIds.push(event.id);
-      if (event.slug && !candidateEventIds.includes(event.slug)) candidateEventIds.push(event.slug);
-    }
-
-    // 2. Fetch registrations matching any candidate ID
+    // 2. Fetch registrations for the event
     let { data: registrations, error: regErr } = await supabase
       .from("registrations")
-      .select(
-        "id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, qr_token, academic_year, created_at, is_deleted, payments(utr_number, transaction_id, payment_status), checkins(scan_timestamp, scanned_by_name, status)"
-      )
-      .in("event_id", candidateEventIds)
+      .select("*, payments(transaction_id, payment_status, amount), checkins(scan_timestamp, scanned_by_name, status)")
+      .eq("event_id", targetEventId)
       .order("created_at", { ascending: true });
 
-    // Fallback: If no records found, try fetching all non-deleted registrations where event_id matches
-    if ((!registrations || registrations.length === 0) && isUuid) {
-      const { data: fallbackRegs } = await supabase
+    // Fallback: If joined query fails, run simple select and populate relations separately
+    if (regErr) {
+      console.warn("[exportAttendanceDataAction] Joined query failed, falling back to simple select:", regErr.message);
+      const { data: simpleRegs, error: simpleErr } = await supabase
         .from("registrations")
-        .select(
-          "id, registration_number, full_name, vit_registration_number, branch_name, personal_email, college_email, phone_number, registration_status, qr_token, academic_year, created_at, is_deleted, payments(utr_number, transaction_id, payment_status), checkins(scan_timestamp, scanned_by_name, status)"
-        )
-        .eq("event_id", cleanId)
+        .select("*")
+        .eq("event_id", targetEventId)
         .order("created_at", { ascending: true });
-      if (fallbackRegs && fallbackRegs.length > 0) {
-        registrations = fallbackRegs;
+
+      if (simpleErr) {
+        console.error("[exportAttendanceDataAction] Registrations query failed:", simpleErr);
+        return { success: false, error: `Database error: ${simpleErr.message}` };
+      }
+
+      registrations = simpleRegs || [];
+
+      if (registrations.length > 0) {
+        const regIds = registrations.map((r: any) => r.id);
+        const [{ data: paymentsData }, { data: checkinsData }] = await Promise.all([
+          supabase.from("payments").select("registration_id, transaction_id, payment_status, amount").in("registration_id", regIds),
+          supabase.from("checkins").select("registration_id, scan_timestamp, scanned_by_name, status").in("registration_id", regIds),
+        ]);
+
+        const paymentsMap = new Map<string, any[]>();
+        (paymentsData || []).forEach((p: any) => {
+          if (!paymentsMap.has(p.registration_id)) paymentsMap.set(p.registration_id, []);
+          paymentsMap.get(p.registration_id)!.push(p);
+        });
+
+        const checkinsMap = new Map<string, any[]>();
+        (checkinsData || []).forEach((c: any) => {
+          if (!checkinsMap.has(c.registration_id)) checkinsMap.set(c.registration_id, []);
+          checkinsMap.get(c.registration_id)!.push(c);
+        });
+
+        registrations = registrations.map((r: any) => ({
+          ...r,
+          payments: paymentsMap.get(r.id) || [],
+          checkins: checkinsMap.get(r.id) || [],
+        }));
       }
     }
 
@@ -2008,10 +2103,9 @@ export async function exportAttendanceDataAction(eventId: string): Promise<{
       return { success: false, error: "No registration records found for this event." };
     }
 
-    // Filter out archived/soft-deleted records unless all are deleted
-    const activeRegistrations = registrations.some((r: any) => !r.is_deleted)
-      ? registrations.filter((r: any) => !r.is_deleted)
-      : registrations;
+    // Filter out archived/soft-deleted records if any
+    const exportList = registrations.filter((r: any) => r.is_deleted !== true);
+    const activeRegistrations = exportList.length > 0 ? exportList : registrations;
 
     const headers = [
       "Name",
