@@ -1725,20 +1725,74 @@ export async function importParticipantsBulkAction(params: {
   const venue = event?.venue || "Main Auditorium / Campus";
   const defaultFee = event?.registration_fee ?? 0;
 
+  // Pre-fetch all existing registrations for this event to do instant O(1) in-memory checks
+  const { data: existingRegs } = await supabase
+    .from("registrations")
+    .select("id, registration_number, vit_registration_number, college_email, personal_email")
+    .eq("event_id", eventId);
+
+  const byVitReg = new Map<string, { id: string; registration_number: string }>();
+  const byCollegeEmail = new Map<string, { id: string; registration_number: string }>();
+  const byPersonalEmail = new Map<string, { id: string; registration_number: string }>();
+  const existingRegNumbers = new Set<string>();
+
+  (existingRegs || []).forEach((reg) => {
+    if (reg.vit_registration_number) byVitReg.set(reg.vit_registration_number.toUpperCase().trim(), reg);
+    if (reg.college_email) byCollegeEmail.set(reg.college_email.toLowerCase().trim(), reg);
+    if (reg.personal_email) byPersonalEmail.set(reg.personal_email.toLowerCase().trim(), reg);
+    if (reg.registration_number) existingRegNumbers.add(reg.registration_number.trim());
+  });
+
+  // Also verify any custom registration numbers requested across all registrations in DB
+  const requestedPassIds = participants
+    .map((p) => (p.registrationId || "").trim())
+    .filter(Boolean);
+
+  if (requestedPassIds.length > 0) {
+    const { data: globalRegs } = await supabase
+      .from("registrations")
+      .select("registration_number")
+      .in("registration_number", requestedPassIds);
+    (globalRegs || []).forEach((r) => existingRegNumbers.add(r.registration_number.trim()));
+  }
+
   let importedCount = 0;
+  const failureReasons: string[] = [];
+  const nowIso = new Date().toISOString();
+
+  // Track intra-batch duplicates to prevent unique constraint conflicts within the same CSV
+  const seenVitRegsInBatch = new Set<string>();
+  const seenCollegeEmailsInBatch = new Set<string>();
+  const seenPersonalEmailsInBatch = new Set<string>();
+
+  const toInsertRegs: Array<Record<string, any>> = [];
+  const toInsertPayments: Array<Record<string, any>> = [];
+  const toUpdateRegs: Array<{
+    id: string;
+    payload: Record<string, any>;
+    payment: Record<string, any>;
+    name: string;
+  }> = [];
+
+  const emailTargets: Array<{
+    qrToken: string;
+    targetRegNumber: string;
+    cleanName: string;
+    cleanVitReg: string;
+    recipientTarget: string;
+    targetRegId: string;
+  }> = [];
 
   for (let i = 0; i < participants.length; i++) {
     const p = participants[i];
     const cleanName = (p.fullName || "").trim();
     const rawEmail = (p.personalEmail || p.email || p.collegeEmail || "").trim().toLowerCase();
-    if (!cleanName || !rawEmail) continue;
+    if (!cleanName || !rawEmail) {
+      failureReasons.push(`Row ${i + 1}: Missing name or email.`);
+      continue;
+    }
 
-    // 1. Registration Pass ID
-    const registrationNumber = p.registrationId && p.registrationId.trim().length > 0
-      ? p.registrationId.trim()
-      : `GAC26-${String(Date.now() % 100000).padStart(5, "0")}-${String(i + 1).padStart(3, "0")}`;
-
-    // 2. VIT Registration Number
+    // 1. VIT Registration Number
     let cleanVitReg = (p.vitRegistrationNumber || "").trim().toUpperCase();
     if (!cleanVitReg) {
       if (rawEmail.includes("@vitbhopal.ac.in")) {
@@ -1750,9 +1804,9 @@ export async function importParticipantsBulkAction(params: {
       }
     }
 
-    // 3. College & Personal Email
+    // 2. College & Personal Email
     let collegeEmail = (p.collegeEmail || "").trim().toLowerCase();
-    let personalEmail = (p.personalEmail || (rawEmail.includes("@gmail.com") ? rawEmail : "")).trim().toLowerCase();
+    let personalEmail = (p.personalEmail || "").trim().toLowerCase();
 
     if (!collegeEmail) {
       collegeEmail = rawEmail.includes("@vitbhopal.ac.in")
@@ -1760,36 +1814,81 @@ export async function importParticipantsBulkAction(params: {
         : `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${cleanVitReg.toLowerCase()}@vitbhopal.ac.in`;
     }
     if (!personalEmail) {
-      personalEmail = rawEmail.includes("@gmail.com") ? rawEmail : rawEmail;
+      personalEmail = rawEmail.includes("@gmail.com") ? rawEmail : `${cleanVitReg.toLowerCase()}@vitbhopal.ac.in`;
     }
 
-    // 4. Branch Name (Normalized to official approved branches)
+    // Avoid duplicate rows within the uploaded CSV itself
+    if (seenVitRegsInBatch.has(cleanVitReg) || seenCollegeEmailsInBatch.has(collegeEmail)) {
+      failureReasons.push(`Row ${i + 1} (${cleanName}): Duplicate entry in uploaded file skipped.`);
+      continue;
+    }
+    seenVitRegsInBatch.add(cleanVitReg);
+    seenCollegeEmailsInBatch.add(collegeEmail);
+    if (personalEmail) seenPersonalEmailsInBatch.add(personalEmail);
+
+    // 3. Branch Name (Normalized to official approved branches)
     const rawBranch = p.branch || p.branchName || "BTECH CSE (Core)";
     const branchName = normalizeImportBranch(rawBranch);
 
-    // 5. Phone Number
+    // 4. Phone Number
     const phone = (p.phoneNumber || p.phone || "").replace(/[\s\-\+]/g, "").replace(/^91/, "").slice(-10);
 
-    // 6. Transaction ID / UTR
-    const transactionId = (p.transactionId || p.utr || "").trim() || `EXCEL_IMPORT_${registrationNumber}`;
+    // 5. Transaction ID / UTR
+    const transactionId = (p.transactionId || p.utr || "").trim() || `TXN_${cleanVitReg}_${Date.now()}_${i + 1}`;
 
-    // 7. College / Institute
-    const college = (p.college || "VIT Bhopal University").trim();
-
-    // 8. Payment Status & Amount
+    // 6. Payment Status & Amount
     const paymentStatus = p.paymentStatus === "pending" ? "pending" : "verified";
     const amount = typeof p.amount === "number" && !isNaN(p.amount) ? p.amount : defaultFee;
 
-    // Generate secure cryptographic QR Token
-    const qrToken = generateSecureQRToken();
-    const regId = crypto.randomUUID();
+    // Check if candidate already registered for this event
+    const existing =
+      byVitReg.get(cleanVitReg) ||
+      byCollegeEmail.get(collegeEmail) ||
+      (personalEmail ? byPersonalEmail.get(personalEmail) : undefined);
 
-    try {
-      // 1. Insert into registrations
-      const regPayload: Record<string, any> = {
-        id: regId,
+    if (existing) {
+      // Existing student: stage for update
+      toUpdateRegs.push({
+        id: existing.id,
+        name: cleanName,
+        payload: {
+          full_name: cleanName,
+          branch_name: branchName,
+          personal_email: personalEmail,
+          phone_number: phone || "9876543210",
+          registration_status: paymentStatus === "verified" ? "verified" : "pending",
+          updated_at: nowIso,
+        },
+        payment: {
+          amount,
+          transaction_id: transactionId,
+          payment_status: paymentStatus,
+          reviewed_at: paymentStatus === "verified" ? nowIso : null,
+          updated_at: nowIso,
+        },
+      });
+    } else {
+      // New student: assign unique pass number
+      let targetRegNumber = "";
+      const customId = (p.registrationId || "").trim();
+      if (customId && !existingRegNumbers.has(customId)) {
+        targetRegNumber = customId;
+      } else {
+        let candidateNum = `GAC26-${String(Date.now() % 100000).padStart(5, "0")}-${String(i + 1).padStart(3, "0")}`;
+        while (existingRegNumbers.has(candidateNum)) {
+          candidateNum = `GAC26-${String(Math.floor(Math.random() * 90000) + 10000)}-${String(i + 1).padStart(3, "0")}`;
+        }
+        targetRegNumber = candidateNum;
+      }
+      existingRegNumbers.add(targetRegNumber);
+
+      const targetRegId = crypto.randomUUID();
+      const qrToken = generateSecureQRToken();
+
+      toInsertRegs.push({
+        id: targetRegId,
         event_id: eventId,
-        registration_number: registrationNumber,
+        registration_number: targetRegNumber,
         full_name: cleanName,
         vit_registration_number: cleanVitReg,
         branch_name: branchName,
@@ -1797,20 +1896,14 @@ export async function importParticipantsBulkAction(params: {
         college_email: collegeEmail,
         phone_number: phone || "9876543210",
         registration_status: paymentStatus === "verified" ? "verified" : "pending",
-        registration_source: "excel_import",
         qr_token: qrToken,
-        created_at: new Date().toISOString(),
-      };
+        qr_generated_at: paymentStatus === "verified" ? nowIso : null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
 
-      const { error: regErr } = await supabase.from("registrations").insert(regPayload);
-      if (regErr) {
-        console.error(`[bulkImport] Error inserting registration for ${cleanName}:`, regErr);
-        continue;
-      }
-
-      // 2. Insert payment record with UTR and non-null Drive placeholder values
-      const { error: payErr } = await supabase.from("payments").insert({
-        registration_id: regId,
+      toInsertPayments.push({
+        registration_id: targetRegId,
         event_id: eventId,
         amount,
         transaction_id: transactionId,
@@ -1820,60 +1913,142 @@ export async function importParticipantsBulkAction(params: {
         drive_mime_type: "text/csv",
         drive_folder_id: "bulk_import",
         drive_view_url: null,
-        verified_at: paymentStatus === "verified" ? new Date().toISOString() : null,
+        reviewed_at: paymentStatus === "verified" ? nowIso : null,
+        created_at: nowIso,
+        updated_at: nowIso,
       });
 
-      if (payErr) {
-        console.warn(`[bulkImport] Payment insert warning for ${cleanName}:`, payErr.message);
-      }
-
-      // 3. Optionally dispatch official QR Pass email with single inline attachment
       if (sendEmailDirectly && paymentStatus === "verified") {
-        try {
-          const qrBuffer = await generateEntryPassQRCodeBuffer({
-            qrToken,
-            registrationNumber,
-            fullName: cleanName,
-            vitRegNumber: cleanVitReg,
-          });
+        emailTargets.push({
+          qrToken,
+          targetRegNumber,
+          cleanName,
+          cleanVitReg,
+          recipientTarget: personalEmail || collegeEmail,
+          targetRegId,
+        });
+      }
+    }
+  }
 
-          const qrCid = `entry-pass-${registrationNumber}`;
-          const emailData = getRegistrationConfirmedTemplate({
-            fullName: cleanName,
-            vitRegNumber: cleanVitReg,
-            registrationNumber,
-            eventTitle,
-            eventDate,
-            venue,
-            qrContentId: qrCid,
-          });
+  // 1. Batch insert new candidates in high-speed chunks of 25
+  const CHUNK_SIZE = 25;
+  for (let c = 0; c < toInsertRegs.length; c += CHUNK_SIZE) {
+    const regChunk = toInsertRegs.slice(c, c + CHUNK_SIZE);
+    const payChunk = toInsertPayments.slice(c, c + CHUNK_SIZE);
 
-          const recipientTarget = personalEmail || collegeEmail;
-          await sendEmail({
-            to: recipientTarget,
-            subject: emailData.subject,
-            html: emailData.html,
-            emailType: "payment_approved_qr",
-            registrationId: regId,
-            eventId,
-            attachments: [
-              {
-                filename: `Official_Entry_Pass_${registrationNumber}.png`,
-                content: qrBuffer,
-                cid: qrCid,
-                contentType: "image/png",
-              },
-            ],
-          });
-        } catch (emailErr) {
-          console.warn("Could not dispatch email during bulk import:", emailErr);
+    const { error: batchRegErr } = await supabase.from("registrations").insert(regChunk);
+    if (!batchRegErr) {
+      const { error: batchPayErr } = await supabase.from("payments").insert(payChunk);
+      if (batchPayErr) {
+        console.warn("[bulkImport] Payments chunk notice:", batchPayErr.message);
+        for (const p of payChunk) {
+          await supabase.from("payments").insert(p).catch(() => {});
         }
       }
-
-      importedCount++;
-    } catch (importErr) {
-      console.error(`Error importing candidate ${cleanName}:`, importErr);
+      importedCount += regChunk.length;
+    } else {
+      console.warn("[bulkImport] Batch insert fallback to row-by-row:", batchRegErr.message);
+      for (let r = 0; r < regChunk.length; r++) {
+        const singleReg = regChunk[r];
+        const singlePay = payChunk[r];
+        const { error: singleRegErr } = await supabase.from("registrations").insert(singleReg);
+        if (singleRegErr) {
+          console.error(`[bulkImport] Row insert error for ${singleReg.full_name}:`, singleRegErr);
+          failureReasons.push(`${singleReg.full_name} (${singleReg.vit_registration_number}): ${singleRegErr.message}`);
+          continue;
+        }
+        await supabase.from("payments").insert(singlePay).catch(() => {});
+        importedCount++;
+      }
     }
+  }
+
+  // 2. Update existing registrations
+  for (const upd of toUpdateRegs) {
+    const { error: uErr } = await supabase
+      .from("registrations")
+      .update(upd.payload)
+      .eq("id", upd.id);
+
+    if (uErr) {
+      console.error(`[bulkImport] Update failed for ${upd.name}:`, uErr);
+      failureReasons.push(`Update failed for ${upd.name}: ${uErr.message}`);
+      continue;
+    }
+
+    const { data: exPay } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("registration_id", upd.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (exPay) {
+      await supabase.from("payments").update(upd.payment).eq("id", exPay.id).catch(() => {});
+    } else {
+      await supabase.from("payments").insert({ registration_id: upd.id, event_id: eventId, ...upd.payment }).catch(() => {});
+    }
+
+    importedCount++;
+  }
+
+  // 3. Dispatch emails if requested
+  if (sendEmailDirectly && emailTargets.length > 0) {
+    for (let i = 0; i < emailTargets.length; i += 5) {
+      const emailBatch = emailTargets.slice(i, i + 5);
+      await Promise.allSettled(
+        emailBatch.map(async (tgt) => {
+          try {
+            const qrBuffer = await generateEntryPassQRCodeBuffer({
+              qrToken: tgt.qrToken,
+              registrationNumber: tgt.targetRegNumber,
+              fullName: tgt.cleanName,
+              vitRegNumber: tgt.cleanVitReg,
+            });
+
+            const qrCid = `entry-pass-${tgt.targetRegNumber}`;
+            const emailData = getRegistrationConfirmedTemplate({
+              fullName: tgt.cleanName,
+              vitRegNumber: tgt.cleanVitReg,
+              registrationNumber: tgt.targetRegNumber,
+              eventTitle,
+              eventDate,
+              venue,
+              qrContentId: qrCid,
+            });
+
+            await sendEmail({
+              to: tgt.recipientTarget,
+              subject: emailData.subject,
+              html: emailData.html,
+              emailType: "payment_approved_qr",
+              registrationId: tgt.targetRegId,
+              eventId,
+              attachments: [
+                {
+                  filename: `Official_Entry_Pass_${tgt.targetRegNumber}.png`,
+                  content: qrBuffer,
+                  cid: qrCid,
+                  contentType: "image/png",
+                },
+              ],
+            });
+          } catch (emErr) {
+            console.warn(`[bulkImport] Email failed for ${tgt.cleanName}:`, emErr);
+          }
+        })
+      );
+    }
+  }
+
+  if (importedCount === 0 && participants.length > 0) {
+    const firstReason = failureReasons[0] || "Database validation failed on all rows.";
+    return {
+      success: false,
+      importedCount: 0,
+      error: `Could not import candidates. Reason: ${firstReason}`,
+    };
   }
 
   // Log to Audit & Google Sheets
@@ -1895,6 +2070,7 @@ export async function importParticipantsBulkAction(params: {
   return {
     success: true,
     importedCount,
+    error: failureReasons.length > 0 ? `${failureReasons.length} candidates skipped: ${failureReasons[0]}` : undefined,
   };
 }
 

@@ -222,15 +222,18 @@ export function ParticipantImporterModal({
           sendEmailDirectly: sendEmails,
         });
 
-        if (res.success) {
+        if (res.success && res.importedCount > 0) {
           setFeedback({
             type: "success",
-            message: `Successfully imported ${res.importedCount} participants! Generated unique QR tokens and verified registrations with payment UTRs.`,
+            message: `Successfully imported ${res.importedCount} participants! Generated unique QR tokens and verified registrations with payment UTRs.${res.error ? ` (${res.error})` : ""}`,
             details: res,
           });
           if (onSuccess) onSuccess();
         } else {
-          setFeedback({ type: "error", message: res.error || "Failed to import participants." });
+          setFeedback({
+            type: "error",
+            message: res.error || (res.importedCount === 0 ? "No participants could be imported." : "Failed to import participants."),
+          });
         }
       } catch (err: any) {
         setFeedback({ type: "error", message: err.message || "Bulk import failed." });
