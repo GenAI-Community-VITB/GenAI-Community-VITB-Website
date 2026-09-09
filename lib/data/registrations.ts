@@ -1218,6 +1218,7 @@ export async function confirmAttendance(params: {
     }
 
     // 4. Mirror to Google Sheets in background
+    const checkinId = `checkin-${Date.now()}`;
     appendToGoogleSheet("Attendance", [
       [
         reg.id,
