@@ -1943,7 +1943,9 @@ export async function importParticipantsBulkAction(params: {
       if (batchPayErr) {
         console.warn("[bulkImport] Payments chunk notice:", batchPayErr.message);
         for (const p of payChunk) {
-          await supabase.from("payments").insert(p).catch(() => {});
+          try {
+            await supabase.from("payments").insert(p);
+          } catch {}
         }
       }
       importedCount += regChunk.length;
@@ -1958,7 +1960,9 @@ export async function importParticipantsBulkAction(params: {
           failureReasons.push(`${singleReg.full_name} (${singleReg.vit_registration_number}): ${singleRegErr.message}`);
           continue;
         }
-        await supabase.from("payments").insert(singlePay).catch(() => {});
+        try {
+          await supabase.from("payments").insert(singlePay);
+        } catch {}
         importedCount++;
       }
     }
@@ -1985,9 +1989,13 @@ export async function importParticipantsBulkAction(params: {
       .maybeSingle();
 
     if (exPay) {
-      await supabase.from("payments").update(upd.payment).eq("id", exPay.id).catch(() => {});
+      try {
+        await supabase.from("payments").update(upd.payment).eq("id", exPay.id);
+      } catch {}
     } else {
-      await supabase.from("payments").insert({ registration_id: upd.id, event_id: eventId, ...upd.payment }).catch(() => {});
+      try {
+        await supabase.from("payments").insert({ registration_id: upd.id, event_id: eventId, ...upd.payment });
+      } catch {}
     }
 
     importedCount++;
