@@ -316,6 +316,7 @@ export async function upsertMember(formData: FormData): Promise<{ success: boole
       JSON.stringify({ name: parsed.data.name, role: parsed.data.role, position: parsed.data.position }),
     );
 
+    revalidatePath("/team");
     // Revalidate the specific team page so the change is live immediately
     if (parsed.data.team_id) {
       const { data: team } = await supabase
@@ -362,6 +363,7 @@ export async function deleteMember(formData: FormData): Promise<{ success: boole
 
     logInternalChange("MEMBER_DELETED", "member", id, existing?.name || id, "Member permanently deleted", existing?.name || "", "");
 
+    revalidatePath("/team");
     revalidatePath("/");
     revalidatePath("/admin");
     return { success: true };

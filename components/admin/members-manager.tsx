@@ -19,17 +19,21 @@ import {
 import { GithubIcon } from "@/components/ui/icons";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
 import { HierarchyAvatar } from "@/components/site/hierarchy-tree";
+import { HierarchyEditor } from "@/components/admin/hierarchy-editor";
+import type { HierarchyLayout } from "@/lib/utils/team-hierarchy";
 
 interface MembersManagerProps {
   initialMembers: Member[];
   teams: Team[];
   isAllowed?: boolean;
+  hierarchyLayout: HierarchyLayout | null;
 }
 
 export function MembersManager({
   initialMembers,
   teams,
   isAllowed = true,
+  hierarchyLayout,
 }: MembersManagerProps) {
   const [membersList, setMembersList] = useState<Member[]>(initialMembers);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>("all");
@@ -176,6 +180,10 @@ export function MembersManager({
 
   return (
     <div className="space-y-6">
+      <details className="rounded-2xl border border-[#f5b642]/30">
+        <summary className="cursor-pointer px-5 py-4 text-sm font-bold text-[#f5b642]">Edit hierarchy · drag and drop members and groups</summary>
+        <HierarchyEditor members={membersList} teams={teams} initialLayout={hierarchyLayout} />
+      </details>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#2b2416] pb-4">
         <div>

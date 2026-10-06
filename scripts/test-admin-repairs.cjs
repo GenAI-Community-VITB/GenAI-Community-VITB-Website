@@ -7,7 +7,7 @@ const ts = require('typescript');
 
 function load(file, mocks = {}) {
   const filename = path.resolve(file);
-  const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const module = { exports: {} };
   const localRequire = name => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
@@ -20,6 +20,102 @@ function load(file, mocks = {}) {
 }
 
 const roles = load('lib/auth/roles.ts');
+const hierarchy = load('lib/utils/team-hierarchy.ts');
+const hierarchyMemberId = '11111111-1111-4111-8111-111111111111';
+const treeFixture = () => [
+  {id:'leader',parentId:null,kind:'member',memberId:hierarchyMemberId,label:''},
+  {id:'team',parentId:'leader',kind:'group',memberId:null,label:'Technical'},
+  {id:'subteam',parentId:'team',kind:'group',memberId:null,label:'Research'},
+  {id:'design',parentId:'leader',kind:'group',memberId:null,label:'Design'},
+];
+
+test('hierarchy rejects cycles, missing parents, duplicate members, oversized and deep trees', () => {
+  const nodes=treeFixture();
+  assert.deepEqual(hierarchy.validateHierarchy(nodes),nodes);
+  assert.throws(()=>hierarchy.moveHierarchyNode(nodes,'leader','subteam'),/descendants/);
+  assert.throws(()=>hierarchy.moveHierarchyNode(nodes,'team','team'),/descendants/);
+  assert.throws(()=>hierarchy.moveHierarchyNode(nodes,'team','missing'),/no longer exists/);
+  assert.throws(()=>hierarchy.validateHierarchy([...nodes,{...nodes[0],id:'duplicate'}]),/only once/);
+  assert.throws(()=>hierarchy.validateHierarchy([...nodes,nodes[1]]),/unique ID/);
+  assert.throws(()=>hierarchy.validateHierarchy([{...nodes[1],parentId:null,label:' '}]),/name/);
+  assert.throws(()=>hierarchy.validateHierarchy(Array.from({length:251},(_,i)=>({...nodes[1],id:String(i),parentId:null}))));
+  assert.throws(()=>hierarchy.validateHierarchy(Array.from({length:9},(_,i)=>({...nodes[1],id:String(i),parentId:i ? String(i-1):null}))),/eight levels/);
+  assert.deepEqual(nodes,treeFixture(),'rejected moves must not mutate the draft');
+});
+
+test('hierarchy moves whole branches, orders siblings and promotes children of removed members', () => {
+  const nodes=treeFixture();
+  const moved=hierarchy.moveHierarchyNode(nodes,'team',null);
+  assert.equal(moved.find(n=>n.id==='subteam').parentId,'team');
+  assert.deepEqual(hierarchy.reorderHierarchyNode(nodes,'design',-1).filter(n=>n.parentId==='leader').map(n=>n.id),['design','team']);
+  assert.deepEqual(hierarchy.moveHierarchyBefore(nodes,'design','team').filter(n=>n.parentId==='leader').map(n=>n.id),['design','team']);
+  assert.throws(()=>hierarchy.moveHierarchyBefore(nodes,'leader','subteam'),/descendants/);
+  const visible=hierarchy.visibleHierarchy(nodes,new Set());
+  assert.equal(visible.length,3);
+  assert.equal(visible.find(n=>n.id==='team').parentId,null);
+  assert.equal(visible.find(n=>n.id==='subteam').parentId,'team');
+  assert.deepEqual(nodes,treeFixture());
+});
+
+test('initial hierarchy uses only real active roster entries and includes custom teams', () => {
+  const members=[{id:hierarchyMemberId,name:'Real president',role:'president',position:'President',status:'active',team_id:'custom'},
+    {id:'22222222-2222-4222-8222-222222222222',name:'Pending',role:'core',status:'pending',team_id:'custom'}];
+  const result=hierarchy.createInitialHierarchy(members,[{id:'custom',name:'Custom team'}]);
+  assert.equal(result.filter(n=>n.kind==='member').length,1);
+  assert.equal(result.find(n=>n.kind==='group').label,'Custom team');
+  assert.deepEqual(hierarchy.validateHierarchy(result),result);
+});
+
+test('public hierarchy renders only configured active members and escapes labels and social links', () => {
+  const React=require('react');
+  const {renderToStaticMarkup}=require('react-dom/server');
+  const {EditableHierarchyTree}=load('components/site/editable-hierarchy-tree.tsx',{
+    '@/components/site/hierarchy-tree':{HierarchyAvatar:()=>null},
+  });
+  const members=[{id:hierarchyMemberId,name:'<script>alert(1)</script>',position:'Leader',status:'active',github_url:'javascript:alert(1)',linkedin_url:'https://www.linkedin.com/in/test'}];
+  const html=renderToStaticMarkup(React.createElement(EditableHierarchyTree,{nodes:treeFixture(),members}));
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.ok(!html.includes('javascript:'));
+  assert.ok(html.includes('https://www.linkedin.com/in/test'));
+  assert.ok(html.includes('Technical'));
+  const pending=renderToStaticMarkup(React.createElement(EditableHierarchyTree,{nodes:treeFixture(),members:[{...members[0],status:'pending'}]}));
+  assert.ok(!pending.includes('alert(1)'));
+  assert.ok(pending.includes('Technical'),'hiding a parent must not hide its descendants');
+  const empty=renderToStaticMarkup(React.createElement(EditableHierarchyTree,{nodes:[],members}));
+  assert.ok(empty.includes('roster is being updated'));
+  assert.ok(!empty.includes('alert(1)'),'unplaced members are not automatically published');
+});
+
+test('hierarchy save authorizes first, verifies active members, rejects concurrent writes and never writes accounts', async () => {
+  let authorized=false, tables=[], writes=[], stale=false, missing=false, fail=false, invalidated=[];
+  const action=load('app/admin/hierarchy-actions.ts',{
+    'next/cache':{revalidatePath:p=>invalidated.push(p)},
+    '@/lib/auth/permissions':{requireStaffActionRole:async role=>{assert.equal(role,'tech');if(!authorized)throw Error('Forbidden');}},
+    '@/lib/supabase/admin':{createAdminSupabase:()=>({from:table=>{
+      tables.push(table);
+      const q={select:()=>q,in:()=>q,eq:()=>q,insert:p=>{writes.push(p);return q;},update:p=>{writes.push(p);return q;},maybeSingle:async()=>({data:stale?null:{version:2},error:fail?{code:'XX000'}:null}),then:resolve=>resolve({data:missing?[]:[{id:hierarchyMemberId}],error:null})};return q;
+    }})},
+  });
+  assert.equal((await action.saveTeamHierarchy(treeFixture(),1)).success,false);
+  assert.equal(tables.length,0);
+  authorized=true;
+  assert.equal((await action.saveTeamHierarchy(treeFixture(),-1)).success,false);
+  assert.equal(tables.length,0);
+  missing=true;
+  assert.equal((await action.saveTeamHierarchy(treeFixture(),1)).success,false);
+  assert.equal(writes.length,0);
+  missing=false;stale=true;
+  assert.match((await action.saveTeamHierarchy(treeFixture(),1)).error,/Another administrator/);
+  assert.equal(invalidated.length,0);
+  stale=false;fail=true;
+  assert.equal((await action.saveTeamHierarchy(treeFixture(),1)).success,false);
+  assert.equal(invalidated.length,0);
+  fail=false;
+  assert.deepEqual(await action.saveTeamHierarchy(treeFixture(),1),{success:true,version:2});
+  assert.deepEqual(invalidated,['/team','/admin']);
+  assert.ok(tables.every(t=>['members','team_hierarchy_layout'].includes(t)));
+  assert.deepEqual(writes.at(-1).nodes,treeFixture());
+});
 test('ordinary technical, AI/ML and core members are not executive administrators', () => {
   for (const role of ['tech', 'aiml', 'core', 'core_member', 'volunteer', 'finance']) assert.equal(roles.isTop6Admin(role), false);
   assert.equal(roles.isTop6Admin('member', [{team:'technical_team',position:'core_member'}]), false);

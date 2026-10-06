@@ -4,6 +4,8 @@ import { Footer } from "@/components/site/footer";
 import { MemberHierarchyTree } from "@/components/site/hierarchy-tree";
 import { getHierarchyMembers, getTeamsWithMembers } from "@/lib/data/public";
 import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { getPublicHierarchyRoster, getTeamHierarchy } from "@/lib/data/team-hierarchy";
+import { EditableHierarchyTree } from "@/components/site/editable-hierarchy-tree";
 
 export const revalidate = 60;
 
@@ -24,7 +26,9 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamHierarchyPage() {
-  const [hierarchyMembers, teamsWithMembers] = await Promise.all([
+  const layout = await getTeamHierarchy();
+  const roster = layout ? await getPublicHierarchyRoster() : [];
+  const [hierarchyMembers, teamsWithMembers] = layout ? [null, null] : await Promise.all([
     getHierarchyMembers(),
     getTeamsWithMembers(),
   ]);
@@ -39,7 +43,7 @@ export default async function TeamHierarchyPage() {
       />
       <Navbar />
       <main className="py-8 pb-32 relative z-30 overflow-visible">
-        <MemberHierarchyTree initialMembers={hierarchyMembers} teams={teamsWithMembers} />
+        {layout ? <EditableHierarchyTree nodes={layout.nodes} members={roster} /> : <MemberHierarchyTree initialMembers={hierarchyMembers} teams={teamsWithMembers} />}
       </main>
       <Footer />
     </div>

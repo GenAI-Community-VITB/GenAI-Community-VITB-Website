@@ -42,6 +42,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Mail } from "lucide-react";
 import { EmailOperations } from "@/components/admin/email-operations";
+import type { HierarchyLayout } from "@/lib/utils/team-hierarchy";
 
 type TabId = "members" | "teams" | "events" | "projects" | "blogs" | "achievements" | "winners" | "email";
 
@@ -61,6 +62,7 @@ export function AdminDashboardClient(props: {
   canManageContent: boolean;
   teams: Team[];
   members: Member[];
+  hierarchyLayout: HierarchyLayout | null;
   events: Event[];
   projects: Project[];
   achievements?: Achievement[];
@@ -432,6 +434,7 @@ export function AdminDashboardClient(props: {
               {/* ── 0. Team Members Management ── */}
               <div className={tab === "members" ? "block space-y-8" : "hidden"}>
                 <MembersManager
+                  hierarchyLayout={props.hierarchyLayout}
                   initialMembers={members}
                   teams={teams}
                   isAllowed={props.canManageContent}

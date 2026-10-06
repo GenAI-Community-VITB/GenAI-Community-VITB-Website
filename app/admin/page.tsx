@@ -8,6 +8,7 @@ import { getEventWinners } from "@/lib/data/winners";
 import { isTop6Admin, getHumanReadableRole, getMemberAssignedName } from "@/lib/utils/format";
 import type { Event } from "@/lib/types";
 import { redirect } from "next/navigation";
+import { getTeamHierarchy } from "@/lib/data/team-hierarchy";
 
 export const revalidate = 0;
 
@@ -26,6 +27,7 @@ export default async function AdminDashboardPage() {
     { data: projects },
     achievements,
     winners,
+    hierarchyLayout,
   ] = await Promise.all([
     Promise.resolve(supabase.from("teams").select("*").order("name")).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
     Promise.resolve(supabase.from("members").select("*").order("created_at", { ascending: false })).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
@@ -33,6 +35,7 @@ export default async function AdminDashboardPage() {
     Promise.resolve(supabase.from("projects").select("*").order("created_at", { ascending: false })).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
     getAchievements().catch(() => []),
     getEventWinners().catch(() => []),
+    getTeamHierarchy(),
   ]);
 
   const events: Event[] = await Promise.all(((eventsRaw as Event[]) || []).map(async ev => {
@@ -72,6 +75,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <AdminDashboardClient
+      hierarchyLayout={hierarchyLayout}
       canManageContent={hasRole(role, "tech", profile.roles)}
       blogCount={blogCountResult.count || 0}
       teams={teams ?? []}

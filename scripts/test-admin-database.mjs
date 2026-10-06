@@ -14,6 +14,17 @@ try {
     create function auth.role() returns text language sql as 'select current_user::text';`);
   const base=(await readFile('supabase/fresh-install.sql','utf8')).replace(/create extension if not exists "pgcrypto";/,'');
   await db.exec(base);
+  await db.exec(await readFile('supabase/migrations/20261007_team_hierarchy.sql','utf8'));
+  for(const role of ['anon','authenticated']) {
+    for(const permission of ['SELECT','INSERT','UPDATE','DELETE']) assert.equal(await scalar('select has_table_privilege($1,\'public.team_hierarchy_layout\',$2)',[role,permission]),false);
+  }
+  assert.equal(await scalar("select relrowsecurity from pg_class where oid='team_hierarchy_layout'::regclass"),true);
+  await q("insert into team_hierarchy_layout(id,nodes,version) values(true,'[]',1)");
+  await assert.rejects(q("insert into team_hierarchy_layout(id,nodes,version) values(false,'[]',1)"));
+  assert.equal((await q("update team_hierarchy_layout set version=2 where id=true and version=1 returning version")).rows.length,1);
+  assert.equal((await q("update team_hierarchy_layout set version=2 where id=true and version=1 returning version")).rows.length,0);
+  await q('delete from team_hierarchy_layout');
+  checked('hierarchy migration is rerunnable, private to the server, singleton, and rejects stale writes');
   // Simulate another application sharing public: its existing ACLs and the
   // schema's defaults must survive the website reconciliation unchanged.
   await db.exec(`create function public.pc_migration_probe() returns int language sql as 'select 1';
