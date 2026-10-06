@@ -1,3 +1,4 @@
+import { applyEventLifecycle } from "@/lib/utils/event-lifecycle";
 import { cache } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
@@ -31,7 +32,7 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
     }
 
     // Filter out dummy/test events
-    return rawList.filter(
+    return rawList.map(e => applyEventLifecycle(e)).filter(
       (e) =>
         e.slug !== "test-event-2026" &&
         !e.title?.toLowerCase().includes("test event") &&
@@ -46,7 +47,7 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
         .select("*")
         .order("event_date", { ascending: true });
       const rawList = (adminRes.data as Event[]) ?? [];
-      return rawList.filter(
+      return rawList.map(e => applyEventLifecycle(e)).filter(
         (e) =>
           e.slug !== "test-event-2026" &&
           !e.title?.toLowerCase().includes("test event") &&
@@ -99,11 +100,11 @@ export const getEventBySlugOrId = cache(async (slugOrId: string): Promise<Event 
   const db = await createServerSupabase();
   const slug = await db.from("events").select("*").eq("slug", value).maybeSingle();
   if (slug.error) throw new Error(slug.error.message);
-  if (slug.data) return slug.data as Event;
+  if (slug.data) return applyEventLifecycle(slug.data as Event);
   if (!UUID_REGEX.test(value)) return null;
   const id = await db.from("events").select("*").eq("id", value).maybeSingle();
   if (id.error) throw new Error(id.error.message);
-  return id.data as Event | null;
+  return id.data ? applyEventLifecycle(id.data as Event) : null;
 });
 
 /**

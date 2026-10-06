@@ -22,6 +22,7 @@ interface EventItem {
   venue: string;
   event_date: string;
   registration_fee?: number;
+  is_registration_open?: boolean;
   status: "upcoming" | "live" | "past";
   image_url: string | null;
   register_url: string | null;
@@ -84,7 +85,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
                       }`}
                     >
                       <CircleDot className="h-3 w-3 animate-pulse" />
-                      {event.status === "live" ? "Live Registration" : "Upcoming"}
+                      {event.status === "past" ? "Past Event" : event.status === "live" ? "Live Registration" : "Upcoming"}
                     </span>
                   </div>
                 </div>
@@ -125,7 +126,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
                 </button>
 
                 {/* Glowy High-Contrast Register Button */}
-                {event.status === "live" ? (
+                {event.status === "live" && event.is_registration_open !== false ? (
                   <Link
                     href={registrationLink}
                     target={isExternal ? "_blank" : undefined}
@@ -137,7 +138,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
                   </Link>
                 ) : (
                   <span className="rounded-xl border border-[#2e2618] bg-[#14110b] px-3 py-1.5 text-[11px] font-bold text-zinc-500 font-mono">
-                    Opening Soon
+                    {event.status === "past" || event.is_registration_open === false ? "Registration Closed" : "Opening Soon"}
                   </span>
                 )}
               </div>
@@ -195,7 +196,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
                   <div className="absolute top-3 right-3">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-black/80 px-3 py-1 text-xs font-bold text-emerald-300 font-mono">
                       <CircleDot className="h-3 w-3" />
-                      {selectedEvent.status === "live" ? "Live Registration" : "Upcoming"}
+                      {selectedEvent.status === "past" ? "Past Event" : selectedEvent.status === "live" ? "Live Registration" : "Upcoming"}
                     </span>
                   </div>
                 </div>
@@ -271,7 +272,7 @@ export function EventGrid({ events }: { events: EventItem[] }) {
                   Close Window
                 </button>
 
-                {selectedEvent.status === "live" ? (
+                {selectedEvent.status === "live" && selectedEvent.is_registration_open !== false ? (
                   <Link
                     href={selectedEvent.register_url || `/events/${selectedEvent.slug || selectedEvent.id}/register`}
                     className="inline-flex items-center gap-2 rounded-2xl border border-[#f5b642] bg-gradient-to-r from-[#f5b642] via-[#ffd06a] to-[#f5b642] px-6 py-2.5 text-xs font-black text-black shadow-[0_0_25px_rgba(245,182,66,0.5)] transition-all duration-300 hover:scale-105 hover:shadow-[0_0_35px_rgba(245,182,66,0.7)]"

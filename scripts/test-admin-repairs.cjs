@@ -134,3 +134,34 @@ test('login verifies the submitted challenge and Auth password, then refuses a d
   assert.equal((await actions.loginStaff(form)).ok,false);assert.equal(signouts,1);
   assert.equal(notifications.length,1);
 });
+
+
+test('events become past exactly four days after their end, with a date fallback', () => {
+  const {applyEventLifecycle,EVENT_PAST_DELAY_MS}=load('lib/utils/event-lifecycle.ts');
+  const event={status:'live',event_date:'2026-10-01T09:30:00Z',event_end_time:'2026-10-03T17:00:00+05:30',is_registration_open:true,is_spotlight:true};
+  const cutoff=Date.parse(event.event_end_time)+EVENT_PAST_DELAY_MS;
+  assert.equal(applyEventLifecycle(event,cutoff-1).status,'live');
+  const past=applyEventLifecycle(event,cutoff);
+  assert.equal(past.status,'past');assert.equal(past.is_registration_open,false);assert.equal(past.is_spotlight,false);
+  assert.equal(event.status,'live');
+  const fallback={...event,status:'upcoming',event_end_time:null};
+  assert.equal(applyEventLifecycle(fallback,Date.parse(event.event_date)+EVENT_PAST_DELAY_MS).status,'past');
+  assert.equal(applyEventLifecycle({...event,status:'past'},0).status,'past');
+  assert.equal(applyEventLifecycle({...event,event_end_time:'invalid'},cutoff).status,'live');
+});
+
+test('scheduled event transition requires authentication, uses an atomic date condition and preserves participants', async () => {
+  const old=process.env.CRON_SECRET;process.env.CRON_SECRET='synthetic-lifecycle-secret';
+  let calls=0,filter,patch,dbError=null;const invalidated=[];
+  const query={update(p){patch=p;return this;},in(column,statuses){assert.equal(column,'status');assert.deepEqual(statuses,['live','upcoming']);return this;},or(value){filter=value;return this;},async select(){return{data:[{id:'synthetic-event'}],error:dbError};}};
+  const route=load('app/api/cron/event-lifecycle/route.ts',{'next/cache':{revalidatePath:p=>invalidated.push(p)},'@/lib/supabase/admin':{createAdminSupabase:()=>({from(table){calls++;assert.equal(table,'events');return query;}})}});
+  try {
+    assert.equal((await route.GET(new Request('https://test.invalid'))).status,401);assert.equal(calls,0);
+    const req=()=>new Request('https://test.invalid',{headers:{authorization:'Bearer synthetic-lifecycle-secret'}});
+    const result=await route.GET(req());assert.equal(result.status,200);assert.equal((await result.json()).movedToPast,1);
+    assert.deepEqual(patch,{status:'past',is_registration_open:false,is_spotlight:false});
+    assert.match(filter,/event_end_time\.lte\./);assert.match(filter,/and\(event_end_time\.is\.null,event_date\.lte\./);
+    assert.ok(invalidated.includes('/events'));assert.ok(invalidated.includes('/admin'));
+    dbError={message:'Synthetic database error'};assert.equal((await route.GET(req())).status,500);
+  } finally {if(old===undefined)delete process.env.CRON_SECRET;else process.env.CRON_SECRET=old;}
+});

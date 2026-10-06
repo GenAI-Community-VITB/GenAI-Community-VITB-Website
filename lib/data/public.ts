@@ -1,3 +1,4 @@
+import { getPublicEvents } from "@/lib/data/events";
 import { cache } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
@@ -99,59 +100,7 @@ export const getProjects = cache(async () => {
   }
 });
 
-export const getEvents = cache(async () => {
-  const cached = getCached<any[]>("public_events");
-  if (cached) return cached;
-
-  try {
-    const supabase = await createServerSupabase();
-    const { data, error } = await supabase
-      .from("events")
-      .select("*")
-      .order("event_date", { ascending: true });
-    
-    let list: any[] = [];
-    if (error) {
-      const admin = createAdminSupabase();
-      const res = await admin
-        .from("events")
-        .select("*")
-        .order("event_date", { ascending: true });
-      list = res.data ?? [];
-    } else {
-      list = data ?? [];
-    }
-
-    const filtered = list.filter(
-      (e: any) =>
-        e.slug !== "test-event-2026" &&
-        !e.title?.toLowerCase().includes("test event") &&
-        !e.title?.toLowerCase().includes("dummy"),
-    );
-
-    if (filtered.length > 0) setCache("public_events", filtered);
-    return filtered;
-  } catch {
-    try {
-      const admin = createAdminSupabase();
-      const res = await admin
-        .from("events")
-        .select("*")
-        .order("event_date", { ascending: true });
-      const list = res.data ?? [];
-      const filtered = list.filter(
-        (e: any) =>
-          e.slug !== "test-event-2026" &&
-          !e.title?.toLowerCase().includes("test event") &&
-          !e.title?.toLowerCase().includes("dummy"),
-      );
-      if (filtered.length > 0) setCache("public_events", filtered);
-      return filtered;
-    } catch {
-      return [];
-    }
-  }
-});
+export const getEvents = getPublicEvents;
 
 export const getHierarchyMembers = cache(async () => {
   const cached = getCached<any[]>("hierarchy_members_51");

@@ -1,3 +1,4 @@
+import { applyEventLifecycle } from "@/lib/utils/event-lifecycle";
 import { AdminDashboardClient } from "@/components/admin/admin-dashboard-client";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
@@ -37,7 +38,7 @@ export default async function AdminDashboardPage() {
   const events: Event[] = await Promise.all(((eventsRaw as Event[]) || []).map(async ev => {
     const {count,error}=await supabase.from("registrations").select("id",{count:"exact",head:true}).eq("event_id",ev.id);
     if(error) throw new Error(error.message);
-    return {...ev,registered_count:count || 0};
+    return {...applyEventLifecycle(ev),registered_count:count || 0};
   }));
   const blogCountResult=await supabase.from("blog_posts").select("id",{count:"exact",head:true});
   if(blogCountResult.error) throw new Error(blogCountResult.error.message);

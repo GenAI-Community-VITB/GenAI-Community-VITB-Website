@@ -1,4 +1,5 @@
 "use server";
+import { applyEventLifecycle } from "@/lib/utils/event-lifecycle";
 import { campusDateTime, validateEventTimes } from "@/lib/utils/event-time";
 
 import { after } from "next/server";
@@ -514,7 +515,7 @@ export async function upsertEvent(formData: FormData): Promise<{ success: boolea
     if (!parsed.success) return { success: false, error: `Invalid event details: ${zodIssuesMessage(parsed.error)}` };
     validateEventTimes(parsed.data.event_start_time || null, parsed.data.event_end_time || null, parsed.data.registration_deadline);
     const supabase = createAdminSupabase();
-    const eventPayload: Record<string, unknown> = { ...parsed.data };
+    const eventPayload: Record<string, unknown> = applyEventLifecycle({ ...parsed.data });
 
     // Parse allowed degrees & branches for event eligibility
     const allowedDegreesRaw = formString(formData, "allowed_degrees");

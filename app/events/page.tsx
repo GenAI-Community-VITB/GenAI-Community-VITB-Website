@@ -5,6 +5,7 @@ import { Navbar } from "@/components/site/navbar";
 import { getEvents } from "@/lib/data/public";
 import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
 import { Calendar } from "lucide-react";
+import Link from "next/link";
 
 export const revalidate = 60;
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EventsPage() {
-  const events = await getEvents();
+  const events = (await getEvents()).filter(event => event.status !== "past");
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#f5b642] selection:text-black overflow-x-clip relative">
@@ -60,6 +61,9 @@ export default async function EventsPage() {
 
         {/* Events Grid */}
         <div className="container-wrap">
+          <div className="mb-6 flex justify-end">
+            <Link href="/events/past" className="rounded-xl border border-[#3a301b] px-4 py-2 text-sm font-semibold text-[#f5b642] hover:bg-[#16120b]">Past Events →</Link>
+          </div>
           <EventGrid events={events} />
         </div>
       </main>

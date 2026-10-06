@@ -1,3 +1,4 @@
+import { applyEventLifecycle } from "@/lib/utils/event-lifecycle";
 import { requireStaffRole } from "@/lib/auth/permissions";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { EventSettingsForm } from "@/components/admin/event-settings-form";
@@ -17,7 +18,7 @@ export default async function AdminEventsSettingsPage({searchParams}: {searchPar
   const selectedId=(await searchParams).eventId;
   const eventList=await supabase.from("events").select("*").order("event_date",{ascending:false});
   if(eventList.error) throw new Error(eventList.error.message);
-  const options=eventList.data || [];
+  const options=(eventList.data || []).map(e => applyEventLifecycle(e));
   const selected=selectedId ? options.find(e=>e.id===selectedId) : options.find(e=>e.status==="live") || options.find(e=>e.status==="upcoming") || options[0];
   if(selectedId && !selected) throw new Error("Selected event not found.");
 
