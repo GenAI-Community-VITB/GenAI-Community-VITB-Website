@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
+import type { EventStatus } from "@/lib/types";
 
 interface EventItem {
   id: string;
@@ -23,7 +24,7 @@ interface EventItem {
   event_date: string;
   registration_fee?: number;
   is_registration_open?: boolean;
-  status: "upcoming" | "live" | "past";
+  status: EventStatus;
   image_url: string | null;
   register_url: string | null;
   guidelines?: string[] | string | null;

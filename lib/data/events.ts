@@ -34,7 +34,7 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
     // Filter out dummy/test events
     return rawList.map(e => applyEventLifecycle(e)).filter(
       (e) =>
-        e.slug !== "test-event-2026" &&
+        ["live", "upcoming", "past"].includes(e.status) && e.slug !== "test-event-2026" &&
         !e.title?.toLowerCase().includes("test event") &&
         !e.title?.toLowerCase().includes("dummy"),
     );
@@ -49,7 +49,7 @@ export const getPublicEvents = cache(async (): Promise<Event[]> => {
       const rawList = (adminRes.data as Event[]) ?? [];
       return rawList.map(e => applyEventLifecycle(e)).filter(
         (e) =>
-          e.slug !== "test-event-2026" &&
+          ["live", "upcoming", "past"].includes(e.status) && e.slug !== "test-event-2026" &&
           !e.title?.toLowerCase().includes("test event") &&
           !e.title?.toLowerCase().includes("dummy"),
       );

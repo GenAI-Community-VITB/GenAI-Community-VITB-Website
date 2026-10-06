@@ -147,6 +147,7 @@ test('events become past exactly four days after their end, with a date fallback
   const fallback={...event,status:'upcoming',event_end_time:null};
   assert.equal(applyEventLifecycle(fallback,Date.parse(event.event_date)+EVENT_PAST_DELAY_MS).status,'past');
   assert.equal(applyEventLifecycle({...event,status:'past'},0).status,'past');
+  assert.equal(applyEventLifecycle({...event,status:'draft'},cutoff).status,'draft');
   assert.equal(applyEventLifecycle({...event,event_end_time:'invalid'},cutoff).status,'live');
 });
 
