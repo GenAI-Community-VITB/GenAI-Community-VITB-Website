@@ -112,7 +112,7 @@ export function OnSpotRegistrationModal({
 
       setSuccessResult({
         registrationNumber: data.registrationNumber,
-        message: "On-Spot Registration successfully created & QR generated!",
+        message: data.message || "On-spot registration saved. Payment verification is pending.",
       });
 
       if (onSuccess) onSuccess();
@@ -137,7 +137,7 @@ export function OnSpotRegistrationModal({
   }
 
   const upiId = activeEvent?.upi_id || "genai.community@okaxis";
-  const fee = activeEvent?.registration_fee || 200;
+  const fee = activeEvent?.registration_fee ?? 200;
   const eventSlug = activeEvent?.slug || "";
   const upiPayUrl = `upi://pay?pa=${upiId}&pn=GenAI%20Community%20VIT%20Bhopal&am=${fee}&cu=INR&tn=OnSpot_${eventSlug || "registration"}`;
   const registerPortalUrl = `https://www.genaiclubvitb.in/events/${eventSlug}/register`;

@@ -78,7 +78,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     3,
     "Runtime & System",
     "Host OS & Platform Architecture",
-    "PASS",
+    "WARN",
     `Platform: ${platform}`,
   );
 
@@ -106,7 +106,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     6,
     "Runtime & System",
     "Process Identifier & CPU Threading",
-    "PASS",
+    "WARN",
     `PID ${process.pid}, Cores: ${os.cpus().length}`,
   );
 
@@ -115,7 +115,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     7,
     "Runtime & System",
     "Process Uptime Clock Drift",
-    "PASS",
+    "WARN",
     `Process Uptime: ${uptimeSec}s`,
   );
 
@@ -132,7 +132,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     9,
     "Runtime & System",
     "Next.js Server Instrumentation Hook",
-    "PASS",
+    "WARN",
     "Instrumentation active on server startup",
   );
 
@@ -193,23 +193,8 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     cronSecret ? "Configured & active" : "Unset (Cron endpoints unsecured)",
   );
 
-  const hardcodedAdminEmail = process.env.HARDCODED_ADMIN_EMAIL;
-  addCheckpoint(
-    16,
-    "Security & Secrets",
-    "Fallback Emergency Admin Email",
-    hardcodedAdminEmail && hardcodedAdminEmail.includes("@") ? "PASS" : "WARN",
-    hardcodedAdminEmail ? `Active: ${hardcodedAdminEmail}` : "Not configured",
-  );
-
-  const hardcodedAdminPass = process.env.HARDCODED_ADMIN_PASSWORD;
-  addCheckpoint(
-    17,
-    "Security & Secrets",
-    "Fallback Emergency Admin Password",
-    hardcodedAdminPass && hardcodedAdminPass.length >= 8 ? "PASS" : "WARN",
-    hardcodedAdminPass ? "Protected (>= 8 chars)" : "Unset / Default",
-  );
+  addCheckpoint(16, "Security & Secrets", "Verified staff authentication", "WARN", "Requires a real enabled Supabase Auth user; validate using the authentication regression tests.");
+  addCheckpoint(17, "Security & Secrets", "Administrator provisioning", "WARN", "Verify a real administrator login during cutover; no fallback credentials are supported.");
 
   const saEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const isEmailValid = !!(saEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(saEmail));
@@ -251,7 +236,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
       21,
       "Database Engine",
       "Supabase Admin Client Factory",
-      "PASS",
+      "WARN",
       "Initialized successfully",
       Date.now() - dbInitStart,
     );
@@ -300,21 +285,21 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     30,
     "Database Engine",
     "Database Network Roundtrip Latency",
-    "PASS",
+    "WARN",
     "Latency verified within sub-200ms threshold",
   );
   addCheckpoint(
     31,
     "Database Engine",
     "Row-Level Security (RLS) Engine",
-    "PASS",
+    "WARN",
     "Service role bypass verified for admin operations",
   );
   addCheckpoint(
     32,
     "Database Engine",
     "UUIDv4 & JSONB Serialization",
-    "PASS",
+    "WARN",
     "JSONB payload storage verified in sync_failures",
   );
 
@@ -362,7 +347,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     37,
     "Google Cloud & Auth",
     "Token Expiration Auto-Refresh",
-    "PASS",
+    "WARN",
     "Token refresh lifetime managed by google-auth-library",
   );
   addCheckpoint(
@@ -390,14 +375,14 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     41,
     "Google Cloud & Auth",
     "Multi-Drive & Shared Drive Support",
-    "PASS",
+    "WARN",
     "supportsAllDrives=true parameter enabled across all calls",
   );
   addCheckpoint(
     42,
     "Google Cloud & Auth",
     "Google API Error Redactor & Safety",
-    "PASS",
+    "WARN",
     "Gaxios error payload redaction active",
   );
 
@@ -531,56 +516,56 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     63,
     "Google Drive Storage",
     "Drive Subfolder Traversal Engine",
-    "PASS",
+    "WARN",
     "Hierarchical event folder generator active",
   );
   addCheckpoint(
     64,
     "Google Drive Storage",
     "Mime-Type Resolution & Buffering",
-    "PASS",
+    "WARN",
     "image/png, image/jpeg, image/webp supported",
   );
   addCheckpoint(
     65,
     "Google Drive Storage",
     "Base64 Image Encoder / Decoder",
-    "PASS",
+    "WARN",
     "Lossless roundtrip serialization verified",
   );
   addCheckpoint(
     66,
     "Google Drive Storage",
     "Local In-Memory Cache Allocation",
-    "PASS",
+    "WARN",
     "Fast LRU preview cache enabled",
   );
   addCheckpoint(
     67,
     "Google Drive Storage",
     "Supabase Sync Failures Fallback",
-    "PASS",
+    "WARN",
     "Persistent database backup on Drive outage",
   );
   addCheckpoint(
     68,
     "Google Drive Storage",
     "Public Asset Proxy Route",
-    "PASS",
+    "WARN",
     "/api/drive/asset/[fileId] with 7-day edge cache",
   );
   addCheckpoint(
     69,
     "Google Drive Storage",
     "Admin Screenshot Preview Route",
-    "PASS",
+    "WARN",
     "/api/admin/drive/preview/[fileId] active",
   );
   addCheckpoint(
     70,
     "Google Drive Storage",
     "Max Upload Size Ceiling Guard",
-    "PASS",
+    "WARN",
     "10MB payload limit protection active",
   );
 
@@ -588,7 +573,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
   // CATEGORY 7: GOOGLE APPS SCRIPT + GMAIL EMAIL ENGINE (Checkpoints 71 - 80)
   // ══════════════════════════════════════════════════════════════════════════
   const gasUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
-  const gasToken = process.env.GOOGLE_APPS_SCRIPT_TOKEN || "GENAI_GAS_EMAIL_SECRET_2026";
+  const gasToken = process.env.GOOGLE_APPS_SCRIPT_TOKEN;
   const emailSender = process.env.EMAIL_SENDER_NAME || "GENAI Community VIT Bhopal";
 
   addCheckpoint(
@@ -596,7 +581,7 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     "Google Email Engine",
     "Google Apps Script Web App URL",
     gasUrl && gasUrl.startsWith("https://script.google.com") ? "PASS" : "WARN",
-    gasUrl ? "Web App endpoint configured" : "Unset (Running in mock mode)",
+    gasUrl ? "Web App endpoint configured" : "Unset (email relay unavailable)",
   );
   addCheckpoint(
     72,
@@ -609,56 +594,56 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     73,
     "Google Email Engine",
     "Google Apps Script Client Factory",
-    "PASS",
+    "WARN",
     "lib/email/google-apps-script.ts operational",
   );
   addCheckpoint(
     74,
     "Google Email Engine",
     "Gmail Delivery Relay Protocol",
-    "PASS",
+    "WARN",
     "Code.gs Web App with MailApp/GmailApp",
   );
   addCheckpoint(
     75,
     "Google Email Engine",
     "QR Pass Template with Inline CID",
-    "PASS",
+    "WARN",
     "Responsive HTML5 dark luxury layout",
   );
   addCheckpoint(
     76,
     "Google Email Engine",
     "Async Batched Dispatcher with Quota Protection",
-    "PASS",
+    "WARN",
     "Throttled batches (15/batch + 250ms delay)",
   );
   addCheckpoint(
     77,
     "Google Email Engine",
     "Strict Idempotency Guard",
-    "PASS",
+    "WARN",
     "Database check preventing duplicate email sends",
   );
   addCheckpoint(
     78,
     "Google Email Engine",
     "Delivery State Machine & Sheets Mirror",
-    "PASS",
+    "WARN",
     "Logs table & Google Sheets audit mirror active",
   );
   addCheckpoint(
     79,
     "Google Email Engine",
     "Exponential Backoff & Retry Engine",
-    "PASS",
+    "WARN",
     "Classifies transient 429/5xx quota errors with backoff",
   );
   addCheckpoint(
     80,
     "Google Email Engine",
     "College Domain (@vitbhopal.ac.in) Support",
-    "PASS",
+    "WARN",
     `Sender: "${emailSender}" <gen_ai@vitbhopal.ac.in>`,
   );
 
@@ -670,70 +655,70 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     81,
     "Auth & RBAC Matrix",
     "Supabase Auth Session Validator",
-    "PASS",
+    "WARN",
     "JWT Bearer & Cookie parser operational",
   );
   addCheckpoint(
     82,
     "Auth & RBAC Matrix",
     "Staff Role Hierarchy Resolver",
-    "PASS",
+    "WARN",
     "superadmin > event_head > volunteer > member",
   );
   addCheckpoint(
     83,
     "Auth & RBAC Matrix",
     "Superadmin Role Capabilities",
-    "PASS",
+    "WARN",
     "Full access: Finance, Audit, Events, Users, System",
   );
   addCheckpoint(
     84,
     "Auth & RBAC Matrix",
     "Event Head Role Capabilities",
-    "PASS",
+    "WARN",
     "Scoped access: Event management, scanners, rosters",
   );
   addCheckpoint(
     85,
     "Auth & RBAC Matrix",
     "Volunteer Role Capabilities",
-    "PASS",
+    "WARN",
     "Scoped access: QR attendance scanner, check-in view",
   );
   addCheckpoint(
     86,
     "Auth & RBAC Matrix",
     "Member Role Capabilities",
-    "PASS",
+    "WARN",
     "Public portal: Event registrations, ticket viewing",
   );
   addCheckpoint(
     87,
     "Auth & RBAC Matrix",
-    "Emergency Fallback Authenticator",
-    hardcodedAdminEmail ? "PASS" : "WARN",
-    "Offline resilient superadmin access active",
+    "Verified administrator access",
+    "WARN",
+    "Requires a provisioned Auth account; no cookie-only fallback",
   );
   addCheckpoint(
     88,
     "Auth & RBAC Matrix",
     "Admin Route Protection Middleware",
-    "PASS",
+    "WARN",
     "Redirects unauthenticated traffic to /admin/login",
   );
   addCheckpoint(
     89,
     "Auth & RBAC Matrix",
     "Secure Cookie Security Policies",
-    "PASS",
+    "WARN",
     "HttpOnly, SameSite=Lax, Secure flags active",
   );
   addCheckpoint(
     90,
     "Auth & RBAC Matrix",
     "Timing-Safe Password Comparator",
-    "PASS",
+    "WARN",
     "Constant-time crypto comparison protected",
   );
 
@@ -744,35 +729,35 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     91,
     "Event Operations",
     "Event Slug Resolver & Dynamic Binding",
-    "PASS",
+    "WARN",
     "/events/[slug] and /events/[slug]/register",
   );
   addCheckpoint(
     92,
     "Event Operations",
     "Registration Capacity & Deadlines",
-    "PASS",
+    "WARN",
     "Max participant & registration closing guards",
   );
   addCheckpoint(
     93,
     "Event Operations",
     "Ticket Signature HMAC-SHA256",
-    "PASS",
+    "WARN",
     "Cryptographically signed pass tokens",
   );
   addCheckpoint(
     94,
     "Event Operations",
     "Scanner QR Code Payload Decryptor",
-    "PASS",
+    "WARN",
     "Real-time camera scanner with audio/haptic feedback",
   );
   addCheckpoint(
     95,
     "Event Operations",
     "Check-in Idempotency & Duplicate Guard",
-    "PASS",
+    "WARN",
     "Prevents double check-ins per QR token",
   );
 
@@ -783,35 +768,35 @@ export async function run100CheckpointVerification(): Promise<Full100DiagnosticR
     96,
     "System Health & APIs",
     "Payment Verification State Machine",
-    "PASS",
+    "WARN",
     "Transitions: pending -> verified / rejected",
   );
   addCheckpoint(
     97,
     "System Health & APIs",
     "CSV & Excel Data Export API",
-    "PASS",
+    "WARN",
     "/api/admin/export with filter parameters",
   );
   addCheckpoint(
     98,
     "System Health & APIs",
     "Keepalive Background Worker API",
-    "PASS",
+    "WARN",
     "/api/keepalive for Supabase pause prevention",
   );
   addCheckpoint(
     99,
     "System Health & APIs",
     "System Status & Diagnostics API",
-    "PASS",
+    "WARN",
     "/api/admin/system-status reporting all checkpoints",
   );
   addCheckpoint(
     100,
     "System Health & APIs",
     "System 100% Operational Readiness",
-    "PASS",
+    "WARN",
     "All core engines, sync bridges & security active",
   );
 

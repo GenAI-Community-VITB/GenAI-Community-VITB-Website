@@ -1,3 +1,4 @@
+import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { syncLinkedInDispatches } from "@/lib/data/blog";
 import { revalidatePath } from "next/cache";
@@ -10,20 +11,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
-    const cronSecret = process.env.CRON_SECRET?.trim();
-    const authHeader = request.headers.get("authorization");
-    const { searchParams } = new URL(request.url);
-    const secretParam = searchParams.get("secret");
-
-    if (cronSecret) {
-      const isAuthorized =
-        authHeader === `Bearer ${cronSecret}` ||
-        secretParam === cronSecret ||
-        request.headers.get("x-cron-secret") === cronSecret;
-
-      if (!isAuthorized) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    if (!isAuthorizedCron(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -70,15 +59,8 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const cronSecret = process.env.CRON_SECRET?.trim();
-    const { searchParams } = new URL(request.url);
-    const secretParam = searchParams.get("secret");
-
-    if (cronSecret && secretParam !== cronSecret) {
-      return NextResponse.json({
-        status: "healthy",
-        message: "LinkedIn Blogs Sync Endpoint is active. Provide secret query parameter to trigger ingestion.",
-      });
+    if (!isAuthorizedCron(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Trigger sync with past dispatches

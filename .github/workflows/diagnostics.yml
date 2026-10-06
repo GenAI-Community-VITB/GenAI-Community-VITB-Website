@@ -27,6 +27,9 @@ jobs:
       - name: Code Quality & Lint Check
         run: npm run lint
 
+      - name: Authentication and database regression tests
+        run: npm run test:admin
+
       - name: Run 100-Checkpoint Preflight Diagnostics
         run: npm run preflight
         env:

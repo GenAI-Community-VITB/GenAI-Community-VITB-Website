@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { getAuthenticatedStaff, requireStaffRole } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, requireStaffActionRole } from "@/lib/auth/permissions";
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import { Achievement, AchievementCategory } from "@/lib/types";
 import { isTop6Admin } from "@/lib/utils/format";
@@ -31,7 +31,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * Staff and Executive Admins: Create or update an achievement.
  */
 export async function upsertAchievementAction(formData: FormData) {
-  const { user } = await getAuthenticatedStaff();
+  const { user } = await requireStaffActionRole("tech");
   if (!user) {
     throw new Error("Unauthorized: Please sign in to manage achievements.");
   }
@@ -74,7 +74,7 @@ export async function upsertAchievementAction(formData: FormData) {
       driveFileId = driveRes.fileId;
       imageUrl = driveRes.viewUrl;
     } catch (err) {
-      console.error("Achievement image upload failed:", err);
+      throw new Error("Image upload failed. Please retry before saving.");
     }
   }
 
@@ -127,7 +127,7 @@ export async function upsertAchievementAction(formData: FormData) {
  * Staff and Executive Admins: Delete an achievement.
  */
 export async function deleteAchievementAction(id: string) {
-  const { user } = await getAuthenticatedStaff();
+  const { user } = await requireStaffActionRole("tech");
   if (!user) {
     throw new Error("Unauthorized: Please sign in.");
   }

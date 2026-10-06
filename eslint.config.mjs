@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "scripts/**",
     "node_modules/**",
+    ".vercel/**",
+    "scratch/**",
   ]),
   {
     rules: {

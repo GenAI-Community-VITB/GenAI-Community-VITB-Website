@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { getAuthenticatedStaff } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, requireStaffActionRole } from "@/lib/auth/permissions";
 import { isTop6Admin } from "@/lib/utils/format";
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import type { EventWinner } from "@/lib/data/winners";
@@ -11,7 +11,7 @@ import type { EventWinner } from "@/lib/data/winners";
  * Server Action: Create or Update an Event Winner (Exec 6 or Event Leads)
  */
 export async function upsertWinnerAction(formData: FormData) {
-  const { user, role, profile } = await getAuthenticatedStaff();
+  const { user, role, profile } = await requireStaffActionRole("tech");
 
   const isEventLead = Array.isArray(profile?.roles) && profile.roles.some((r: any) => r.team === "event_management" || r.team === "technical_team");
   const isAllowed = isTop6Admin(role, profile?.roles) || isEventLead || role === "tech" || role === "lead";
@@ -65,7 +65,7 @@ export async function upsertWinnerAction(formData: FormData) {
       });
       imageUrl = driveRes.viewUrl;
     } catch (err) {
-      console.error("Winner photo upload failed:", err);
+      throw new Error("Image upload failed. Please retry before saving.");
     }
   }
 
@@ -130,7 +130,7 @@ export async function upsertWinnerAction(formData: FormData) {
  * Server Action: Delete an Event Winner
  */
 export async function deleteWinnerAction(id: string) {
-  const { user } = await getAuthenticatedStaff();
+  const { user } = await requireStaffActionRole("tech");
   if (!user) {
     throw new Error("Unauthorized: Please sign in.");
   }

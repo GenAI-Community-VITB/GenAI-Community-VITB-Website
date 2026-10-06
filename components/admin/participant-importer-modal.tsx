@@ -1,5 +1,6 @@
 "use client";
 
+import { parseParticipantCSV as parseCSV, type ParsedRow } from "@/lib/utils/participant-csv";
 import { useState, useTransition, useRef } from "react";
 import { Event } from "@/lib/types";
 import { importParticipantsBulkAction } from "@/app/admin/events-actions";
@@ -22,21 +23,6 @@ interface ParticipantImporterModalProps {
   onSuccess?: () => void;
 }
 
-interface ParsedRow {
-  registrationId?: string;
-  fullName: string;
-  vitRegistrationNumber?: string;
-  branch?: string;
-  collegeEmail?: string;
-  personalEmail?: string;
-  email?: string;
-  phoneNumber?: string;
-  transactionId?: string;
-  college?: string;
-  amount?: number;
-  paymentStatus?: string;
-}
-
 export function ParticipantImporterModal({
   event,
   onClose,
@@ -50,133 +36,6 @@ export function ParticipantImporterModal({
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function parseCSV(raw: string) {
-    const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) return [];
-
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"));
-    const rows: ParsedRow[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      // Split by comma ignoring commas inside quotes
-      const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((v) => v.trim().replace(/^"|"$/g, ""));
-      if (values.length === 0 || !values.some(Boolean)) continue;
-
-      const rowObj: any = {};
-      headers.forEach((h, idx) => {
-        rowObj[h] = values[idx] || "";
-      });
-
-      // 1. Full Name
-      const fullName =
-        rowObj.full_name ||
-        rowObj.name ||
-        rowObj.student_name ||
-        rowObj.participant_name ||
-        rowObj.candidate_name ||
-        rowObj.applicant_name ||
-        values[1] ||
-        "";
-
-      // 2. VIT Registration Number
-      const vitReg =
-        rowObj.vit_registration_number ||
-        rowObj.vit_reg_no ||
-        rowObj.vit_reg ||
-        rowObj.reg_no ||
-        rowObj.registration_no ||
-        rowObj.roll_no ||
-        rowObj.enrollment_no ||
-        "";
-
-      // 3. Branch
-      const branch =
-        rowObj.branch_name ||
-        rowObj.branch ||
-        rowObj.specialization ||
-        rowObj.department ||
-        rowObj.dept ||
-        rowObj.degree ||
-        "BTECH CSE (Core)";
-
-      // 4. College Email & Personal Email
-      const collegeEmail =
-        rowObj.college_email ||
-        rowObj.vit_email ||
-        rowObj.official_email ||
-        rowObj.campus_email ||
-        "";
-
-      const personalEmail =
-        rowObj.personal_email ||
-        rowObj.gmail ||
-        rowObj.personal_mail ||
-        rowObj.email ||
-        rowObj.mail_id ||
-        rowObj.email_id ||
-        values[2] ||
-        "";
-
-      // 5. Phone Number
-      const phone =
-        rowObj.phone_number ||
-        rowObj.phone ||
-        rowObj.mobile ||
-        rowObj.contact ||
-        rowObj.contact_number ||
-        rowObj.mobile_number ||
-        rowObj.whatsapp ||
-        "";
-
-      // 6. Transaction ID / UTR
-      const transactionId =
-        rowObj.transaction_id ||
-        rowObj.utr ||
-        rowObj.txn_id ||
-        rowObj.payment_id ||
-        rowObj.ref_no ||
-        rowObj.reference_no ||
-        rowObj.payment_ref ||
-        rowObj.utr_number ||
-        "";
-
-      // 7. Registration ID
-      const regId =
-        rowObj.registration_id ||
-        rowObj.reg_id ||
-        rowObj.pass_id ||
-        rowObj.ticket_id ||
-        rowObj.registration_number ||
-        undefined;
-
-      // 8. College & Payment Details
-      const college = rowObj.college || rowObj.college_name || rowObj.university || "VIT Bhopal University";
-      const paymentStatus = rowObj.payment_status || rowObj.status || rowObj.approval_status || "verified";
-      const amount = rowObj.amount || rowObj.fee || rowObj.registration_fee ? Number(rowObj.amount || rowObj.fee || rowObj.registration_fee) : undefined;
-
-      const primaryEmail = personalEmail || collegeEmail || (vitReg ? `${vitReg.toLowerCase()}@vitbhopal.ac.in` : "");
-
-      if (fullName && (primaryEmail || vitReg)) {
-        rows.push({
-          registrationId: regId,
-          fullName,
-          vitRegistrationNumber: vitReg ? vitReg.toUpperCase() : undefined,
-          branch,
-          collegeEmail: collegeEmail || (primaryEmail.includes("@vitbhopal.ac.in") ? primaryEmail : undefined),
-          personalEmail: personalEmail || (!primaryEmail.includes("@vitbhopal.ac.in") ? primaryEmail : undefined),
-          email: primaryEmail,
-          phoneNumber: phone,
-          transactionId: transactionId || undefined,
-          college,
-          amount,
-          paymentStatus,
-        });
-      }
-    }
-
-    return rows;
-  }
-
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -185,17 +44,14 @@ export function ParticipantImporterModal({
     reader.onload = (ev) => {
       const content = String(ev.target?.result || "");
       setCsvText(content);
-      const rows = parseCSV(content);
-      setParsedRows(rows);
-      setFeedback(null);
+      try { setParsedRows(parseCSV(content)); setFeedback(null); } catch (error) { setParsedRows([]); setFeedback({ type: "error", message: error instanceof Error ? error.message : "Invalid CSV" }); }
     };
     reader.readAsText(file);
   }
 
   function handleManualChange(val: string) {
     setCsvText(val);
-    const rows = parseCSV(val);
-    setParsedRows(rows);
+    try { setParsedRows(parseCSV(val)); setFeedback(null); } catch (error) { setParsedRows([]); setFeedback({ type: "error", message: error instanceof Error ? error.message : "Invalid CSV" }); }
   }
 
   function handleDownloadSample() {
@@ -216,19 +72,26 @@ export function ParticipantImporterModal({
 
     startTransition(async () => {
       try {
-        const res = await importParticipantsBulkAction({
-          eventId: event.id,
-          participants: parsedRows,
-          sendEmailDirectly: sendEmails,
-        });
+        let importedCount = 0;
+        const failures: string[] = [];
+        // Bound each Server Action so large files do not exceed hosting execution limits.
+        const batchSize = sendEmails ? 1 : 25;
+        for (let offset = 0; offset < parsedRows.length; offset += batchSize) {
+          const batch = await importParticipantsBulkAction({ eventId: event.id, participants: parsedRows.slice(offset, offset + batchSize), sendEmailDirectly: sendEmails });
+          importedCount += batch.importedCount;
+          if (batch.error) failures.push(`Batch starting at CSV row ${offset + 2}: ${batch.error}`);
+          setFeedback({ type: "success", message: `Processed ${Math.min(offset + batchSize, parsedRows.length)} of ${parsedRows.length} rows; ${importedCount} saved.` });
+        }
+        const res = { success: failures.length === 0, importedCount, error: failures.join("; ") || undefined };
+        if (importedCount > 0 && onSuccess) onSuccess();
 
         if (res.success && res.importedCount > 0) {
           setFeedback({
             type: "success",
-            message: `Successfully imported ${res.importedCount} participants! Generated unique QR tokens and verified registrations with payment UTRs.${res.error ? ` (${res.error})` : ""}`,
+            message: `Saved ${res.importedCount} participants with the supplied payment statuses.${res.error ? ` (${res.error})` : ""}`,
             details: res,
           });
-          if (onSuccess) onSuccess();
+
         } else {
           setFeedback({
             type: "error",

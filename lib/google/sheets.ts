@@ -512,7 +512,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: eventsSheetId,
         range: "Registrations!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: regRows },
       });
       recordsSynced["Registrations"] = regRows.length;
@@ -538,7 +538,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
         await sheets.spreadsheets.values.update({
           spreadsheetId: eventsSheetId,
           range: "Payment Management!A2",
-          valueInputOption: "USER_ENTERED",
+          valueInputOption: "RAW",
           requestBody: { values: paymentRows },
         });
         recordsSynced["Payment Management"] = paymentRows.length;
@@ -573,7 +573,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: logsSheetId,
         range: "System Audit Logs!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: logRows },
       });
       recordsSynced["System Audit Logs"] = logRows.length;
@@ -606,7 +606,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: logsSheetId,
         range: "User Management Log!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: userLogRows },
       });
       recordsSynced["User Management Log"] = userLogRows.length;
@@ -640,7 +640,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: logsSheetId,
         range: "Internal Management Log!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: internalLogRows },
       });
       recordsSynced["Internal Management Log"] = internalLogRows.length;
@@ -678,7 +678,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: internalSheetId,
         range: "Events Database!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: eventRows },
       });
       recordsSynced["Events Database"] = eventRows.length;
@@ -712,7 +712,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: internalSheetId,
         range: "Event Lifecycle Log!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: lifecycleRows },
       });
       recordsSynced["Event Lifecycle Log"] = lifecycleRows.length;
@@ -735,7 +735,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: internalSheetId,
         range: "Members Database!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: memberRows },
       });
       recordsSynced["Members Database"] = memberRows.length;
@@ -754,7 +754,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: internalSheetId,
         range: "Branch Database!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: branchRows },
       });
       recordsSynced["Branch Database"] = branchRows.length;
@@ -777,7 +777,7 @@ export async function initializeAndSyncGoogleSheet(params?: {
       await sheets.spreadsheets.values.update({
         spreadsheetId: internalSheetId,
         range: "Event Winners!A2",
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: "RAW",
         requestBody: { values: winRows },
       });
       recordsSynced["Event Winners"] = winRows.length;
@@ -932,7 +932,7 @@ export function appendToGoogleSheet(
         await sheets.spreadsheets.values.append({
           spreadsheetId,
           range: `'${effectiveTabName}'!A:A`,
-          valueInputOption: "USER_ENTERED",
+          valueInputOption: "RAW",
           insertDataOption: "INSERT_ROWS",
           requestBody: { values: sanitizedRows },
         });
@@ -1065,21 +1065,20 @@ export async function exportEventToNewSpreadsheet(eventId: string): Promise<{
     }
 
     // 3. Fetch all registrations with payments & checkins
-    const { data: regs } = await supabase
-      .from("registrations")
-      .select("*, payments(*)")
-      .eq("event_id", eventId)
-      .order("created_at", { ascending: true });
+    async function readAll(table:string, select:string) {
+      const all:any[]=[];
+      for(let offset=0;;offset+=500) {
+        const {data,error}=await supabase.from(table).select(select).eq("event_id",eventId).order("id").range(offset,offset+499);
+        if(error) throw new Error(error.message);
+        all.push(...(data || []));
+        if(!data || data.length<500) return all;
+      }
+    }
+    const regs=await readAll("registrations","*, payments(*)");
+    const totalRegs=regs.length;
+    const checkins=await readAll("checkins","*, registrations(registration_number, full_name, vit_registration_number, college_email, branch_name)");
 
-    const totalRegs = regs?.length || 0;
-
-    const { data: checkins } = await supabase
-      .from("checkins")
-      .select("*, registrations(registration_number, full_name, vit_registration_number, college_email, branch_name)")
-      .eq("event_id", eventId)
-      .order("scan_timestamp", { ascending: true });
-
-    const totalAttendance = checkins?.filter((c) => c.status === "approved" || c.is_override)?.length || 0;
+    const totalAttendance = checkins?.filter((c) => c.status === "approved" || c.status === "overridden")?.length || 0;
     const totalRevenue = (regs || []).reduce((acc: number, r: any) => {
       const p = Array.isArray(r.payments) ? r.payments[0] : r.payments;
       if (p?.payment_status === "verified" || p?.status === "verified") {
@@ -1113,7 +1112,7 @@ export async function exportEventToNewSpreadsheet(eventId: string): Promise<{
     await sheets.spreadsheets.values.update({
       spreadsheetId: newSpreadsheetId,
       range: "Event Information!A1",
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: eventInfoRows },
     });
 
@@ -1138,7 +1137,7 @@ export async function exportEventToNewSpreadsheet(eventId: string): Promise<{
     await sheets.spreadsheets.values.update({
       spreadsheetId: newSpreadsheetId,
       range: "Registrations!A1",
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: [regHeaders, ...regRows] },
     });
 
@@ -1164,7 +1163,7 @@ export async function exportEventToNewSpreadsheet(eventId: string): Promise<{
     await sheets.spreadsheets.values.update({
       spreadsheetId: newSpreadsheetId,
       range: "Payment Management!A1",
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: [paymentHeaders, ...paymentRows] },
     });
 
@@ -1176,23 +1175,19 @@ export async function exportEventToNewSpreadsheet(eventId: string): Promise<{
       c.qr_token || "SECURE_TOKEN",
       c.scan_timestamp ? formatISTDate(c.scan_timestamp, true) : "",
       c.scanned_by_name || c.scanned_by || "Event Volunteer",
-      c.status === "approved" || c.is_override ? "APPROVED" : "REJECTED",
+      c.status === "approved" || c.status === "overridden" ? "APPROVED" : "REJECTED",
       c.override_reason || (c.is_override ? "Tech Override" : ""),
     ]);
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: newSpreadsheetId,
       range: "Attendance!A1",
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: [attendanceHeaders, ...attendanceRows] },
     });
 
     // 8. Populate Section 4: DELETED REGISTRATIONS
-    const { data: deletedRegs } = await supabase
-      .from("deleted_registrations")
-      .select("*")
-      .eq("event_id", eventId)
-      .order("created_at", { ascending: true });
+    const deletedRegs=await readAll("deleted_registrations","*");
 
     const deletedHeaders = SHEET_HEADERS["Deleted Registrations"];
     const deletedRows = (deletedRegs || []).map((d: any) => [
@@ -1207,7 +1202,7 @@ export async function exportEventToNewSpreadsheet(eventId: string): Promise<{
     await sheets.spreadsheets.values.update({
       spreadsheetId: newSpreadsheetId,
       range: "Deleted Registrations!A1",
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: [deletedHeaders, ...deletedRows] },
     });
 

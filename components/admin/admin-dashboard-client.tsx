@@ -57,6 +57,8 @@ const tabs: { id: TabId; label: string; icon: any }[] = [
 ];
 
 export function AdminDashboardClient(props: {
+  blogCount: number;
+  canManageContent: boolean;
   teams: Team[];
   members: Member[];
   events: Event[];
@@ -288,7 +290,7 @@ export function AdminDashboardClient(props: {
             </Link>
 
             {/* Staff Directory & Audit Logs (for Top 6 or Tech) */}
-            {(isTop6 || userRole === "tech") && (
+            {(props.canManageContent) && (
               <>
                 {/* Community Members Management */}
                 <Link
@@ -357,7 +359,7 @@ export function AdminDashboardClient(props: {
               else if (id === "projects") count = projects.length;
               else if (id === "achievements") count = achievements.length;
               else if (id === "winners") count = winners.length;
-              else if (id === "blogs") count = 6;
+              else if (id === "blogs") count = props.blogCount;
               else if (id === "email") count = 1;
 
               return (
@@ -432,7 +434,7 @@ export function AdminDashboardClient(props: {
                 <MembersManager
                   initialMembers={members}
                   teams={teams}
-                  isAllowed={isTop6 || userRole === "tech"}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 
@@ -440,7 +442,7 @@ export function AdminDashboardClient(props: {
               <div className={tab === "teams" ? "block space-y-8" : "hidden"}>
                 <TeamsManager
                   initialTeams={teams}
-                  isAllowed={isTop6 || userRole === "tech"}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 
@@ -449,7 +451,7 @@ export function AdminDashboardClient(props: {
                 <EventsManager
                   initialEvents={currentEvents}
                   onEventsChange={setCurrentEvents}
-                  isAllowed={isTop6 || userRole === "tech" || userRole.toLowerCase().includes("event")}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 
@@ -457,14 +459,14 @@ export function AdminDashboardClient(props: {
               <div className={tab === "projects" ? "block space-y-8" : "hidden"}>
                 <ProjectsManager
                   initialProjects={projects}
-                  isAllowed={isTop6 || userRole === "tech"}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 
               {/* ── 4. Blogs & LinkedIn AI Management ── */}
               <div className={tab === "blogs" ? "block space-y-8" : "hidden"}>
                 <SocialMediaManager
-                  isAllowed={isTop6 || userRole === "tech"}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 
@@ -480,7 +482,7 @@ export function AdminDashboardClient(props: {
               <div className={tab === "achievements" ? "block space-y-8" : "hidden"}>
                 <AchievementsManager
                   initialAchievements={achievements}
-                  isAllowed={isTop6 || userRole === "tech"}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 
@@ -488,7 +490,7 @@ export function AdminDashboardClient(props: {
               <div className={tab === "winners" ? "block space-y-8" : "hidden"}>
                 <WinnersManager
                   initialWinners={winners}
-                  isAllowed={isTop6 || userRole === "tech" || userRole.toLowerCase().includes("event")}
+                  isAllowed={props.canManageContent}
                 />
               </div>
 

@@ -394,7 +394,4 @@ async function main() {
   console.log("==================================================================");
 }
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+throw new Error("Stored-password broadcasts are retired. Send access instructions from the admin portal instead.");

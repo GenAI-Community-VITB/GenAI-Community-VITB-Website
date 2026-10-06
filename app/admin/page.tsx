@@ -1,7 +1,7 @@
 import { AdminDashboardClient } from "@/components/admin/admin-dashboard-client";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { getAuthenticatedStaff } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, hasRole } from "@/lib/auth/permissions";
 import { getAchievements } from "@/lib/data/achievements";
 import { getEventWinners } from "@/lib/data/winners";
 import { isTop6Admin, getHumanReadableRole, getMemberAssignedName } from "@/lib/utils/format";
@@ -26,34 +26,21 @@ export default async function AdminDashboardPage() {
     achievements,
     winners,
   ] = await Promise.all([
-    Promise.resolve(supabase.from("teams").select("*").order("name")).then((r) => (r.error ? { data: [] } : r)).catch(() => ({ data: [] })),
-    Promise.resolve(supabase.from("members").select("*").order("created_at", { ascending: false })).then((r) => (r.error ? { data: [] } : r)).catch(() => ({ data: [] })),
-    Promise.resolve(supabase.from("events").select("*").order("event_date", { ascending: false })).then((r) => (r.error ? { data: [] } : r)).catch(() => ({ data: [] })),
-    Promise.resolve(supabase.from("projects").select("*").order("created_at", { ascending: false })).then((r) => (r.error ? { data: [] } : r)).catch(() => ({ data: [] })),
+    Promise.resolve(supabase.from("teams").select("*").order("name")).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
+    Promise.resolve(supabase.from("members").select("*").order("created_at", { ascending: false })).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
+    Promise.resolve(supabase.from("events").select("*").order("event_date", { ascending: false })).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
+    Promise.resolve(supabase.from("projects").select("*").order("created_at", { ascending: false })).then((r) => { if (r.error) throw new Error(r.error.message); return r; }),
     getAchievements().catch(() => []),
     getEventWinners().catch(() => []),
   ]);
 
-  // Fetch live registration counts for each event to show "registered / max"
-  let events: Event[] = (eventsRaw as Event[]) || [];
-  if (events.length > 0) {
-    const { data: regCounts } = await supabase
-      .from("registrations")
-      .select("event_id");
-
-    if (regCounts) {
-      const countMap = new Map<string, number>();
-      (regCounts as { event_id: string }[]).forEach((r) => {
-        if (r.event_id) {
-          countMap.set(r.event_id, (countMap.get(r.event_id) || 0) + 1);
-        }
-      });
-      events = events.map((ev: Event) => ({
-        ...ev,
-        registered_count: countMap.get(ev.id) || 0,
-      }));
-    }
-  }
+  const events: Event[] = await Promise.all(((eventsRaw as Event[]) || []).map(async ev => {
+    const {count,error}=await supabase.from("registrations").select("id",{count:"exact",head:true}).eq("event_id",ev.id);
+    if(error) throw new Error(error.message);
+    return {...ev,registered_count:count || 0};
+  }));
+  const blogCountResult=await supabase.from("blog_posts").select("id",{count:"exact",head:true});
+  if(blogCountResult.error) throw new Error(blogCountResult.error.message);
 
   const isTop6 = isTop6Admin(role, profile?.roles);
 
@@ -84,6 +71,8 @@ export default async function AdminDashboardPage() {
 
   return (
     <AdminDashboardClient
+      canManageContent={hasRole(role, "tech", profile.roles)}
+      blogCount={blogCountResult.count || 0}
       teams={teams ?? []}
       members={members ?? []}
       events={events ?? []}

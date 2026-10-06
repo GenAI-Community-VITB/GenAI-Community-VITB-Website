@@ -257,7 +257,7 @@ export const studentRegistrationSchema = z.object({
   phone_number: z
     .string()
     .trim()
-    .transform((val) => val.replace(/[\s\-\+]/g, "").replace(/^91/, ""))
+    .transform((val) => { const digits = val.replace(/[\s\-\+]/g, ""); return digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits; })
     .refine((val) => INDIAN_PHONE_REGEX.test(val), {
       message: "Please enter a valid 10-digit Indian mobile number",
     }),

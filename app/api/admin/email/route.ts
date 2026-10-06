@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedStaff } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, hasRole } from "@/lib/auth/permissions";
 import { EmailService } from "@/lib/email/service";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getRegistrationConfirmedTemplate, getEventReminderTemplate } from "@/lib/email/templates";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { user, profile, role } = await getAuthenticatedStaff();
-    if (!user || !profile) {
+    if (!user || !profile || !hasRole(role,"finance",profile.roles)) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { user, profile, role } = await getAuthenticatedStaff();
-    if (!user || !profile) {
+    if (!user || !profile || !hasRole(role,"finance",profile.roles)) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
@@ -113,7 +113,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, message: "Registration not found" }, { status: 404 });
       }
 
-      const qrToken = reg.qr_token || `GENAI_QR_${reg.registration_number}_${Date.now()}`;
+      if (!reg.qr_token || !["verified","checked_in"].includes(reg.registration_status)) throw new Error("This registration does not have an approved QR pass.");
+      const qrToken = reg.qr_token;
       const qrBuffer = await generateEntryPassQRCodeBuffer({
         qrToken,
         registrationNumber: reg.registration_number,
@@ -177,7 +178,8 @@ export async function POST(req: NextRequest) {
       // Prepare jobs
       const jobs = [];
       for (const reg of registrations) {
-        const qrToken = reg.qr_token || `GENAI_QR_${reg.registration_number}_${Date.now()}`;
+        if (!reg.qr_token || !["verified","checked_in"].includes(reg.registration_status)) throw new Error("This registration does not have an approved QR pass.");
+      const qrToken = reg.qr_token;
         const qrBuffer = await generateEntryPassQRCodeBuffer({
           qrToken,
           registrationNumber: reg.registration_number,

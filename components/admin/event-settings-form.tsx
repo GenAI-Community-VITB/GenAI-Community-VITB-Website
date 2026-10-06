@@ -1,4 +1,5 @@
 "use client";
+import { campusInputValue } from "@/lib/utils/event-time";
 
 import { useState, useTransition } from "react";
 import { updateEventConfigurationAction } from "@/app/admin/events-actions";
@@ -25,13 +26,7 @@ interface EventSettingsFormProps {
   isTop6?: boolean;
 }
 
-function toDatetimeLocal(isoString?: string | null): string {
-  if (!isoString) return "";
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+const toDatetimeLocal = campusInputValue;
 
 export function EventSettingsForm({ event, statistics, isTop6 = true }: EventSettingsFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -41,7 +36,7 @@ export function EventSettingsForm({ event, statistics, isTop6 = true }: EventSet
 
   const [title, setTitle] = useState(event.title);
   const [maxCapacity, setMaxCapacity] = useState(event.max_capacity || 2000);
-  const [registrationFee, setRegistrationFee] = useState(event.registration_fee || 200);
+  const [registrationFee, setRegistrationFee] = useState(event.registration_fee ?? 200);
   const [deadline, setDeadline] = useState(toDatetimeLocal(event.registration_deadline));
   const [startTime, setStartTime] = useState(toDatetimeLocal(event.event_start_time));
   const [endTime, setEndTime] = useState(toDatetimeLocal(event.event_end_time));
@@ -71,9 +66,9 @@ export function EventSettingsForm({ event, statistics, isTop6 = true }: EventSet
         fd.append("title", title);
         fd.append("max_capacity", String(maxCapacity));
         fd.append("registration_fee", String(registrationFee));
-        if (deadline) fd.append("registration_deadline", new Date(deadline).toISOString());
-        if (startTime) fd.append("event_start_time", new Date(startTime).toISOString());
-        if (endTime) fd.append("event_end_time", new Date(endTime).toISOString());
+        if (deadline) fd.append("registration_deadline", deadline);
+        if (startTime) fd.append("event_start_time", startTime);
+        if (endTime) fd.append("event_end_time", endTime);
         fd.append("is_registration_open", String(isOpen));
         fd.append("upi_id", upiId);
         fd.append("guidelines", guidelinesText);

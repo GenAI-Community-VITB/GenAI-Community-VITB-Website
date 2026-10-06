@@ -7,15 +7,12 @@
  * Deploy as a Web App with access set to "Anyone".
  * 
  * Features:
- *  - Secure bearer token authentication (Script Properties or hardcoded secret)
+ *  - Token authentication configured through Script Properties
  *  - High-deliverability HTML email dispatch via GmailApp / MailApp
  *  - Inline CID images & QR code entry pass attachment support
  *  - Structured JSON response formats
  *  - Zero external paid services required
  */
-
-// Default fallback token if not configured in Script Properties
-var DEFAULT_SECRET_TOKEN = "GENAI_GAS_EMAIL_SECRET_2026";
 
 /**
  * Handles incoming POST requests from the website backend.
@@ -44,10 +41,10 @@ function doPost(e) {
     }
 
     // 1. Authenticate Token
-    var expectedToken = PropertiesService.getScriptProperties().getProperty("AUTH_TOKEN") || DEFAULT_SECRET_TOKEN;
+    var expectedToken = PropertiesService.getScriptProperties().getProperty("AUTH_TOKEN");
     var providedToken = data.token || "";
 
-    if (!providedToken || providedToken !== expectedToken) {
+    if (!expectedToken || !providedToken || providedToken !== expectedToken) {
       return createJsonResponse({
         success: false,
         error: "Unauthorized: Invalid or missing authentication token.",

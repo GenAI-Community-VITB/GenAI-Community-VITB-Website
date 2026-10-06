@@ -1,3 +1,6 @@
+import { getAuthenticatedStaff, isAssignedEventVolunteer, hasRole } from "@/lib/auth/permissions";
+import { validateImageUpload } from "@/lib/security/image-upload";
+import { limitedFormData } from "@/lib/security/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { submitStudentRegistration } from "@/lib/data/registrations";
 import {
@@ -16,26 +19,30 @@ import { verifyCloudflareTurnstile } from "@/lib/security/turnstile";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export async function POST(req: NextRequest) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
     const ip = getClientIp(req);
 
-    // ── MULTI-DIMENSIONAL RATE LIMITING ──
-    // 1. IP-level registration rate limiter (10 requests / 10 mins)
-    const ipRateLimit = await checkRateLimit(ip, "registration");
-    if (ipRateLimit.limited) {
-      return createRateLimitResponse(
-        ipRateLimit,
-        "Too many registration attempts from this network. Please wait a few minutes before trying again."
-      );
+    const formData = await limitedFormData(req);
+    const eventId = String(formData.get("event_id") || formData.get("eventId") || "").trim();
+    const onSpot = formData.get("registration_source") === "on_spot";
+    let createdBy: string | undefined;
+    if (onSpot) {
+      const staff = await getAuthenticatedStaff();
+      if (!staff.user || !staff.profile || req.headers.get("origin") !== new URL(req.url).origin
+        || (!hasRole(staff.role, "finance", staff.profile.roles) && !await isAssignedEventVolunteer(staff.user.id, eventId))) {
+        return NextResponse.json({ success: false, error: "Unauthorized on-spot registration." }, { status: 403 });
+      }
+      createdBy = staff.user.id;
     }
-
-    const formData = await req.formData();
+    const ipRateLimit = await checkRateLimit(createdBy || ip, onSpot ? "on_spot" : "registration");
+    if (ipRateLimit.limited) return createRateLimitResponse(ipRateLimit);
     const turnstileToken = String(
-      formData.get("cf_turnstile_response") || formData.get("turnstile_token") || ""
+      formData.get("cf_turnstile_response") || formData.get("cf-turnstile-response") || formData.get("turnstile_token") || ""
     ).trim();
 
     // ── CLOUDFLARE TURNSTILE BOT DEFENSE ──
-    const turnstileResult = await verifyCloudflareTurnstile(turnstileToken, ip);
+    const turnstileResult = onSpot ? { success: true } : await verifyCloudflareTurnstile(turnstileToken, ip);
     if (!turnstileResult.success) {
       return NextResponse.json(
         {
@@ -46,7 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const eventId = String(formData.get("event_id") || formData.get("eventId") || "").trim();
+
     const fullName = String(formData.get("full_name") || formData.get("fullName") || "").trim();
     const vitRegNumber = String(formData.get("vit_registration_number") || formData.get("vitRegistrationNumber") || "").trim();
     const branchName = String(formData.get("branch_name") || formData.get("branchName") || "").trim();
@@ -106,14 +113,20 @@ export async function POST(req: NextRequest) {
     const screenshotArrayBuffer = await screenshotFile.arrayBuffer();
     const screenshotBuffer = Buffer.from(screenshotArrayBuffer);
 
-    // 30-second timeout guard
+    try { validateImageUpload(screenshotBuffer, screenshotFile.type); } catch (error) {
+      return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
+    }
+
+    // This bounds response time; it does not cancel a transaction already in progress.
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), REQUEST_TIMEOUT_MS)
+      { timeoutId = setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), REQUEST_TIMEOUT_MS); }
     );
 
     const result = await Promise.race([
       submitStudentRegistration({
         eventId,
+        registrationSource: onSpot ? "on_spot" : "online",
+        createdBy,
         fullName,
         vitRegistrationNumber: vitRegNumber,
         branchName,
@@ -140,8 +153,7 @@ export async function POST(req: NextRequest) {
       success: true,
       registrationNumber: result.registrationNumber,
       registrationId: result.registrationId,
-      message:
-        "Registration submitted successfully! Please check your email (both personal and college inbox) for confirmation.",
+      message: result.warning || "Registration saved. Payment verification is pending; a receipt has been sent to your email.",
     };
 
     // Save in idempotency store
@@ -154,6 +166,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
+    if (err?.message === "REQUEST_TOO_LARGE") return NextResponse.json({ success: false, error: "Upload request exceeds the 12 MB limit." }, { status: 413 });
     if (err?.message === "REQUEST_TIMEOUT") {
       console.error("[/api/register] Request timed out after 30s (Drive upload likely stalled)");
       return NextResponse.json(
@@ -169,9 +182,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: err.message || "An unexpected error occurred. Please try again.",
+        error: "Registration could not be processed. Please check the form and try again.",
       },
       { status: 500 }
     );
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }

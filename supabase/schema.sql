@@ -1,3 +1,5 @@
+-- LEGACY BASE FOR THE SCHEMA GENERATOR. Do not execute alone.
+-- Fresh projects: fresh-install.sql. Existing projects: 20260930_admin_reconciliation.sql.
 -- ============================================================================
 -- GenAI Community VIT Bhopal - Complete Master Schema
 -- ============================================================================
@@ -803,6 +805,31 @@ create table if not exists public.member_roles (
   unique (user_id, team, position)
 );
 
+create table if not exists public.achievements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  caption text not null,
+  category text not null default 'Hackathon' check (
+    category in ('Hackathon', 'Research', 'Award', 'Milestone', 'Workshop', 'Recognition')
+  ),
+  achievement_date date not null default current_date,
+  image_url text,
+  drive_file_id text,
+  link_url text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+
+create table if not exists public.event_winners (
+ id uuid primary key default gen_random_uuid(), event_id uuid references public.events(id) on delete set null,
+ event_name text not null, position text not null, team_name text not null, members text[] not null default '{}',
+ project_title text not null, project_description text not null default '', prize_award text not null default '',
+ image_url text, event_date text not null, github_url text, demo_url text, created_by uuid references auth.users(id) on delete set null,
+ created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+
 -- ----------------------------------------------------------------------------
 -- 12. ROW LEVEL SECURITY (RLS)
 -- ----------------------------------------------------------------------------
@@ -986,11 +1013,11 @@ create policy "Public view achievements" on public.achievements for select using
 drop policy if exists "Service and auth manage achievements" on public.achievements;
 create policy "Service and auth manage achievements" on public.achievements for all using (auth.role() in ('authenticated', 'service_role'));
 
-alter table if exists public.winners enable row level security;
-drop policy if exists "Public view winners" on public.winners;
-create policy "Public view winners" on public.winners for select using (true);
-drop policy if exists "Service and auth manage winners" on public.winners;
-create policy "Service and auth manage winners" on public.winners for all using (auth.role() in ('authenticated', 'service_role'));
+alter table if exists public.event_winners enable row level security;
+drop policy if exists "Public view winners" on public.event_winners;
+create policy "Public view winners" on public.event_winners for select using (true);
+drop policy if exists "Service and auth manage winners" on public.event_winners;
+create policy "Service and auth manage winners" on public.event_winners for all using (auth.role() in ('authenticated', 'service_role'));
 
 -- ----------------------------------------------------------------------------
 -- 15. PERMISSION GRANTS & SCHEMA CACHE RELOAD

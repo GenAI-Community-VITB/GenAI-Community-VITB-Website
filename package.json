@@ -12,7 +12,10 @@
     "seed:logins": "npx tsx scripts/seed-logins.ts",
     "sync:linkedin": "npx tsx scripts/sync-linkedin.ts",
     "null-invalid-emails": "npx tsx scripts/null-invalid-member-emails.ts",
-    "send-testing-emails": "npx tsx scripts/send-testing-credentials-email.ts"
+    "send-testing-emails": "npx tsx scripts/send-testing-credentials-email.ts",
+    "test:admin": "node --test scripts/test-admin-repairs.cjs scripts/test-security-repairs.cjs && node scripts/test-admin-database.mjs",
+    "schema:fresh": "node scripts/create-fresh-schema.mjs",
+    "bootstrap:admin": "node scripts/bootstrap-admin.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
@@ -23,13 +26,15 @@
     "googleapis": "^176.0.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.0.1",
-    "next": "16.2.1",
+    "next": "16.3.8",
+    "nodemailer": "10.0.13",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
@@ -37,8 +42,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.1",
-    "nodemailer": "^9.0.5",
+    "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

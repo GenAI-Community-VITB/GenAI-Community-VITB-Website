@@ -1,0 +1,126 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+
+const db = new PGlite();
+const q = (sql, params=[]) => db.query(sql,params);
+const scalar = async (sql,params=[]) => Object.values((await q(sql,params)).rows[0])[0];
+let checks=0;
+function checked(label) { console.log(`PASS ${++checks}: ${label}`); }
+try {
+  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+    create schema auth; create table auth.users(id uuid primary key, email text);
+    create function auth.uid() returns uuid language sql as 'select null::uuid';
+    create function auth.role() returns text language sql as 'select current_user::text';`);
+  const base=(await readFile('supabase/fresh-install.sql','utf8')).replace(/create extension if not exists "pgcrypto";/,'');
+  await db.exec(base);
+  // Simulate another application sharing public: its existing ACLs and the
+  // schema's defaults must survive the website reconciliation unchanged.
+  await db.exec(`create function public.pc_migration_probe() returns int language sql as 'select 1';
+    revoke execute on function public.pc_migration_probe() from public,anon,authenticated,service_role;
+    grant execute on function public.pc_migration_probe() to anon;
+    create function public.seed_club_staff() returns int language sql as 'select 1';
+    create function public.seed_club_staff(text) returns int language sql as 'select 1';`);
+  const defaultsBefore=JSON.stringify((await q('select * from pg_default_acl order by oid')).rows);
+  const migration=await readFile('supabase/migrations/20260930_admin_reconciliation.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  checked('fresh schema and reconciliation apply; reconciliation is rerunnable');
+  assert.equal(await scalar("select has_function_privilege('anon','public.pc_migration_probe()','execute')"),true);
+  assert.equal(await scalar("select has_function_privilege('authenticated','public.pc_migration_probe()','execute')"),false);
+  assert.equal(await scalar("select has_function_privilege('service_role','public.pc_migration_probe()','execute')"),false);
+  assert.equal(JSON.stringify((await q('select * from pg_default_acl order by oid')).rows),defaultsBefore);
+  for(const signature of ['public.seed_club_staff()','public.seed_club_staff(text)']) {
+    for(const role of ['anon','authenticated']) assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')',[role,signature]),false);
+    assert.equal(await scalar('select has_function_privilege(\'service_role\',$1,\'execute\')',[signature]),true);
+  }
+  checked('shared competition function ACLs and schema defaults survive; legacy staff RPC overloads are restricted');
+  const actor='10000000-0000-4000-8000-000000000001';
+  const event='20000000-0000-4000-8000-000000000001';
+  await q('insert into auth.users values($1,$2)',[actor,'admin@example.invalid']);
+  await q(`select save_staff_profile($1::jsonb,$2::jsonb)`,[JSON.stringify({id:actor,email:'admin@example.invalid',full_name:'Admin',assigned_to_name:'Admin',role:'superadmin',is_active:true,is_login_disabled:false}),JSON.stringify([{team:'technical_team',position:'lead'}])]);
+  assert.equal(await scalar('select count(*)::int from member_roles where user_id=$1',[actor]),1);
+  await assert.rejects(q('select save_staff_profile($1::jsonb,$2::jsonb)',[JSON.stringify({id:actor,email:'admin@example.invalid',full_name:'Changed',role:'tech',is_active:true}),JSON.stringify([{team:'a'}])]));
+  assert.equal(await scalar('select full_name from user_profiles where id=$1',[actor]),'Admin');
+  checked('profile and multi-team role writes roll back together');
+  await q(`insert into events(id,title,description,venue,event_date,event_start_time,event_end_time) values($1,'Test','Test','Test',now(),now()-interval '1 hour',now()+interval '1 hour')`,[event]);
+  const row={full_name:'Participant',vit_registration_number:'26BCE10001',branch_name:'BTECH CSE (Core)',college_email:'student@vitbhopal.ac.in',personal_email:'student@example.invalid',phone_number:'9198765432',transaction_id:'UTR0001',payment_status:'verified',amount:100};
+  const imported=await scalar('select import_participant($1,$2::jsonb,$3)',[event,JSON.stringify(row),'token-one']);
+  assert.equal(await scalar('select count(*)::int from payments where registration_id=$1',[imported.id]),1);
+  await assert.rejects(q('select import_participant($1,$2::jsonb,$3)',[event,JSON.stringify({...row,vit_registration_number:'26BCE10002',college_email:'second@vitbhopal.ac.in',personal_email:'second@example.invalid'}),'token-two']));
+  assert.equal(await scalar('select count(*)::int from registrations'),1);
+  checked('a failed payment write rolls back its new participant');
+  const payment=await scalar('select id from payments where registration_id=$1',[imported.id]);
+  await assert.rejects(q('select review_registration_payment($1,$2,$3,true,$4,null,null)',['30000000-0000-4000-8000-000000000001',imported.id,actor,'replacement']));
+  assert.equal(await scalar('select review_registration_payment($1,$2,$3,true,$4,null,null)',[payment,imported.id,actor,'replacement']),'token-one');
+  checked('payment identity is validated and approval retry preserves QR token');
+  const attendanceArgs=[imported.id,actor,'Admin','superadmin'];
+  assert.equal((await scalar('select record_attendance($1,$2,$3,$4)',attendanceArgs)).success,true);
+  assert.equal((await scalar('select record_attendance($1,$2,$3,$4)',attendanceArgs)).isAlreadyCheckedIn,true);
+  assert.equal(await scalar('select count(*)::int from checkins'),1);
+  const reimport=await scalar('select import_participant($1,$2::jsonb,$3)',[event,JSON.stringify(row),'replacement']);
+  assert.equal(reimport.registration_status,'checked_in');
+  assert.equal(reimport.qr_token,'token-one');
+  checked('duplicate scan is rejected; reimport preserves attendance and QR');
+  await q('select record_attendance($1,$2,$3,$4,true,$5,false)',[...attendanceArgs,'Correction']);
+  assert.equal(await scalar("select count(*)::int from checkins where status in ('approved','overridden')"),0);
+  assert.equal(await scalar('select checked_in_at from registrations where id=$1',[imported.id]),null);
+  await q('select record_attendance($1,$2,$3,$4)',attendanceArgs);
+  checked('attendance revocation removes active scan state and permits a new check-in');
+  const archive=await scalar('select archive_registration($1,$2,$3,$4,$5)',[...attendanceArgs,'Test removal']);
+  assert.equal(await scalar('select count(*)::int from registrations'),0);
+  await q("insert into registrations select (jsonb_populate_record(null::registrations,raw_data->'registration')).* from deleted_registrations where id=$1",[archive]);
+  await assert.rejects(q('select restore_registration($1)',[archive]));
+  assert.equal(await scalar('select count(*)::int from deleted_registrations where id=$1',[archive]),1);
+  await q('delete from registrations where id=$1',[imported.id]);
+  assert.equal(await scalar('select restore_registration($1)',[archive]),imported.id);
+  assert.equal(await scalar('select qr_token from registrations where id=$1',[imported.id]),'token-one');
+  assert.equal(await scalar('select count(*)::int from payments'),1);
+  assert.equal(await scalar('select count(*)::int from checkins'),2);
+  checked('archive/restore preserves participant, payment, QR and full scan history');
+  await q('select issue_staff_reset($1,$2)',['a@example.invalid','hash']);
+  for(let i=0;i<5;i++) assert.equal(await scalar('select claim_staff_reset($1,$2)',['a@example.invalid','wrong']),false);
+  assert.equal(await scalar('select claim_staff_reset($1,$2)',['a@example.invalid','hash']),false);
+  await q('select issue_staff_reset($1,$2)',['a@example.invalid','fresh']);
+  assert.equal(await scalar('select claim_staff_reset($1,$2)',['a@example.invalid','fresh']),true);
+  assert.equal(await scalar('select claim_staff_reset($1,$2)',['a@example.invalid','fresh']),false);
+  await assert.rejects(q('select issue_staff_reset($1,$2)',['a@example.invalid','another']));
+  checked('OTP attempts and claims are atomic; replay and replacement during use are blocked');
+  for(let i=0;i<5;i++) assert.equal(await scalar('select consume_auth_limit($1,5,600)',['test']),true);
+  assert.equal(await scalar('select consume_auth_limit($1,5,600)',['test']),false);
+  checked('persistent authentication rate limit is enforced');
+  for(const role of ['anon','authenticated']) {
+    await db.exec(`set role ${role}`);
+    await assert.rejects(q('select * from user_profiles'));
+    await assert.rejects(q('select * from member_roles'));
+    await assert.rejects(q('select restore_registration($1)',[archive]));
+    await assert.rejects(q("insert into events(title,description,venue,event_date) values('bad','bad','bad',now())"));
+    await q('select title from events');
+    await db.exec('reset role');
+  }
+  checked('anonymous and ordinary authenticated roles cannot access private tables, mutations or RPCs');
+  await q('select archive_and_clear_event($1,$2,$3)',[event,actor,'superadmin']);
+  assert.equal(await scalar('select count(*)::int from registrations'),0);
+  assert.equal(await scalar('select registered_count from event_statistics where event_id=$1',[event]),1);
+  assert.equal(await scalar('select count(*)::int from deleted_registrations'),1);
+  checked('whole-event archive retains restorable snapshots and statistics');
+  const otherEvent='20000000-0000-4000-8000-000000000002';
+  const thirdEvent='20000000-0000-4000-8000-000000000003';
+  for(const id of [otherEvent,thirdEvent]) await q(`insert into events(id,title,description,venue,event_date,is_registration_open,registration_fee,max_capacity) values($1,'Synthetic','Synthetic','Synthetic',now(),true,100,100)`,[id]);
+  const register=async(id,n,amount=100)=>scalar(`select atomic_register_student(p_event_id:=$1,p_full_name:='Synthetic',p_vit_reg:=$2,p_branch_name:='BTECH CSE (Core)',p_personal_email:=$3,p_college_email:=$4,p_phone:='9123456789',p_amount:=$5,p_transaction_id:=$6,p_drive_file_id:='synthetic-proof')`,[id,`26BCE${10000+n}`,`synthetic${n}@gmail.com`,`synthetic${n}@vitbhopal.ac.in`,amount,`SYNTHETIC${n}`]);
+  const first=await register(otherEvent,1),second=await register(thirdEvent,2);
+  assert.equal(first.success,true,first.message);assert.equal(second.success,true,second.message);
+  assert.notEqual(first.registration_number,second.registration_number);
+  await q('delete from registrations where id=$1',[first.registration_id]);
+  const afterDelete=await register(otherEvent,3);
+  assert.equal(afterDelete.success,true,afterDelete.message);
+  assert.notEqual(first.registration_number,afterDelete.registration_number);
+  checked('public registration IDs are unique across events and are not reused after deletion');
+  assert.equal((await register(otherEvent,4,1)).error_code,'FEE_CHANGED');
+  await q("update events set status='past' where id=$1",[thirdEvent]);
+  assert.equal((await register(thirdEvent,5)).error_code,'REGISTRATION_CLOSED');
+  assert.equal(await scalar('select count(*)::int from registrations'),2);
+  checked('public registration refuses changed fees and past events without saving partial rows');
+  console.log(`${checks} database integration checks passed (isolated local PostgreSQL).`);
+} catch(error) { console.error(error.message); process.exitCode=1; }
+finally { await db.close(); }

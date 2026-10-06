@@ -249,7 +249,7 @@ export function UserManagement({
   );
 
   function generateEnableLoginRandomPassword() {
-    const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+    const pw = crypto.randomUUID() + "!aA9";
     setEnableLoginPassword(pw);
   }
 
@@ -365,7 +365,7 @@ export function UserManagement({
   }
 
   function generateRandomPassword() {
-    const pw = `GenAI@${Math.random().toString(36).slice(-5)}!${Math.floor(100 + Math.random() * 900)}`;
+    const pw = crypto.randomUUID() + "!aA9";
     setPassword(pw);
   }
 
@@ -490,7 +490,7 @@ export function UserManagement({
           } else {
             return [
               {
-                id: `new-${Date.now()}`,
+                id: res.id,
                 email: email.trim().toLowerCase(),
                 full_name: fullName,
                 assigned_to_name: submitAssignedTo,
@@ -666,7 +666,7 @@ export function UserManagement({
         <div>
           <h2 className="text-xl font-bold text-white">Club Member & Password Directory</h2>
           <p className="text-xs text-zinc-400">
-            View allocated passwords, assigned student names, and manage 2026–27 team positions.
+            Manage member access and team assignments. Newly generated passwords are shown only in this session.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -823,7 +823,7 @@ export function UserManagement({
               const isTop6 = isTop6Admin(u.role, u.roles) || emailInfo.isTop6;
               const isVoided = u.is_voided;
               const isRevealed = Boolean(revealedPasswords[u.id]);
-              const displayPw = u.password || "GenAICommunity@2026-27";
+              const displayPw = u.password || "Not stored — use Reset";
 
               return (
                 <tr
@@ -1038,7 +1038,7 @@ export function UserManagement({
                         type="button"
                         onClick={() => {
                           setEnableLoginTarget(u);
-                          const pw = `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
+                          const pw = crypto.randomUUID() + "!aA9";
                           setEnableLoginPassword(pw);
                           setEnableLoginResult(null);
                         }}
@@ -1241,7 +1241,7 @@ export function UserManagement({
 
               <p className="text-xs text-zinc-300">
                 You are disabling login access for <strong className="text-white">{disableLoginTarget.assigned_to_name || disableLoginTarget.full_name}</strong> (
-                <span className="font-mono text-amber-300">{disableLoginTarget.email}</span>). Their membership records, assigned roles, and password will remain preserved in the database.
+                <span className="font-mono text-amber-300">{disableLoginTarget.email}</span>). Their membership records, assigned roles, and password will remain preserved; passwords are managed by Supabase Auth.
               </p>
 
               <div>

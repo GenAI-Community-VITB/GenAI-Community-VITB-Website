@@ -1,80 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Readable } from "node:stream";
 import { getAuthenticatedStaff, hasRole } from "@/lib/auth/permissions";
 import { getDriveFileStream } from "@/lib/google/drive";
-import { Readable } from "stream";
+import { isPaymentMedia } from "@/lib/security/media-access";
+import { isSafeImageType } from "@/lib/security/image-upload";
 
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ fileId: string }> },
-) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ fileId: string }> }) {
   try {
-    const { role } = await getAuthenticatedStaff();
-
-    // Only Finance and Tech users can preview payment screenshots
-    if (!role || !hasRole(role, "finance")) {
-      return new NextResponse("Unauthorized: Insufficient permissions to view payment screenshots.", {
-        status: 403,
-      });
+    const { role, profile } = await getAuthenticatedStaff();
+    if (!role || !hasRole(role, "finance", profile?.roles)) {
+      return new NextResponse("Unauthorized", { status: 403 });
     }
-
     const { fileId } = await context.params;
-    if (!fileId) {
-      return new NextResponse("File ID is required.", { status: 400 });
+    if (!await isPaymentMedia(fileId)) return new NextResponse("Screenshot not found.", { status: 404 });
+    const file = await getDriveFileStream(fileId);
+    if (!file) return new NextResponse("Screenshot not found.", { status: 404 });
+    if (!isSafeImageType(file.mimeType)) {
+      file.stream.destroy();
+      return new NextResponse("Unsupported screenshot type.", { status: 415 });
     }
-
-    // If mock file in development
-    if (fileId.startsWith("mock-drive-")) {
-      // Return a lightweight placeholder SVG
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
-          <defs>
-            <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#18130b"/>
-              <stop offset="100%" stop-color="#0a0805"/>
-            </linearGradient>
-            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#221a0f" stroke-width="1"/>
-            </pattern>
-          </defs>
-          <rect width="600" height="400" rx="16" fill="url(#bgGrad)" stroke="#382c16" stroke-width="2"/>
-          <rect width="600" height="400" rx="16" fill="url(#grid)" opacity="0.6"/>
-          <circle cx="300" cy="150" r="44" fill="#241a0b" stroke="#f5b642" stroke-width="1.5"/>
-          <path d="M 288 150 L 296 158 L 314 140" fill="none" stroke="#f5b642" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-          <text x="50%" y="225" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="800" letter-spacing="-0.3px">Verified Payment Transaction Proof</text>
-          <text x="50%" y="255" dominant-baseline="middle" text-anchor="middle" fill="#f5b642" font-family="monospace" font-size="13" font-weight="bold">ID: ${fileId}</text>
-          <text x="50%" y="285" dominant-baseline="middle" text-anchor="middle" fill="#71717a" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">Google Drive Storage Active · Synchronized with Supabase</text>
-        </svg>
-      `;
-      return new NextResponse(svg, {
-        headers: {
-          "Content-Type": "image/svg+xml",
-          "Cache-Control": "private, max-age=3600",
-        },
-      });
-    }
-
-    const fileStreamData = await getDriveFileStream(fileId);
-    if (!fileStreamData) {
-      return new NextResponse("Screenshot file not found on Google Drive.", { status: 404 });
-    }
-
-    // Convert Node Readable to Web ReadableStream
-    const webStream = new ReadableStream({
-      start(controller) {
-        fileStreamData.stream.on("data", (chunk) => controller.enqueue(chunk));
-        fileStreamData.stream.on("end", () => controller.close());
-        fileStreamData.stream.on("error", (err) => controller.error(err));
-      },
-    });
-
-    return new NextResponse(webStream, {
+    return new NextResponse(Readable.toWeb(file.stream) as ReadableStream, {
       headers: {
-        "Content-Type": fileStreamData.mimeType,
-        "Cache-Control": "private, max-age=86400",
+        "Content-Type": file.mimeType,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
       },
     });
-  } catch (err: any) {
-    console.error("Error previewing Drive file:", err);
-    return new NextResponse("Internal Server Error", { status: 500 });
+  } catch {
+    return new NextResponse("Screenshot temporarily unavailable.", { status: 503 });
   }
 }

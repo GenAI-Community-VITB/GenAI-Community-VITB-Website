@@ -1,16 +1,7 @@
 import { MemberRoleAssignment } from "@/lib/types";
 
-export const TOP_6_ROLES: string[] = [
-  "system_council",
-  "top_executive",
-  "president",
-  "vice_president",
-  "technical_lead",
-  "technical_co_lead",
-  "aiml_lead",
-  "aiml_co_lead",
-  "tech", // legacy alias
-];
+export { TOP_6_ROLES } from "@/lib/auth/roles";
+import { isTop6Admin } from "@/lib/auth/roles";
 
 /**
  * Formats any ISO date or Date object into human-readable IST (Asia/Kolkata) string.
@@ -45,123 +36,8 @@ export function formatISTDate(
 /**
  * Checks if a role or member roles list belongs to the Top 6 Admin Group.
  */
-export function isTop6Admin(
-  role: string | null | undefined,
-  roles?: MemberRoleAssignment[],
-): boolean {
-  if (!role) return false;
-  const cleanRole = role.toLowerCase();
-  if (TOP_6_ROLES.includes(cleanRole)) return true;
+export { isTop6Admin, isSupremeExecutive, isExecutiveAccount } from "@/lib/auth/roles";
 
-  if (roles && Array.isArray(roles)) {
-    return roles.some((r) => {
-      const p = (r.position || "").toLowerCase();
-      const t = (r.team || "").toLowerCase();
-      return (
-        p === "system_council" ||
-        p === "top_executive" ||
-        p === "president" ||
-        p === "vice_president" ||
-        (t === "technical_team" && (p === "lead" || p === "co_lead")) ||
-        (t === "aiml_innovation_team" && (p === "lead" || p === "co_lead")) ||
-        p === "technical_lead" ||
-        p === "technical_co_lead" ||
-        p === "aiml_lead" ||
-        p === "aiml_co_lead"
-      );
-    });
-  }
-
-  return false;
-}
-
-/**
- * Supreme Core Trio / System Council Authority: System Council, President, AI/ML Lead, Technical Lead.
- * These hold supreme authority to appoint and modify Top Executives.
- */
-export function isSupremeExecutive(
-  role?: string | null,
-  roles?: MemberRoleAssignment[],
-  email?: string | null,
-): boolean {
-  if (!role && !email) return false;
-  const normalized = (role || "").toLowerCase().trim();
-  const normalizedEmail = (email || "").toLowerCase().trim();
-
-  if (
-    normalized === "system_council" ||
-    normalized === "president" ||
-    normalized === "aiml_lead" ||
-    normalized === "technical_lead" ||
-    normalized === "tech_lead"
-  ) {
-    return true;
-  }
-
-  if (roles && Array.isArray(roles)) {
-    const hasSupremeRole = roles.some((r) => {
-      const pos = (r.position || "").toLowerCase();
-      const tm = (r.team || "").toLowerCase();
-      return (
-        pos === "system_council" ||
-        pos === "president" ||
-        pos.includes("aiml lead") ||
-        pos.includes("ai/ml lead") ||
-        pos.includes("technical lead") ||
-        pos.includes("tech lead") ||
-        (tm.includes("technical") && pos.includes("lead") && !pos.includes("co_lead") && !pos.includes("co-lead")) ||
-        (tm.includes("aiml") && pos.includes("lead") && !pos.includes("co_lead") && !pos.includes("co-lead"))
-      );
-    });
-    if (hasSupremeRole) return true;
-  }
-
-  if (
-    normalizedEmail.includes("harshvardhan.24bce10511") ||
-    normalizedEmail.includes("lakshya.24bce10549") ||
-    normalizedEmail.includes("abhinav.24bsa10110")
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Checks whether an account belongs to Top 6 or Panel Executive leadership.
- * These accounts are strictly protected and cannot be disabled or voided.
- */
-export function isExecutiveAccount(
-  role?: string | null,
-  roles?: MemberRoleAssignment[],
-): boolean {
-  if (!role) return false;
-  const normalized = role.toLowerCase().trim();
-  if (isTop6Admin(role, roles)) return true;
-  if (
-    normalized === "system_council" ||
-    normalized === "top_executive" ||
-    normalized === "general_secretary" ||
-    normalized === "general_secretary_provisional" ||
-    normalized === "joint_secretary" ||
-    normalized === "assistant_secretary" ||
-    normalized === "student_coordinator" ||
-    normalized === "panel"
-  ) {
-    return true;
-  }
-  if (roles && Array.isArray(roles)) {
-    return roles.some((r) => {
-      const tm = (r.team || "").toLowerCase();
-      return tm === "panel" || tm === "top 6" || tm === "executive";
-    });
-  }
-  return false;
-}
-
-/**
- * Returns human-friendly role title (e.g. "System Council", "Top Executive", "Finance Lead", "AIML Lead", "Technical Lead", "President").
- */
 export function getHumanReadableRole(
   role: string | null | undefined,
   roles?: MemberRoleAssignment[],
@@ -225,7 +101,7 @@ export function getHumanReadableRole(
  * Master mapping of official club email addresses to allotted student names.
  */
 export const OFFICIAL_ROSTER_NAMES: Record<string, string> = {
-  // ── Executive Panel (8) ──
+  // â”€â”€ Executive Panel (8) â”€â”€
   "president@genai.community": "Harshvardhan Om",
   "vice.president@genai.community": "Akshita Singh",
   "general.secretary@genai.community": "Aditya Mishra",
@@ -235,7 +111,7 @@ export const OFFICIAL_ROSTER_NAMES: Record<string, string> = {
   "student.coord.001@genai.community": "Ishani Verma",
   "student.coord.002@genai.community": "Prince Agrawal",
 
-  // ── AI/ML & Innovation Team (6) ──
+  // â”€â”€ AI/ML & Innovation Team (6) â”€â”€
   "aiml.lead@genai.community": "Lakshya Kant",
   "aiml.co.lead@genai.community": "Aaditya Agarwal",
   "aiml.coremember.001@genai.community": "Rachit Singh",
@@ -243,7 +119,7 @@ export const OFFICIAL_ROSTER_NAMES: Record<string, string> = {
   "aiml.coremember.003@genai.community": "Sargam Ghagre",
   "aiml.coremember.004@genai.community": "Aditya Verma",
 
-  // ── Technical Team (7) ──
+  // â”€â”€ Technical Team (7) â”€â”€
   "tech.lead@genai.community": "Abhinav Kumar",
   "tech.co.lead@genai.community": "Swetalina Sarangi",
   "tech.coremember.001@genai.community": "Anushka Bhatnagar",
@@ -252,24 +128,24 @@ export const OFFICIAL_ROSTER_NAMES: Record<string, string> = {
   "tech.coremember.004@genai.community": "Nitin Sharma",
   "tech.coremember.005@genai.community": "Nivedita Jain",
 
-  // ── Design Team (3) ──
+  // â”€â”€ Design Team (3) â”€â”€
   "design.lead@genai.community": "Agrim Mathur",
   "design.co.lead@genai.community": "Kushagra Nigam",
   "design.coremember.001@genai.community": "Ameeshi",
 
-  // ── Event Management Team (4) ──
+  // â”€â”€ Event Management Team (4) â”€â”€
   "event.lead@genai.community": "Priyansh Upadhyay",
   "event.co.lead@genai.community": "Anya Singh",
   "event.coremember.001@genai.community": "Shikha Singh",
   "event.coremember.002@genai.community": "Shaurya Tyagi",
 
-  // ── HR Team (4) ──
+  // â”€â”€ HR Team (4) â”€â”€
   "hr.lead@genai.community": "Amritanshu Gupta",
   "hr.co.lead@genai.community": "Srishti Manav",
   "hr.coremember.001@genai.community": "Nilansh Chauhan",
   "hr.coremember.002@genai.community": "Aashka Swaroop",
 
-  // ── PR & Outreach Team (7) ──
+  // â”€â”€ PR & Outreach Team (7) â”€â”€
   "pr.lead@genai.community": "Shashwat Mishra",
   "pr.co.lead@genai.community": "Drishti Pandey",
   "pr.coremember.001@genai.community": "Debasmita Ghosh",
@@ -278,7 +154,7 @@ export const OFFICIAL_ROSTER_NAMES: Record<string, string> = {
   "pr.coremember.004@genai.community": "Anjali Pandey",
   "pr.coremember.005@genai.community": "Pushkar Banjara",
 
-  // ── Social Media Team (6) ──
+  // â”€â”€ Social Media Team (6) â”€â”€
   "social.lead@genai.community": "Jharna Gupta",
   "social.co.lead@genai.community": "Sakcham Shaw",
   "social.coremember.001@genai.community": "Arpan Akar",
@@ -286,13 +162,13 @@ export const OFFICIAL_ROSTER_NAMES: Record<string, string> = {
   "social.coremember.003@genai.community": "Sanidhya Raj",
   "social.coremember.004@genai.community": "Priyanshu Sinha",
 
-  // ── Content Team (4) ──
+  // â”€â”€ Content Team (4) â”€â”€
   "content.lead@genai.community": "Muskan Jha",
   "content.co.lead@genai.community": "Muskan Bhatia",
   "content.coremember.001@genai.community": "Kaustubh",
   "content.coremember.002@genai.community": "Arsh Arun",
 
-  // ── Finance Team (2) ──
+  // â”€â”€ Finance Team (2) â”€â”€
   "finance.lead@genai.community": "Finance Lead",
   "finance.coremember.001@genai.community": "Finance Core Member",
 };

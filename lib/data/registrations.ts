@@ -1,3 +1,5 @@
+import { requireStaffActionRole, isAssignedEventVolunteer } from "@/lib/auth/permissions";
+import { csvCell } from "@/lib/utils/csv";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import {
   Registration,
@@ -8,6 +10,7 @@ import {
 } from "@/lib/types";
 import {
   registrationSchema,
+  studentRegistrationSchema,
   paymentReviewSchema,
   checkinOverrideSchema,
   generateSecureQRToken,
@@ -57,6 +60,7 @@ export async function createRegistration(params: {
   paymentId?: string;
   error?: string;
   errorCode?: string;
+  warning?: string;
 }> {
   const source = params.registrationSource || "online";
   const college = params.college || "VIT Bhopal University";
@@ -144,7 +148,7 @@ export async function createRegistration(params: {
     const { data: existingTx } = await supabase
       .from("payments")
       .select("id, transaction_id, registration_id")
-      .ilike("transaction_id", cleanTxId)
+      .eq("transaction_id", cleanTxId)
       .limit(1);
 
     if (existingTx && existingTx.length > 0) {
@@ -178,12 +182,12 @@ export async function createRegistration(params: {
   }
 
   // 2. Check for duplicate VIT Reg or Email for the same event
-  const { data: existingReg } = await supabase
-    .from("registrations")
-    .select("id, vit_registration_number, college_email")
-    .eq("event_id", canonicalEventId)
-    .or(`vit_registration_number.ilike.${cleanVitReg},college_email.ilike.${cleanCollegeEmail}`)
-    .limit(1);
+  const duplicateChecks = await Promise.all([
+    supabase.from("registrations").select("id").eq("event_id",canonicalEventId).eq("vit_registration_number",cleanVitReg).limit(1),
+    supabase.from("registrations").select("id").eq("event_id",canonicalEventId).eq("college_email",cleanCollegeEmail).limit(1),
+  ]);
+  if (duplicateChecks.some(result => result.error)) return { success: false, error: "Unable to check existing registrations. Please retry." };
+  const existingReg = duplicateChecks.flatMap(result => result.data || []);
 
   if (existingReg && existingReg.length > 0) {
     appendToGoogleSheet("Failures", [
@@ -280,8 +284,9 @@ export async function createRegistration(params: {
 
   const recipientEmails = Array.from(new Set([params.personalEmail, params.collegeEmail].filter(Boolean)));
 
+  let notificationWarning: string | undefined;
   try {
-    await sendEmail({
+    const delivery = await sendEmail({
       to: recipientEmails,
       subject: submissionEmail.subject,
       html: submissionEmail.html,
@@ -289,8 +294,9 @@ export async function createRegistration(params: {
       registrationId,
       eventId: params.eventId,
     });
+    if (!delivery.success) notificationWarning = "Registration saved, but the receipt email could not be delivered.";
   } catch (emailErr) {
-    console.error("Error sending submission email:", emailErr);
+    notificationWarning = "Registration saved, but the receipt email could not be delivered.";
   }
 
   // Mirror record to Google Sheets Registrations tab
@@ -377,6 +383,7 @@ export async function createRegistration(params: {
 
   return {
     success: true,
+    warning: notificationWarning,
     registrationId,
     registrationNumber,
     paymentId,
@@ -406,7 +413,7 @@ async function dispatchGoogleFormFailsafe(payload: {
   timestamp: string;
 }) {
   const webhookUrl = process.env.GOOGLE_FORM_WEBHOOK_URL || process.env.GOOGLE_APPS_SCRIPT_URL;
-  if (!webhookUrl) return;
+  if (!webhookUrl || !process.env.GOOGLE_DRIVE_RELAY_TOKEN) return;
 
   try {
     fetch(webhookUrl, {
@@ -414,7 +421,7 @@ async function dispatchGoogleFormFailsafe(payload: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "failsafe_registration_form_submit",
-        token: process.env.GOOGLE_APPS_SCRIPT_TOKEN || "GENAI_GAS_EMAIL_SECRET_2026",
+        token: process.env.GOOGLE_DRIVE_RELAY_TOKEN,
         data: payload,
       }),
     }).catch((err) => {
@@ -440,6 +447,8 @@ export async function submitStudentRegistration(params: {
   screenshotBuffer: Buffer;
   screenshotMimeType: string;
   screenshotFileName: string;
+  registrationSource?: RegistrationSource;
+  createdBy?: string;
 }) {
   const event = await getEventBySlugOrId(params.eventId);
 
@@ -483,6 +492,15 @@ export async function submitStudentRegistration(params: {
     };
   }
 
+  const validated = studentRegistrationSchema.safeParse({
+    event_id: event.id, full_name: params.fullName, vit_registration_number: params.vitRegistrationNumber,
+    branch_name: params.branchName, personal_email: params.personalEmail, college_email: params.collegeEmail,
+    phone_number: params.phoneNumber, transaction_id: params.transactionId,
+  });
+  if (!validated.success) return { success: false, error: validated.error.issues[0]?.message || "Invalid registration details." };
+  params = { ...params, fullName: validated.data.full_name, vitRegistrationNumber: validated.data.vit_registration_number,
+    personalEmail: validated.data.personal_email, collegeEmail: validated.data.college_email,
+    phoneNumber: validated.data.phone_number, transactionId: validated.data.transaction_id };
   const eventTitle = event.title || "GenAI Community Event";
   const amount = event.registration_fee ?? 200;
 
@@ -508,7 +526,8 @@ export async function submitStudentRegistration(params: {
     driveFileName: driveResult.fileName,
     driveMimeType: driveResult.mimeType,
     driveFolderId: driveResult.folderId,
-    registrationSource: "online",
+    registrationSource: params.registrationSource || "online",
+    createdBy: params.createdBy,
   });
 }
 
@@ -585,6 +604,8 @@ export async function reviewPayment(params: {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid review payload" };
   }
 
+  const actor = await requireStaffActionRole("finance");
+  params.reviewerId = actor.user.id; params.reviewerRole = actor.role;
   const supabase = createAdminSupabase();
 
   // Load registration and event
@@ -605,32 +626,9 @@ export async function reviewPayment(params: {
   const venue = reg.event?.venue || "VIT Bhopal Campus";
 
   if (params.action === "approve") {
-    const qrToken = generateSecureQRToken();
-
-    // 1. Update Database
-    const { error: updatePaymentErr } = await supabase
-      .from("payments")
-      .update({
-        payment_status: "verified",
-        reviewed_by: params.reviewerId,
-        reviewed_at: new Date().toISOString(),
-        rejection_reason: null,
-        rejection_explanation: null,
-      })
-      .eq("id", params.paymentId);
-
-    if (updatePaymentErr) throw new Error(updatePaymentErr.message);
-
-    const { error: updateRegErr } = await supabase
-      .from("registrations")
-      .update({
-        registration_status: "verified",
-        qr_token: qrToken,
-        qr_generated_at: new Date().toISOString(),
-      })
-      .eq("id", params.registrationId);
-
-    if (updateRegErr) throw new Error(updateRegErr.message);
+    const saved = await supabase.rpc("review_registration_payment", { p_payment: params.paymentId, p_registration: params.registrationId, p_actor: actor.user.id, p_approve: true, p_token: generateSecureQRToken(), p_reason: null, p_explanation: null });
+    if (saved.error) throw new Error(saved.error.message);
+    const qrToken = saved.data as string;
 
     // 2. Generate Entry Pass QR Code Buffer
     const qrBuffer = await generateEntryPassQRCodeBuffer({
@@ -656,7 +654,7 @@ export async function reviewPayment(params: {
     const destinationEmails = Array.from(new Set([reg.personal_email, reg.college_email].filter(Boolean)));
 
     try {
-      await sendEmail({
+      const delivery = await sendEmail({
         to: destinationEmails,
         subject: emailData.subject,
         html: emailData.html,
@@ -674,8 +672,9 @@ export async function reviewPayment(params: {
           },
         ],
       });
+      if (!delivery.success) return {success:false,error:`Payment saved, but email failed: ${delivery.error || "Delivery failed"}`};
     } catch (sendErr) {
-      console.error("Error sending QR pass email:", sendErr);
+      return {success:false,error:"Payment saved, but QR email could not be sent."};
     }
 
     // 4. Audit Log
@@ -693,28 +692,8 @@ export async function reviewPayment(params: {
 
     return { success: true };
   } else {
-    // 1. Update Database as Rejected
-    const { error: updatePaymentErr } = await supabase
-      .from("payments")
-      .update({
-        payment_status: "rejected",
-        rejection_reason: params.rejectionReason,
-        rejection_explanation: params.rejectionExplanation,
-        reviewed_by: params.reviewerId,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", params.paymentId);
-
-    if (updatePaymentErr) throw new Error(updatePaymentErr.message);
-
-    const { error: updateRegErr } = await supabase
-      .from("registrations")
-      .update({
-        registration_status: "rejected",
-      })
-      .eq("id", params.registrationId);
-
-    if (updateRegErr) throw new Error(updateRegErr.message);
+    const saved = await supabase.rpc("review_registration_payment", { p_payment: params.paymentId, p_registration: params.registrationId, p_actor: actor.user.id, p_approve: false, p_token: null, p_reason: params.rejectionReason || null, p_explanation: params.rejectionExplanation || null });
+    if (saved.error) throw new Error(saved.error.message);
 
     // Send Rejection Email to both emails
     const emailData = getPaymentRejectedTemplate({
@@ -728,7 +707,7 @@ export async function reviewPayment(params: {
     const rejectionDestinationEmails = Array.from(new Set([reg.personal_email, reg.college_email].filter(Boolean)));
 
     try {
-      await sendEmail({
+      const delivery = await sendEmail({
         to: rejectionDestinationEmails,
         subject: emailData.subject,
         html: emailData.html,
@@ -738,8 +717,9 @@ export async function reviewPayment(params: {
         senderId: params.reviewerId,
         senderRole: params.reviewerRole,
       });
+      if (!delivery.success) return {success:false,error:`Payment rejected, but email failed: ${delivery.error || "Delivery failed"}`};
     } catch (rejEmailErr) {
-      console.error("Error sending rejection email:", rejEmailErr);
+      return {success:false,error:"Payment rejected, but notification email could not be sent."};
     }
 
     // Audit Log
@@ -793,6 +773,7 @@ export async function verifyQRTokenDetails(qrToken: string): Promise<{
   };
   errorCode?: string;
 }> {
+  const actor = await requireStaffActionRole("volunteer");
   let cleanToken = (qrToken || "").trim();
   if (!cleanToken) {
     return { success: false, message: "QR Token or Registration Number is required", errorCode: "EMPTY_TOKEN" };
@@ -850,53 +831,13 @@ export async function verifyQRTokenDetails(qrToken: string): Promise<{
   // This handles 99%+ of all scans in a single DB round-trip.
   let reg: any = null;
 
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanToken);
-  const isEmail = cleanToken.includes("@");
-
-  if (!isUuid && !isEmail) {
-    // Common case: QR token, registration number, or VIT reg number
-    const { data: byCommon } = await supabase
-      .from("registrations")
-      .select("*, event:events(title, venue, event_date)")
-      .or(
-        `qr_token.eq.${cleanToken},registration_number.ilike.${cleanToken},vit_registration_number.ilike.${cleanToken}`,
-      )
-      .limit(1)
-      .maybeSingle();
-    if (byCommon) reg = byCommon;
-  }
-
-  // Step 2 (fallback): UUID lookup by ID
-  if (!reg && isUuid) {
-    const { data: byId } = await supabase
-      .from("registrations")
-      .select("*, event:events(title, venue, event_date)")
-      .eq("id", cleanToken)
-      .limit(1)
-      .maybeSingle();
-    if (byId) reg = byId;
-  }
-
-  // Step 3 (fallback): Email lookup
-  if (!reg && isEmail) {
-    const { data: byEmail } = await supabase
-      .from("registrations")
-      .select("*, event:events(title, venue, event_date)")
-      .or(`college_email.ilike.${cleanToken},personal_email.ilike.${cleanToken}`)
-      .limit(1)
-      .maybeSingle();
-    if (byEmail) reg = byEmail;
-  }
-
-  // Step 4 (last resort): try all fields for edge cases (e.g. partial match, alias tokens)
-  if (!reg && !isUuid && !isEmail) {
-    const { data: byQr } = await supabase
-      .from("registrations")
-      .select("*, event:events(title, venue, event_date)")
-      .eq("qr_token", cleanToken)
-      .limit(1)
-      .maybeSingle();
-    if (byQr) reg = byQr;
+  const fields = ["qr_token", "registration_number", "vit_registration_number", "college_email", "personal_email"];
+  if (/^[0-9a-f-]{36}$/i.test(cleanToken)) fields.push("id");
+  for (const field of fields) {
+    const { data, error } = await supabase.from("registrations").select("*,event:events(title,venue,event_date)").eq(field,cleanToken).limit(2);
+    if (error) throw new Error(error.message);
+    if (data && data.length > 1) return {success:false,message:"Multiple events match this identifier. Scan the event QR pass.",errorCode:"AMBIGUOUS"};
+    if (data?.length) { reg=data[0]; break; }
   }
 
   if (!reg) {
@@ -907,6 +848,7 @@ export async function verifyQRTokenDetails(qrToken: string): Promise<{
     };
   }
 
+  if (!await isAssignedEventVolunteer(actor.user.id, reg.event_id)) return {success:false,message:"You are not assigned to scan this event.",errorCode:"FORBIDDEN"};
   const participantData = {
     id: reg.id,
     full_name: reg.full_name,
@@ -1005,272 +947,16 @@ export async function confirmAttendance(params: {
     event_title?: string;
   };
 }> {
-  const supabase = createAdminSupabase();
-  const isOverride = Boolean(params.isOverride);
-  const istTime = formatISTDate(new Date(), true);
-  const nowIso = new Date().toISOString();
-
-  // Try RPC first if available
-  try {
-    const { data, error } = await supabase.rpc("confirm_attendance_action", {
-      p_registration_id: params.registrationId,
-      p_scanner_user_id: params.scannerUserId,
-      p_scanner_name: params.scannerName,
-      p_scanner_role: params.scannerRole,
-      p_is_override: isOverride,
-      p_override_reason: params.overrideReason || null,
-    });
-
-    if (error) {
-      console.warn("RPC confirm_attendance_action error, falling back to direct DB transaction:", error.message);
-    } else if (data) {
-      if (!data.success) {
-        return {
-          success: false,
-          message: data.message || "Failed to confirm attendance.",
-          errorCode: data.error_code || "CONFIRM_FAILED",
-          isAlreadyCheckedIn: Boolean(data.is_already_checked_in || data.error_code === "ALREADY_CHECKED_IN"),
-          priorCheckinTime: data.prior_checkin_time,
-          priorScannedBy: data.prior_scanned_by,
-          participant: data.participant,
-        };
-      }
-
-      const participant = data.participant;
-      const checkinId = `checkin-${Date.now()}`;
-
-      // Mirror to Google Sheets in background
-      appendToGoogleSheet("Attendance", [
-        [
-          participant.id,
-          participant.full_name,
-          participant.vit_registration_number,
-          participant.college_email || "",
-          istTime,
-          participant.event_title || "GenAI Community Event",
-          participant.registration_number,
-          participant.branch,
-          isOverride ? "overridden" : "approved",
-          isOverride ? "YES" : "NO",
-          params.overrideReason || "",
-          params.scannerName,
-        ],
-      ]).catch((err) => console.error("Error mirroring to Attendance Sheet:", err));
-
-      appendToGoogleSheet("Check-ins", [
-        [
-          checkinId,
-          participant.registration_number,
-          participant.full_name,
-          participant.vit_registration_number,
-          participant.college_email || "",
-          participant.branch,
-          isOverride ? "overridden" : "approved",
-          isOverride ? "YES" : "NO",
-          params.overrideReason || "",
-          params.scannerName,
-          params.scannerRole,
-          istTime,
-          participant.registration_source || "scanner",
-        ],
-      ]).catch((err) => console.error("Error mirroring to Check-ins Sheet:", err));
-
-      return {
-        success: true,
-        message: data.message || "Attendance Confirmed & Recorded.",
-        participant,
-      };
-    }
-  } catch (rpcErr) {
-    console.warn("RPC confirm_attendance_action failed, using direct DB transaction:", rpcErr);
-  }
-
-  // Direct Table Database Fallback
-  try {
-    // 1. Fetch registration
-    const { data: reg, error: fetchErr } = await supabase
-      .from("registrations")
-      .select("*, event:events(title)")
-      .eq("id", params.registrationId)
-      .single();
-
-    if (fetchErr || !reg) {
-      return { success: false, message: "Registration record not found.", errorCode: "NOT_FOUND" };
-    }
-
-    const participantData = {
-      id: reg.id,
-      full_name: reg.full_name,
-      vit_registration_number: reg.vit_registration_number,
-      branch: reg.branch_name || reg.branch || "N/A",
-      registration_number: reg.registration_number,
-      status: reg.registration_status,
-      registration_source: reg.registration_source || "online",
-      college_email: reg.college_email,
-      event_title: reg.event?.title || "GenAI Community Event",
-    };
-
-    // 2. Concurrency & Duplicate Check
-    if (reg.registration_status === "checked_in" && !isOverride) {
-      const { data: priorCheckin } = await supabase
-        .from("checkins")
-        .select("scan_timestamp, scanned_by_name")
-        .eq("registration_id", reg.id)
-        .in("status", ["approved", "overridden"])
-        .order("scan_timestamp", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      return {
-        success: false,
-        message: "ALREADY SCANNED: Participant has ALREADY checked in.",
-        errorCode: "ALREADY_CHECKED_IN",
-        isAlreadyCheckedIn: true,
-        priorCheckinTime: priorCheckin?.scan_timestamp || reg.checked_in_at || nowIso,
-        priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
-        participant: participantData,
-      };
-    }
-
-    // 3. Update registration status to checked_in
-    const isScannerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.scannerUserId || "");
-
-    // Try updating with checked_in_at first; if that column doesn't exist, update just registration_status
-    let updateSuccess = false;
-    const { error: updateErr1 } = await supabase
-      .from("registrations")
-      .update({
-        registration_status: "checked_in",
-        checked_in_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq("id", reg.id);
-
-    if (!updateErr1) {
-      updateSuccess = true;
-    } else {
-      // Fallback: column checked_in_at might not exist in table, update registration_status safely
-      const { error: updateErr2 } = await supabase
-        .from("registrations")
-        .update({
-          registration_status: "checked_in",
-          updated_at: nowIso,
-        })
-        .eq("id", reg.id);
-
-      if (updateErr2) {
-        console.error("[confirmAttendance] Error updating registration status:", updateErr2);
-        return {
-          success: false,
-          message: `Database error updating registration: ${updateErr2.message}`,
-          errorCode: "UPDATE_FAILED",
-        };
-      }
-      updateSuccess = true;
-    }
-
-    // 4. Insert into checkins table (let PostgreSQL generate UUID via default gen_random_uuid())
-    const checkinRecord: Record<string, any> = {
-      registration_id: reg.id,
-      event_id: reg.event_id,
-      scanned_by_name: params.scannerName,
-      scanned_by_role: params.scannerRole,
-      status: isOverride ? "overridden" : "approved",
-      is_override: isOverride,
-      override_reason: params.overrideReason || null,
-      scan_timestamp: nowIso,
-    };
-
-    if (isScannerUuid) {
-      checkinRecord.scanned_by = params.scannerUserId;
-    }
-
-    const { error: insertErr } = await supabase.from("checkins").insert(checkinRecord);
-
-    if (insertErr) {
-      console.error("[confirmAttendance] Error inserting checkin record:", insertErr);
-      if (!isOverride && (insertErr.code === "23505" || insertErr.message?.includes("unique"))) {
-        const { data: priorCheckin } = await supabase
-          .from("checkins")
-          .select("scan_timestamp, scanned_by_name")
-          .eq("registration_id", reg.id)
-          .in("status", ["approved", "overridden"])
-          .order("scan_timestamp", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        return {
-          success: false,
-          message: "ALREADY SCANNED: Participant was checked in simultaneously by another scanner.",
-          errorCode: "ALREADY_CHECKED_IN",
-          isAlreadyCheckedIn: true,
-          priorCheckinTime: priorCheckin?.scan_timestamp || nowIso,
-          priorScannedBy: priorCheckin?.scanned_by_name || "Event Volunteer",
-          participant: participantData,
-        };
-      }
-      // If checkins insert failed for another reason, report it
-      return {
-        success: false,
-        message: `Database error recording check-in: ${insertErr.message}`,
-        errorCode: "CHECKIN_INSERT_FAILED",
-      };
-    }
-
-    // 4. Mirror to Google Sheets in background
-    const checkinId = `checkin-${Date.now()}`;
-    appendToGoogleSheet("Attendance", [
-      [
-        reg.id,
-        reg.full_name,
-        reg.vit_registration_number,
-        reg.college_email || "",
-        istTime,
-        reg.event?.title || "GenAI Event",
-        reg.registration_number,
-        reg.branch_name || reg.branch || "N/A",
-        isOverride ? "overridden" : "approved",
-        isOverride ? "YES" : "NO",
-        params.overrideReason || "",
-        params.scannerName,
-      ],
-    ]).catch((err) => console.error("Error mirroring to Attendance Sheet:", err));
-
-    appendToGoogleSheet("Check-ins", [
-      [
-        checkinId,
-        reg.registration_number,
-        reg.full_name,
-        reg.vit_registration_number,
-        reg.college_email || "",
-        reg.branch_name || reg.branch || "N/A",
-        isOverride ? "overridden" : "approved",
-        isOverride ? "YES" : "NO",
-        params.overrideReason || "",
-        params.scannerName,
-        params.scannerRole,
-        istTime,
-        reg.registration_source || "scanner",
-      ],
-    ]).catch((err) => console.error("Error mirroring to Check-ins Sheet:", err));
-
-    return {
-      success: true,
-      message: "Attendance Confirmed & Synchronized.",
-      participant: participantData,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: err.message || "Failed to confirm attendance.",
-      errorCode: "DB_ERROR",
-    };
-  }
+  const actor = await requireStaffActionRole(params.isOverride ? "tech" : "volunteer");
+  const db = createAdminSupabase();
+  const { data: registration, error: fetchError } = await db.from("registrations").select("event_id").eq("id", params.registrationId).single();
+  if (fetchError || !registration) return { success: false, message: "Registration not found." };
+  if (!await isAssignedEventVolunteer(actor.user.id, registration.event_id)) return { success: false, message: "You are not assigned to scan this event." };
+  const { data, error } = await db.rpc("record_attendance", { p_registration: params.registrationId, p_actor: actor.user.id, p_name: actor.profile.full_name, p_role: actor.role, p_override: !!params.isOverride, p_reason: params.overrideReason || null });
+  if (error) return { success: false, message: error.message };
+  return data;
 }
 
-/**
- * Safely deletes a registration with historical archival into deleted_registrations and Google Sheets.
- */
 export async function deleteRegistrationWithArchive(params: {
   registrationId: string;
   reason: string;
@@ -1278,192 +964,31 @@ export async function deleteRegistrationWithArchive(params: {
   actorName: string;
   actorRole: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const supabase = createAdminSupabase();
-
-  // 1. Fetch complete record before deletion
-  const { data: reg, error: fetchErr } = await supabase
-    .from("registrations")
-    .select("*, payments(*), event:events(title)")
-    .eq("id", params.registrationId)
-    .single();
-
-  if (fetchErr || !reg) {
-    return { success: false, error: "Registration not found" };
-  }
-
-  const istTime = formatISTDate(new Date(), true);
-
-  // 2. Insert into deleted_registrations archival table
-  const { error: archiveInsertErr } = await supabase.from("deleted_registrations").insert({
-    original_registration_id: reg.id,
-    registration_number: reg.registration_number,
-    event_id: reg.event_id,
-    full_name: reg.full_name,
-    vit_registration_number: reg.vit_registration_number,
-    branch_name: reg.branch_name,
-    personal_email: reg.personal_email,
-    college_email: reg.college_email || "",
-    phone_number: reg.phone_number,
-    registration_source: reg.registration_source || "online",
-    payment_status: reg.registration_status,
-    deleted_by: params.actorId,
-    deleted_by_name: params.actorName,
-    deleted_by_role: params.actorRole,
-    deletion_reason: params.reason,
-    deleted_at_ist: istTime,
-    raw_data: reg,
-  });
-
-  if (archiveInsertErr) {
-    console.error("Error archiving deleted registration to Supabase:", archiveInsertErr);
-  }
-
-  // 3. Append to Google Sheets Dedicated "Deleted Registrations" Tab
-  appendToGoogleSheet("Deleted Registrations", [
-    [
-      `archived-${reg.registration_number}`,
-      reg.id,
-      reg.registration_number,
-      reg.full_name,
-      reg.vit_registration_number,
-      reg.college_email || "",
-      reg.personal_email,
-      reg.branch_name,
-      reg.event?.title || "Event",
-      reg.registration_status,
-      params.actorName,
-      params.actorRole,
-      params.reason,
-      istTime,
-    ],
-  ]).catch((err) => console.error("Error writing deleted reg to Google Sheets:", err));
-
-  // 4. Delete from active Supabase tables
-  await supabase.from("checkins").delete().eq("registration_id", reg.id);
-  await supabase.from("payments").delete().eq("registration_id", reg.id);
-  await supabase.from("registrations").delete().eq("id", reg.id);
-
-  // 5. Audit Log
-  await logAuditEvent({
-    actorUserId: params.actorId,
-    actorRole: params.actorRole,
-    action: "registration_deleted_and_archived",
-    targetType: "registration",
-    targetId: reg.id,
-    reason: params.reason,
-    metadata: {
-      registration_number: reg.registration_number,
-      full_name: reg.full_name,
-    },
-  });
-
-  return { success: true };
+  const actor = await requireStaffActionRole("finance");
+  const { data, error } = await createAdminSupabase().rpc("archive_registration", { p_id: params.registrationId, p_actor: actor.user.id, p_name: actor.profile.full_name, p_role: actor.role, p_reason: params.reason });
+  return error ? { success: false, error: error.message } : { success: true };
 }
 
-/**
- * Restores a previously deleted registration record.
- */
 export async function restoreDeletedRegistration(params: {
   deletedId: string;
   actorId: string;
   actorRole: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const supabase = createAdminSupabase();
-
-  const { data: delRecord, error: delErr } = await supabase
-    .from("deleted_registrations")
-    .select("*")
-    .eq("id", params.deletedId)
-    .single();
-
-  if (delErr || !delRecord) {
-    return { success: false, error: "Deleted registration record not found." };
-  }
-
-  // 1. Restore into active registrations
-  const { error: insertErr } = await supabase.from("registrations").insert({
-    id: delRecord.original_registration_id,
-    registration_number: delRecord.registration_number,
-    event_id: delRecord.event_id,
-    full_name: delRecord.full_name,
-    vit_registration_number: delRecord.vit_registration_number,
-    branch_name: delRecord.branch_name,
-    personal_email: delRecord.personal_email,
-    college_email: delRecord.college_email,
-    phone_number: delRecord.phone_number,
-    registration_source: delRecord.registration_source,
-    registration_status: delRecord.payment_status === "verified" ? "verified" : "pending",
-  });
-
-  if (insertErr) {
-    return { success: false, error: `Failed to restore registration: ${insertErr.message}` };
-  }
-
-  // 2. Restore payments record so submission appears in Finance Dashboard
-  try {
-    const rawPayments = delRecord.raw_data?.payments;
-    if (Array.isArray(rawPayments) && rawPayments.length > 0) {
-      for (const p of rawPayments) {
-        await supabase.from("payments").insert({
-          id: p.id || undefined,
-          registration_id: delRecord.original_registration_id,
-          amount: p.amount || 200,
-          transaction_id: p.transaction_id || `RESTORED_${Date.now()}`,
-          drive_file_id: p.drive_file_id || "restored_file",
-          drive_file_name: p.drive_file_name || "payment_proof.jpg",
-          drive_mime_type: p.drive_mime_type || "image/jpeg",
-          drive_folder_id: p.drive_folder_id || "Payment Proofs",
-          verification_status: p.verification_status || (delRecord.payment_status === "verified" ? "verified" : "pending"),
-          verified_by: p.verified_by || null,
-          verified_at: p.verified_at || null,
-          rejection_reason: p.rejection_reason || null,
-        });
-      }
-    } else {
-      // Create fallback payment record
-      await supabase.from("payments").insert({
-        registration_id: delRecord.original_registration_id,
-        amount: 200,
-        transaction_id: `RESTORED_${Date.now()}`,
-        drive_file_id: "restored_file",
-        drive_file_name: "payment_proof.jpg",
-        drive_mime_type: "image/jpeg",
-        drive_folder_id: "Payment Proofs",
-        verification_status: delRecord.payment_status === "verified" ? "verified" : "pending",
-      });
-    }
-  } catch (payRestoreErr: any) {
-    console.error("Error restoring payment record:", payRestoreErr);
-  }
-
-  // 3. Remove from deleted table
-  await supabase.from("deleted_registrations").delete().eq("id", params.deletedId);
-
-  // 4. Audit Log
-  await logAuditEvent({
-    actorUserId: params.actorId,
-    actorRole: params.actorRole,
-    action: "registration_restored",
-    targetType: "registration",
-    targetId: delRecord.original_registration_id,
-    metadata: { registration_number: delRecord.registration_number },
-  });
-
-  return { success: true };
+  const actor = await requireStaffActionRole("finance");
+  const { data, error } = await createAdminSupabase().rpc("restore_registration", { p_id: params.deletedId });
+  return error ? { success: false, error: error.message } : { success: true };
 }
 
-/**
- * Retrieves live event statistics.
- */
 export async function getLiveEventStatistics(eventId: string): Promise<EventStatistics> {
   const supabase = createAdminSupabase();
 
-  const { data: stats } = await supabase
+  const { data: stats, error: statsError } = await supabase
     .from("event_statistics")
     .select("*")
     .eq("event_id", eventId)
     .maybeSingle();
 
+  if (statsError) throw new Error(statsError.message);
   if (stats) {
     return stats as EventStatistics;
   }
@@ -1487,7 +1012,7 @@ export async function getLiveEventStatistics(eventId: string): Promise<EventStat
         .select("*", { count: "exact", head: true })
         .eq("event_id", eventId)
         .eq("registration_status", "checked_in"),
-    ]);
+    ].map(async query => { const result=await query; if(result.error) throw new Error(result.error.message); return result; }));
 
   return {
     event_id: eventId,
@@ -1507,6 +1032,8 @@ export async function completeAndArchiveEvent(params: {
   actorId: string;
   actorRole: string;
 }): Promise<{ success: boolean; message?: string; error?: string }> {
+  const actor = await requireStaffActionRole("superadmin");
+  params.actorId = actor.user.id; params.actorRole = actor.role;
   const supabase = createAdminSupabase();
 
   const { data, error } = await supabase.rpc("archive_and_clear_event", {
@@ -1566,7 +1093,7 @@ export async function getRegistrationsQueue(params?: {
   }
 
   if (params?.searchQuery && params.searchQuery.trim()) {
-    const q = params.searchQuery.trim();
+    const q = params.searchQuery.trim().replace(/[(),.%]/g, " ");
     query = query.or(
       `full_name.ilike.%${q}%,vit_registration_number.ilike.%${q}%,personal_email.ilike.%${q}%,registration_number.ilike.%${q}%`,
     );
@@ -1575,8 +1102,7 @@ export async function getRegistrationsQueue(params?: {
   const { data, count, error } = await query;
 
   if (error) {
-    console.error("Error fetching registrations queue:", error);
-    return { registrations: [], totalCount: 0 };
+    throw new Error(error.message);
   }
 
   return {
@@ -1589,22 +1115,10 @@ export async function getRegistrationsQueue(params?: {
  * Retrieves all archived deleted registrations (Top-6 Only).
  */
 export async function getDeletedRegistrations(): Promise<DeletedRegistration[]> {
-  try {
-    const supabase = createAdminSupabase();
-    const { data, error } = await supabase
-      .from("deleted_registrations")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      // If table has not yet been populated or returns not found, fallback gracefully
-      return [];
-    }
-
-    return (data as DeletedRegistration[]) || [];
-  } catch {
-    return [];
-  }
+  await requireStaffActionRole("finance");
+  const {data,error}=await createAdminSupabase().from("deleted_registrations").select("*").order("created_at",{ascending:false});
+  if(error) throw new Error(error.message);
+  return (data || []) as DeletedRegistration[];
 }
 
 /**
@@ -1615,7 +1129,7 @@ export async function getDeletedRegistrations(): Promise<DeletedRegistration[]> 
  * Normalizes user-entered branch strings to official approved academic verticals.
  */
 function normalizeImportBranch(rawBranch?: string): string {
-  if (!rawBranch) return "BTECH CSE (Core)";
+  if (!rawBranch) return "";
   const clean = rawBranch.trim();
   const lower = clean.toLowerCase();
 
@@ -1669,7 +1183,7 @@ function normalizeImportBranch(rawBranch?: string): string {
     return "BTECH Bioengineering";
   }
   if (lower.includes("cse") || lower.includes("computer")) {
-    return "BTECH CSE (Core)";
+    return clean;
   }
 
   return clean;
@@ -1705,386 +1219,40 @@ export async function importParticipantsBulkAction(params: {
   importedCount: number;
   error?: string;
 }> {
-  const { eventId, participants, sendEmailDirectly = false } = params;
-
-  if (!eventId || !participants || participants.length === 0) {
-    return { success: false, importedCount: 0, error: "No participants provided for import." };
-  }
-
-  const supabase = createAdminSupabase();
-
-  // Fetch event details
-  const { data: event } = await supabase
-    .from("events")
-    .select("title, event_date, venue, registration_fee")
-    .eq("id", eventId)
-    .single();
-
-  const eventTitle = event?.title || "GenAI Community Event";
-  const eventDate = event?.event_date ? formatISTDate(event.event_date) : "Event Date";
-  const venue = event?.venue || "Main Auditorium / Campus";
-  const defaultFee = event?.registration_fee ?? 0;
-
-  // Pre-fetch all existing registrations for this event to do instant O(1) in-memory checks
-  const { data: existingRegs } = await supabase
-    .from("registrations")
-    .select("id, registration_number, vit_registration_number, college_email, personal_email")
-    .eq("event_id", eventId);
-
-  const byVitReg = new Map<string, { id: string; registration_number: string }>();
-  const byCollegeEmail = new Map<string, { id: string; registration_number: string }>();
-  const byPersonalEmail = new Map<string, { id: string; registration_number: string }>();
-  const existingRegNumbers = new Set<string>();
-
-  (existingRegs || []).forEach((reg) => {
-    if (reg.vit_registration_number) byVitReg.set(reg.vit_registration_number.toUpperCase().trim(), reg);
-    if (reg.college_email) byCollegeEmail.set(reg.college_email.toLowerCase().trim(), reg);
-    if (reg.personal_email) byPersonalEmail.set(reg.personal_email.toLowerCase().trim(), reg);
-    if (reg.registration_number) existingRegNumbers.add(reg.registration_number.trim());
-  });
-
-  // Also verify any custom registration numbers requested across all registrations in DB
-  const requestedPassIds = participants
-    .map((p) => (p.registrationId || "").trim())
-    .filter(Boolean);
-
-  if (requestedPassIds.length > 0) {
-    const { data: globalRegs } = await supabase
-      .from("registrations")
-      .select("registration_number")
-      .in("registration_number", requestedPassIds);
-    (globalRegs || []).forEach((r) => existingRegNumbers.add(r.registration_number.trim()));
-  }
-
-  let importedCount = 0;
-  const failureReasons: string[] = [];
-  const nowIso = new Date().toISOString();
-
-  // Track intra-batch duplicates to prevent unique constraint conflicts within the same CSV
-  const seenVitRegsInBatch = new Set<string>();
-  const seenCollegeEmailsInBatch = new Set<string>();
-  const seenPersonalEmailsInBatch = new Set<string>();
-
-  const toInsertRegs: Array<Record<string, any>> = [];
-  const toInsertPayments: Array<Record<string, any>> = [];
-  const toUpdateRegs: Array<{
-    id: string;
-    payload: Record<string, any>;
-    payment: Record<string, any>;
-    name: string;
-  }> = [];
-
-  const emailTargets: Array<{
-    qrToken: string;
-    targetRegNumber: string;
-    cleanName: string;
-    cleanVitReg: string;
-    recipientTarget: string;
-    targetRegId: string;
-  }> = [];
-
-  for (let i = 0; i < participants.length; i++) {
-    const p = participants[i];
-    const cleanName = (p.fullName || "").trim();
-    const rawEmail = (p.personalEmail || p.email || p.collegeEmail || "").trim().toLowerCase();
-    if (!cleanName || !rawEmail) {
-      failureReasons.push(`Row ${i + 1}: Missing name or email.`);
-      continue;
-    }
-
-    // 1. VIT Registration Number
-    let cleanVitReg = (p.vitRegistrationNumber || "").trim().toUpperCase();
-    if (!cleanVitReg) {
-      if (rawEmail.includes("@vitbhopal.ac.in")) {
-        const localPart = rawEmail.split("@")[0].toUpperCase();
-        const match = localPart.match(/[0-9]{2}[A-Z]{3}[0-9]{5}/);
-        cleanVitReg = match ? match[0] : localPart;
-      } else {
-        cleanVitReg = `24BCE${String(10000 + (i % 9000))}`;
+  await requireStaffActionRole("tech");
+  const db = createAdminSupabase();
+  if (!params.participants.length || params.participants.length > 1000) return { success:false, importedCount:0,error:"Import between 1 and 1000 participants per file." };
+  const { data: event, error: eventError } = await db.from("events").select("*").eq("id",params.eventId).single();
+  if (eventError) return { success:false,importedCount:0,error:eventError.message };
+  let importedCount=0; const errors: string[]=[];
+  for (const [index,p] of params.participants.entries()) {
+    try {
+      const phoneDigits=(p.phoneNumber || p.phone || "").replace(/[^0-9]/g,"");
+      const phone=phoneDigits.length===12 && phoneDigits.startsWith("91") ? phoneDigits.slice(2) : phoneDigits;
+      const status=(p.paymentStatus || "pending").trim().toLowerCase();
+      const row={full_name:p.fullName?.trim(),vit_registration_number:p.vitRegistrationNumber?.trim().toUpperCase(),branch_name:normalizeImportBranch(p.branchName || p.branch || ""),college_email:p.collegeEmail?.trim().toLowerCase(),personal_email:(p.personalEmail || p.email || "").trim().toLowerCase(),phone_number:phone,transaction_id:(p.transactionId || p.utr || "").trim(),payment_status:status,amount:p.amount ?? event.registration_fee,registration_number:p.registrationId?.trim()};
+      if (!row.full_name || !/^[0-9]{2}[A-Z]{3}[0-9]{5}$/.test(row.vit_registration_number || "")) throw new Error("Name and valid VIT registration number are required.");
+      if (![row.college_email,row.personal_email].every(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ""))) throw new Error("College and personal email are required.");
+      if (!/^[6-9][0-9]{9}$/.test(phone)) throw new Error("Valid 10-digit phone number required.");
+      if (!["verified","pending","rejected"].includes(status)) throw new Error("Payment status must be verified, pending, or rejected.");
+      if (!row.transaction_id || !Number.isFinite(row.amount) || row.amount<0) throw new Error("Valid payment amount and transaction ID required.");
+      const eligibility=validateEventEligibility(row.branch_name,event.allowed_degrees,event.allowed_branches);
+      if (!eligibility.valid) throw new Error(eligibility.error);
+      const { data: reg, error } = await db.rpc("import_participant",{p_event:params.eventId,p_row:row,p_token:generateSecureQRToken()});
+      if (error) throw new Error(error.message);
+      importedCount++;
+      if (params.sendEmailDirectly && reg.qr_token && ["verified","checked_in"].includes(reg.registration_status)) {
+        const cid=`entry-pass-${reg.registration_number}`;
+        const template=getRegistrationConfirmedTemplate({fullName:reg.full_name,vitRegNumber:reg.vit_registration_number,registrationNumber:reg.registration_number,eventTitle:event.title,eventDate:formatISTDate(event.event_date),venue:event.venue,qrContentId:cid});
+        const qr=await generateEntryPassQRCodeBuffer({qrToken:reg.qr_token,registrationNumber:reg.registration_number,fullName:reg.full_name,vitRegNumber:reg.vit_registration_number});
+        const sent=await sendEmail({to:reg.personal_email,subject:template.subject,html:template.html,emailType:"payment_approved_qr",registrationId:reg.id,eventId:event.id,attachments:[{filename:"entry-pass.png",content:qr,cid,contentType:"image/png"}]});
+        if (!sent.success) errors.push(`Row ${index+2}: saved, but email failed: ${sent.error}`);
       }
-    }
-
-    // 2. College & Personal Email
-    let collegeEmail = (p.collegeEmail || "").trim().toLowerCase();
-    let personalEmail = (p.personalEmail || "").trim().toLowerCase();
-
-    if (!collegeEmail) {
-      collegeEmail = rawEmail.includes("@vitbhopal.ac.in")
-        ? rawEmail
-        : `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${cleanVitReg.toLowerCase()}@vitbhopal.ac.in`;
-    }
-    if (!personalEmail) {
-      personalEmail = rawEmail.includes("@gmail.com") ? rawEmail : `${cleanVitReg.toLowerCase()}@vitbhopal.ac.in`;
-    }
-
-    // Avoid duplicate rows within the uploaded CSV itself
-    if (seenVitRegsInBatch.has(cleanVitReg) || seenCollegeEmailsInBatch.has(collegeEmail)) {
-      failureReasons.push(`Row ${i + 1} (${cleanName}): Duplicate entry in uploaded file skipped.`);
-      continue;
-    }
-    seenVitRegsInBatch.add(cleanVitReg);
-    seenCollegeEmailsInBatch.add(collegeEmail);
-    if (personalEmail) seenPersonalEmailsInBatch.add(personalEmail);
-
-    // 3. Branch Name (Normalized to official approved branches)
-    const rawBranch = p.branch || p.branchName || "BTECH CSE (Core)";
-    const branchName = normalizeImportBranch(rawBranch);
-
-    // 4. Phone Number
-    const phone = (p.phoneNumber || p.phone || "").replace(/[\s\-\+]/g, "").replace(/^91/, "").slice(-10);
-
-    // 5. Transaction ID / UTR
-    const transactionId = (p.transactionId || p.utr || "").trim() || `TXN_${cleanVitReg}_${Date.now()}_${i + 1}`;
-
-    // 6. Payment Status & Amount
-    const paymentStatus = p.paymentStatus === "pending" ? "pending" : "verified";
-    const amount = typeof p.amount === "number" && !isNaN(p.amount) ? p.amount : defaultFee;
-
-    // Check if candidate already registered for this event
-    const existing =
-      byVitReg.get(cleanVitReg) ||
-      byCollegeEmail.get(collegeEmail) ||
-      (personalEmail ? byPersonalEmail.get(personalEmail) : undefined);
-
-    if (existing) {
-      // Existing student: stage for update
-      toUpdateRegs.push({
-        id: existing.id,
-        name: cleanName,
-        payload: {
-          full_name: cleanName,
-          branch_name: branchName,
-          personal_email: personalEmail,
-          phone_number: phone || "9876543210",
-          registration_status: paymentStatus === "verified" ? "verified" : "pending",
-          updated_at: nowIso,
-        },
-        payment: {
-          amount,
-          transaction_id: transactionId,
-          payment_status: paymentStatus,
-          reviewed_at: paymentStatus === "verified" ? nowIso : null,
-          updated_at: nowIso,
-        },
-      });
-    } else {
-      // New student: assign unique pass number
-      let targetRegNumber = "";
-      const customId = (p.registrationId || "").trim();
-      if (customId && !existingRegNumbers.has(customId)) {
-        targetRegNumber = customId;
-      } else {
-        let candidateNum = `GAC26-${String(Date.now() % 100000).padStart(5, "0")}-${String(i + 1).padStart(3, "0")}`;
-        while (existingRegNumbers.has(candidateNum)) {
-          candidateNum = `GAC26-${String(Math.floor(Math.random() * 90000) + 10000)}-${String(i + 1).padStart(3, "0")}`;
-        }
-        targetRegNumber = candidateNum;
-      }
-      existingRegNumbers.add(targetRegNumber);
-
-      const targetRegId = crypto.randomUUID();
-      const qrToken = generateSecureQRToken();
-
-      toInsertRegs.push({
-        id: targetRegId,
-        event_id: eventId,
-        registration_number: targetRegNumber,
-        full_name: cleanName,
-        vit_registration_number: cleanVitReg,
-        branch_name: branchName,
-        personal_email: personalEmail,
-        college_email: collegeEmail,
-        phone_number: phone || "9876543210",
-        registration_status: paymentStatus === "verified" ? "verified" : "pending",
-        qr_token: qrToken,
-        qr_generated_at: paymentStatus === "verified" ? nowIso : null,
-        created_at: nowIso,
-        updated_at: nowIso,
-      });
-
-      toInsertPayments.push({
-        registration_id: targetRegId,
-        event_id: eventId,
-        amount,
-        transaction_id: transactionId,
-        payment_status: paymentStatus,
-        drive_file_id: "bulk_imported_csv",
-        drive_file_name: "bulk_import_entry.csv",
-        drive_mime_type: "text/csv",
-        drive_folder_id: "bulk_import",
-        drive_view_url: null,
-        reviewed_at: paymentStatus === "verified" ? nowIso : null,
-        created_at: nowIso,
-        updated_at: nowIso,
-      });
-
-      if (sendEmailDirectly && paymentStatus === "verified") {
-        emailTargets.push({
-          qrToken,
-          targetRegNumber,
-          cleanName,
-          cleanVitReg,
-          recipientTarget: personalEmail || collegeEmail,
-          targetRegId,
-        });
-      }
-    }
+    } catch(error) { errors.push(`Row ${index+2}: ${error instanceof Error ? error.message : "Import failed"}`); }
   }
-
-  // 1. Batch insert new candidates in high-speed chunks of 25
-  const CHUNK_SIZE = 25;
-  for (let c = 0; c < toInsertRegs.length; c += CHUNK_SIZE) {
-    const regChunk = toInsertRegs.slice(c, c + CHUNK_SIZE);
-    const payChunk = toInsertPayments.slice(c, c + CHUNK_SIZE);
-
-    const { error: batchRegErr } = await supabase.from("registrations").insert(regChunk);
-    if (!batchRegErr) {
-      const { error: batchPayErr } = await supabase.from("payments").insert(payChunk);
-      if (batchPayErr) {
-        console.warn("[bulkImport] Payments chunk notice:", batchPayErr.message);
-        for (const p of payChunk) {
-          try {
-            await supabase.from("payments").insert(p);
-          } catch {}
-        }
-      }
-      importedCount += regChunk.length;
-    } else {
-      console.warn("[bulkImport] Batch insert fallback to row-by-row:", batchRegErr.message);
-      for (let r = 0; r < regChunk.length; r++) {
-        const singleReg = regChunk[r];
-        const singlePay = payChunk[r];
-        const { error: singleRegErr } = await supabase.from("registrations").insert(singleReg);
-        if (singleRegErr) {
-          console.error(`[bulkImport] Row insert error for ${singleReg.full_name}:`, singleRegErr);
-          failureReasons.push(`${singleReg.full_name} (${singleReg.vit_registration_number}): ${singleRegErr.message}`);
-          continue;
-        }
-        try {
-          await supabase.from("payments").insert(singlePay);
-        } catch {}
-        importedCount++;
-      }
-    }
-  }
-
-  // 2. Update existing registrations
-  for (const upd of toUpdateRegs) {
-    const { error: uErr } = await supabase
-      .from("registrations")
-      .update(upd.payload)
-      .eq("id", upd.id);
-
-    if (uErr) {
-      console.error(`[bulkImport] Update failed for ${upd.name}:`, uErr);
-      failureReasons.push(`Update failed for ${upd.name}: ${uErr.message}`);
-      continue;
-    }
-
-    const { data: exPay } = await supabase
-      .from("payments")
-      .select("id")
-      .eq("registration_id", upd.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (exPay) {
-      try {
-        await supabase.from("payments").update(upd.payment).eq("id", exPay.id);
-      } catch {}
-    } else {
-      try {
-        await supabase.from("payments").insert({ registration_id: upd.id, event_id: eventId, ...upd.payment });
-      } catch {}
-    }
-
-    importedCount++;
-  }
-
-  // 3. Dispatch emails if requested
-  if (sendEmailDirectly && emailTargets.length > 0) {
-    for (let i = 0; i < emailTargets.length; i += 5) {
-      const emailBatch = emailTargets.slice(i, i + 5);
-      await Promise.allSettled(
-        emailBatch.map(async (tgt) => {
-          try {
-            const qrBuffer = await generateEntryPassQRCodeBuffer({
-              qrToken: tgt.qrToken,
-              registrationNumber: tgt.targetRegNumber,
-              fullName: tgt.cleanName,
-              vitRegNumber: tgt.cleanVitReg,
-            });
-
-            const qrCid = `entry-pass-${tgt.targetRegNumber}`;
-            const emailData = getRegistrationConfirmedTemplate({
-              fullName: tgt.cleanName,
-              vitRegNumber: tgt.cleanVitReg,
-              registrationNumber: tgt.targetRegNumber,
-              eventTitle,
-              eventDate,
-              venue,
-              qrContentId: qrCid,
-            });
-
-            await sendEmail({
-              to: tgt.recipientTarget,
-              subject: emailData.subject,
-              html: emailData.html,
-              emailType: "payment_approved_qr",
-              registrationId: tgt.targetRegId,
-              eventId,
-              attachments: [
-                {
-                  filename: `Official_Entry_Pass_${tgt.targetRegNumber}.png`,
-                  content: qrBuffer,
-                  cid: qrCid,
-                  contentType: "image/png",
-                },
-              ],
-            });
-          } catch (emErr) {
-            console.warn(`[bulkImport] Email failed for ${tgt.cleanName}:`, emErr);
-          }
-        })
-      );
-    }
-  }
-
-  if (importedCount === 0 && participants.length > 0) {
-    const firstReason = failureReasons[0] || "Database validation failed on all rows.";
-    return {
-      success: false,
-      importedCount: 0,
-      error: `Could not import candidates. Reason: ${firstReason}`,
-    };
-  }
-
-  // Log to Audit & Google Sheets
-  const istTime = formatISTDate(new Date(), true);
-  appendToGoogleSheet("Audit Logs", [
-    [
-      `IMP-${Date.now()}`,
-      istTime,
-      "Admin",
-      "Event Operations",
-      "bulk_participant_import",
-      "event",
-      eventId,
-      `Imported ${importedCount} participants with unique QR tokens into ${eventTitle}`,
-      "Success",
-    ],
-  ]).catch(() => {});
-
-  return {
-    success: true,
-    importedCount,
-    error: failureReasons.length > 0 ? `${failureReasons.length} candidates skipped: ${failureReasons[0]}` : undefined,
-  };
+  return {success:errors.length===0,importedCount,error:errors.length ? `${importedCount} saved. ${errors.join("; ")}` : undefined};
 }
 
-/**
- * Tech/Admin Action: Manually overrides attendance status for a participant with complete audit trail.
- */
 export async function overrideAttendanceStatus(params: {
   registrationId: string;
   newStatus: string;
@@ -2093,289 +1261,30 @@ export async function overrideAttendanceStatus(params: {
   actorName: string;
   actorRole: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const supabase = createAdminSupabase();
-  const nowIso = new Date().toISOString();
-  const istTime = formatISTDate(new Date(), true);
-
-  // 1. Fetch current registration
-  const { data: reg, error: fetchErr } = await supabase
-    .from("registrations")
-    .select("*, event:events(title)")
-    .eq("id", params.registrationId)
-    .maybeSingle();
-
-  if (fetchErr || !reg) {
-    return { success: false, error: "Registration not found." };
-  }
-
-  const prevStatus = reg.registration_status;
-  const newStatus = params.newStatus.toLowerCase().trim();
-
-  // 2. Update registration status
-  const updatePayload: Record<string, unknown> = {
-    registration_status: newStatus,
-    updated_at: nowIso,
-  };
-  if (newStatus === "checked_in") {
-    updatePayload.checked_in_at = reg.checked_in_at || nowIso;
-    updatePayload.checked_in_by = params.actorId;
-  }
-
-  const { error: updateErr } = await supabase
-    .from("registrations")
-    .update(updatePayload)
-    .eq("id", reg.id);
-
-  if (updateErr) {
-    return { success: false, error: updateErr.message };
-  }
-
-  // 3. If new status is checked_in, upsert checkin record
-  if (newStatus === "checked_in") {
-    await supabase.from("checkins").insert({
-      id: `checkin-ovr-${Date.now()}`,
-      registration_id: reg.id,
-      event_id: reg.event_id,
-      scanned_by: params.actorId,
-      scanned_by_name: params.actorName,
-      scanner_role: params.actorRole,
-      status: "overridden",
-      is_override: true,
-      override_reason: params.reason,
-      scan_timestamp: nowIso,
-    });
-  }
-
-  // 4. Log Audit Event
-  await logAuditEvent({
-    actorUserId: params.actorId,
-    actorEmail: params.actorName,
-    actorRole: params.actorRole,
-    action: "attendance_override",
-    targetType: "registration",
-    targetId: reg.id,
-    previousState: { status: prevStatus },
-    newState: { status: newStatus, reason: params.reason },
-    reason: params.reason,
-    metadata: {
-      registration_number: reg.registration_number,
-      participant_name: reg.full_name,
-      vit_registration_number: reg.vit_registration_number,
-    },
-  });
-
-  // 5. Mirror to Google Sheets
-  appendToGoogleSheet("Attendance", [
-    [
-      reg.id,
-      reg.full_name,
-      reg.vit_registration_number,
-      reg.college_email || "",
-      istTime,
-      reg.event?.title || "GenAI Event",
-      reg.registration_number,
-      reg.branch_name || reg.branch || "N/A",
-      "overridden",
-      "YES",
-      params.reason,
-      params.actorName,
-    ],
-  ]).catch((err) => console.error("Error mirroring override to Attendance Sheet:", err));
-
-  return { success: true };
+  const actor = await requireStaffActionRole("tech");
+  if (!["checked_in", "verified", "absent"].includes(params.newStatus)) throw new Error("Invalid attendance status.");
+  const { data, error } = await createAdminSupabase().rpc("record_attendance", { p_registration: params.registrationId, p_actor: actor.user.id, p_name: actor.profile.full_name, p_role: actor.role, p_override: true, p_reason: params.reason, p_present: params.newStatus === "checked_in" });
+  return error ? { success: false, error: error.message } : { success: true };
 }
 
-/**
- * Exports real-time event registrations & attendance data in comprehensive CSV format.
- * Includes: Name, Registration Number, Email, VIT Email, Year, Branch, UTR / Transaction ID, Payment Status, Approval Status, QR Generated Status, Attendance Status.
- */
-export async function exportAttendanceDataAction(eventId: string): Promise<{
-  success: boolean;
-  csvContent?: string;
-  filename?: string;
-  error?: string;
-}> {
-  if (!eventId) {
-    return { success: false, error: "Event ID is required." };
-  }
-
-  const supabase = createAdminSupabase();
-
+export async function exportAttendanceDataAction(eventId: string): Promise<{ success: boolean; csvContent?: string; filename?: string; error?: string }> {
+  await requireStaffActionRole("finance");
   try {
-    // 1. Resolve event by UUID, Slug, or title
-    const cleanId = eventId.trim();
-    let targetEventId = cleanId;
-    let eventTitle = "Event";
-
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
-
-    if (isUuid) {
-      const { data: ev } = await supabase
-        .from("events")
-        .select("id, title, slug")
-        .eq("id", cleanId)
-        .maybeSingle();
-      if (ev) {
-        targetEventId = ev.id;
-        eventTitle = ev.title || "Event";
+    const db = createAdminSupabase();
+    const { data: event, error } = await db.from("events").select("id,title,slug").eq("id", eventId).single();
+    if (error || !event) throw new Error(error?.message || "Event not found.");
+    const lines = [["Name","Registration Number","Personal Email","VIT College Email","Academic Year","Branch","UTR / Transaction ID","Payment Status","Approval Status","QR Generated Status","Attendance Status","Check-in Time (IST)","Scanned By","Registration Date (IST)"].map(csvCell).join(",")];
+    for (let offset = 0; ; offset += 500) {
+      const { data: rows, error: rowError } = await db.from("registrations").select("*,payments(transaction_id,payment_status,amount,created_at),checkins(scan_timestamp,scanned_by_name,status)").eq("event_id",event.id).order("id").range(offset,offset+499);
+      if (rowError) throw new Error(rowError.message);
+      for (const r of rows || []) {
+        const checkin = r.checkins.filter((c: any) => ["approved","overridden"].includes(c.status)).sort((a: any,b: any) => b.scan_timestamp.localeCompare(a.scan_timestamp))[0];
+        const payment = r.payments.sort((a: any,b: any) => b.created_at.localeCompare(a.created_at))[0];
+        lines.push([r.full_name,r.vit_registration_number,r.personal_email,r.college_email,r.academic_year || "",r.branch_name,payment?.transaction_id || "",payment?.payment_status || "missing",r.registration_status,r.qr_token ? "Yes" : "No",checkin ? "Present" : "Absent",checkin ? formatISTDate(checkin.scan_timestamp,true) : "",checkin?.scanned_by_name || "",formatISTDate(r.created_at,true)].map(csvCell).join(","));
       }
-    } else {
-      const { data: ev } = await supabase
-        .from("events")
-        .select("id, title, slug")
-        .or(`slug.eq.${cleanId},title.ilike.%${cleanId}%`)
-        .limit(1)
-        .maybeSingle();
-      if (ev) {
-        targetEventId = ev.id;
-        eventTitle = ev.title || "Event";
-      } else {
-        return { success: false, error: `Event could not be found for identifier: ${cleanId}` };
-      }
+      if (!rows || rows.length < 500) break;
     }
-
-    // 2. Fetch registrations for the event
-    let { data: registrations, error: regErr } = await supabase
-      .from("registrations")
-      .select("*, payments(transaction_id, payment_status, amount), checkins(scan_timestamp, scanned_by_name, status)")
-      .eq("event_id", targetEventId)
-      .order("created_at", { ascending: true });
-
-    // Fallback: If joined query fails, run simple select and populate relations separately
-    if (regErr) {
-      console.warn("[exportAttendanceDataAction] Joined query failed, falling back to simple select:", regErr.message);
-      const { data: simpleRegs, error: simpleErr } = await supabase
-        .from("registrations")
-        .select("*")
-        .eq("event_id", targetEventId)
-        .order("created_at", { ascending: true });
-
-      if (simpleErr) {
-        console.error("[exportAttendanceDataAction] Registrations query failed:", simpleErr);
-        return { success: false, error: `Database error: ${simpleErr.message}` };
-      }
-
-      registrations = simpleRegs || [];
-
-      if (registrations.length > 0) {
-        const regIds = registrations.map((r: any) => r.id);
-        const [{ data: paymentsData }, { data: checkinsData }] = await Promise.all([
-          supabase.from("payments").select("registration_id, transaction_id, payment_status, amount").in("registration_id", regIds),
-          supabase.from("checkins").select("registration_id, scan_timestamp, scanned_by_name, status").in("registration_id", regIds),
-        ]);
-
-        const paymentsMap = new Map<string, any[]>();
-        (paymentsData || []).forEach((p: any) => {
-          if (!paymentsMap.has(p.registration_id)) paymentsMap.set(p.registration_id, []);
-          paymentsMap.get(p.registration_id)!.push(p);
-        });
-
-        const checkinsMap = new Map<string, any[]>();
-        (checkinsData || []).forEach((c: any) => {
-          if (!checkinsMap.has(c.registration_id)) checkinsMap.set(c.registration_id, []);
-          checkinsMap.get(c.registration_id)!.push(c);
-        });
-
-        registrations = registrations.map((r: any) => ({
-          ...r,
-          payments: paymentsMap.get(r.id) || [],
-          checkins: checkinsMap.get(r.id) || [],
-        }));
-      }
-    }
-
-    if (!registrations || registrations.length === 0) {
-      return { success: false, error: "No registration records found for this event." };
-    }
-
-    // Filter out archived/soft-deleted records if any
-    const exportList = registrations.filter((r: any) => r.is_deleted !== true);
-    const activeRegistrations = exportList.length > 0 ? exportList : registrations;
-
-    const headers = [
-      "Name",
-      "Registration Number",
-      "Personal Email",
-      "VIT College Email",
-      "Academic Year",
-      "Branch",
-      "UTR / Transaction ID",
-      "Payment Status",
-      "Approval Status",
-      "QR Generated Status",
-      "Attendance Status",
-      "Check-in Time (IST)",
-      "Scanned By",
-      "Registration Date (IST)",
-    ];
-
-    const rows = activeRegistrations.map((r: any) => {
-      const checkin = Array.isArray(r.checkins) && r.checkins.length > 0 ? r.checkins[0] : null;
-      const isPresent =
-        r.registration_status === "checked_in" ||
-        checkin?.status === "approved" ||
-        checkin?.status === "overridden";
-      const checkinTime = checkin?.scan_timestamp ? formatISTDate(checkin.scan_timestamp, true) : "—";
-      const scanner = checkin?.scanned_by_name || "—";
-
-      const payment = Array.isArray(r.payments) && r.payments.length > 0 ? r.payments[0] : null;
-      const utr = payment?.utr_number || payment?.transaction_id || "N/A";
-      const paymentStatus =
-        payment?.payment_status ||
-        (r.registration_status === "verified" || r.registration_status === "checked_in"
-          ? "verified"
-          : r.registration_status);
-
-      // Calculate academic year if not explicitly saved
-      let year = r.academic_year || "";
-      if (!year && r.vit_registration_number && r.vit_registration_number.length >= 2) {
-        const batchPrefix = r.vit_registration_number.slice(0, 2);
-        year = `20${batchPrefix} Batch`;
-      }
-
-      const qrStatus = r.qr_token ? "GENERATED" : "NOT_GENERATED";
-      const approvalStatus =
-        r.registration_status === "verified" || r.registration_status === "checked_in"
-          ? "APPROVED"
-          : r.registration_status === "rejected"
-          ? "REJECTED"
-          : "PENDING";
-
-      const regDate = r.created_at ? formatISTDate(r.created_at, true) : "—";
-
-      return [
-        `"${(r.full_name || "").replace(/"/g, '""')}"`,
-        `"${(r.registration_number || r.vit_registration_number || "").replace(/"/g, '""')}"`,
-        `"${(r.personal_email || "").replace(/"/g, '""')}"`,
-        `"${(r.college_email || "").replace(/"/g, '""')}"`,
-        `"${(year || "").replace(/"/g, '""')}"`,
-        `"${(r.branch_name || "").replace(/"/g, '""')}"`,
-        `"${(utr || "").replace(/"/g, '""')}"`,
-        `"${(paymentStatus || "").replace(/"/g, '""')}"`,
-        `"${approvalStatus}"`,
-        `"${qrStatus}"`,
-        `"${isPresent ? "Present" : "Absent"}"`,
-        `"${checkinTime}"`,
-        `"${(scanner || "").replace(/"/g, '""')}"`,
-        `"${regDate}"`,
-      ].join(",");
-    });
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    const safeTitle = (eventTitle || "Event").replace(/[^a-zA-Z0-9]/g, "_");
-    const filename = `Registrations_Attendance_${safeTitle}_${Date.now()}.csv`;
-
-    return {
-      success: true,
-      csvContent,
-      filename,
-    };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Failed to generate export." };
-  }
+    return { success:true,csvContent: "\uFEFF"+lines.join("\r\n"),filename:`${(event.slug || "event").replace(/[^a-z0-9_-]/gi,"_")}_participants.csv` };
+  } catch(error) { return { success:false,error:error instanceof Error ? error.message : "Export failed." }; }
 }
-
 export const exportRegistrationsSheetAction = exportAttendanceDataAction;
-
-
-

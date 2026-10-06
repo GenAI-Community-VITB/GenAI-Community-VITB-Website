@@ -38,7 +38,7 @@ export type StandardPosition = "lead" | "co_lead" | "core_member";
 
 export type ClubPosition = PanelPosition | StandardPosition;
 
-export type UserRole = "tech" | "finance" | "volunteer" | Top6Role | ClubPosition;
+export type UserRole = "superadmin" | "tech" | "finance" | "volunteer" | Top6Role | ClubPosition;
 
 export type RegistrationSource = "online" | "on_spot";
 
@@ -370,7 +370,7 @@ export interface SyncFailure {
   updated_at: string;
 }
 
-// ─── CLUB HIERARCHY CONSTANTS ───────────────────────────────────────────────
+// â”€â”€â”€ CLUB HIERARCHY CONSTANTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const CLUB_TEAMS: { id: ClubTeam; name: string; description: string }[] = [
   { id: "panel", name: "Panel", description: "Executive leadership and governing body of GenAI Club." },

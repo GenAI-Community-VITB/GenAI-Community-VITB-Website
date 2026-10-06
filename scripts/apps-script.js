@@ -9,7 +9,9 @@
  * DEPLOYMENT INSTRUCTIONS:
  * 1. Open your Google Form or Google Sheet > Extensions > Apps Script.
  * 2. Paste this entire code into `Code.gs`.
- * 3. Update `SUPABASE_URL` and `SUPABASE_ANON_KEY` below.
+ * 3. Configure SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and DRIVE_RELAY_TOKEN in Script Properties.
+ *    Set GOOGLE_DRIVE_RELAY_TOKEN to the same token in the website environment.
+ *    Keep payment/backup folders private; old public permissions need separate revocation.
  * 4. Deploy as Web App:
  *    - Click "Deploy" > "New deployment"
  *    - Select type: "Web app"
@@ -20,8 +22,9 @@
  *    `GOOGLE_FORM_WEBHOOK_URL="https://script.google.com/macros/s/.../exec"`
  */
 
-const SUPABASE_URL = "https://YOUR_SUPABASE_PROJECT_ID.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SCRIPT_CONFIG = PropertiesService.getScriptProperties();
+const SUPABASE_URL = SCRIPT_CONFIG.getProperty("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = SCRIPT_CONFIG.getProperty("SUPABASE_SERVICE_ROLE_KEY");
 
 /**
  * Handles all POST requests sent to the Web App URL:
@@ -37,6 +40,11 @@ function doPost(e) {
     }
 
     const payload = JSON.parse(e.postData.contents);
+    const relayToken = SCRIPT_CONFIG.getProperty("DRIVE_RELAY_TOKEN");
+    if (!relayToken || payload.token !== relayToken) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Unauthorized" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     const action = payload.action || "sync_teams";
 
     // 1. Google Drive Buffer Upload Relay
@@ -118,18 +126,25 @@ function handleDriveUpload(data) {
     }
   }
 
+  if (targetFolder.getSharingAccess() !== DriveApp.Access.PRIVATE) {
+    throw new Error("Upload folder must be private.");
+  }
+
   // Create file in target folder
   const file = targetFolder.createFile(blob);
   
-  // Set permissions so images are publicly viewable by URL
+  // New files must not be readable anonymously, including via inherited folder access.
   try {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+    if (data.viewerEmail) file.addViewer(data.viewerEmail);
   } catch (permErr) {
-    Logger.log("Warning: Could not set public link permission: " + permErr.toString());
+    file.setTrashed(true);
+    throw new Error("Unable to make uploaded file private; use a private storage folder.");
   }
 
   return {
     success: true,
+    private: true,
     fileId: file.getId(),
     fileName: file.getName(),
     directUrl: "https://drive.google.com/uc?export=view&id=" + file.getId(),
@@ -187,8 +202,8 @@ function onFormSubmit(e) {
         const teamsRes = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/teams?select=id,name", {
           method: "get",
           headers: {
-            "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-            "apikey": SUPABASE_ANON_KEY
+            "Authorization": "Bearer " + SUPABASE_SERVICE_ROLE_KEY,
+            "apikey": SUPABASE_SERVICE_ROLE_KEY
           },
           muteHttpExceptions: true
         });
@@ -217,8 +232,8 @@ function onFormSubmit(e) {
     const insertRes = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/members", {
       method: "post",
       headers: {
-        "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": "Bearer " + SUPABASE_SERVICE_ROLE_KEY,
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Content-Type": "application/json",
         "Prefer": "return=representation"
       },
@@ -261,8 +276,8 @@ function syncTeamsDropdown() {
     const teamsRes = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/teams?select=name", {
       method: "get",
       headers: {
-        "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-        "apikey": SUPABASE_ANON_KEY
+        "Authorization": "Bearer " + SUPABASE_SERVICE_ROLE_KEY,
+        "apikey": SUPABASE_SERVICE_ROLE_KEY
       },
       muteHttpExceptions: true
     });
@@ -330,7 +345,7 @@ function handleFailsafeRegistrationFormSubmit(regData) {
       regData.registrationSource || "online",
     ];
 
-    sheet.appendRow(row);
+    sheet.appendRow(row.map(value => typeof value === "string" && /^[\s]*[=+@-]/.test(value) ? "'" + value : value));
     Logger.log("Failsafe registration logged: " + JSON.stringify(row));
 
     return {
@@ -349,10 +364,13 @@ function handleFailsafeRegistrationFormSubmit(regData) {
  * Set trigger: Time-driven -> Day timer (e.g. Every 6 or 12 hours)
  */
 function triggerLinkedInBlogsSync() {
-  const WEBHOOK_URL = "https://genai.community/api/blogs/sync?secret=genai_community_cron_secret_2026_secure";
+  const WEBHOOK_URL = SCRIPT_CONFIG.getProperty("BLOG_SYNC_URL");
+  const cronSecret = SCRIPT_CONFIG.getProperty("CRON_SECRET");
+  if (!WEBHOOK_URL || !cronSecret) throw new Error("Configure BLOG_SYNC_URL and CRON_SECRET in Script Properties.");
   try {
     const response = UrlFetchApp.fetch(WEBHOOK_URL, {
       method: "get",
+      headers: { Authorization: "Bearer " + cronSecret },
       muteHttpExceptions: true
     });
     Logger.log("LinkedIn Blogs Sync Trigger Response: " + response.getContentText());

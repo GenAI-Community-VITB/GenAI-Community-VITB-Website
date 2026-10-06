@@ -49,7 +49,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
     setPending(true);
     const form = e.currentTarget;
     const formData = new FormData(form);
-    formData.append("cf_turnstile_response", turnstileToken || "cf-test-pass");
+    formData.append("cf_turnstile_response", turnstileToken);
 
     try {
       const res = await loginStaff(formData);
@@ -93,8 +93,8 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
       return;
     }
 
-    if (newPassword.length < 8) {
-      setResetStatus({ type: "error", text: "Password must be at least 8 characters long." });
+    if (newPassword.length < 12) {
+      setResetStatus({ type: "error", text: "Password must be at least 12 characters long." });
       return;
     }
 
@@ -350,7 +350,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                     <input
                       type={showNewPassword ? "text" : "password"}
                       required
-                      minLength={8}
+                      minLength={12}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="••••••••••••"
@@ -373,7 +373,7 @@ export function AdminLoginForm({ showInitialError }: { showInitialError: boolean
                   <input
                     type={showNewPassword ? "text" : "password"}
                     required
-                    minLength={8}
+                    minLength={12}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••••••"

@@ -12,14 +12,21 @@ import { Event } from "@/lib/types";
 
 export const revalidate = 0;
 
-export default async function FinancePage() {
+export default async function FinancePage({searchParams}: {searchParams: Promise<{eventId?:string}>}) {
   const { user, profile, role, isTop6 } = await requireStaffRole("finance");
   const supabase = createAdminSupabase();
+  const selectedId=(await searchParams).eventId;
+  const eventList=await supabase.from("events").select("*").order("event_date",{ascending:false});
+  if(eventList.error) throw new Error(eventList.error.message);
+  const options=eventList.data || [];
+  const selected=selectedId ? options.find(e=>e.id===selectedId) : options.find(e=>e.status==="live") || options.find(e=>e.status==="upcoming") || options[0];
+  if(selectedId && !selected) throw new Error("Selected event not found.");
+
 
   const [{ registrations }, branches, { data: activeEvent }, deletedRegistrations] = await Promise.all([
-    getRegistrationsQueue(),
+    getRegistrationsQueue({eventId:selected?.id}),
     getActiveBranches(),
-    supabase.from("events").select("*").order("event_date", { ascending: true }).limit(1).maybeSingle(),
+    Promise.resolve({data:selected}),
     getDeletedRegistrations(),
   ]);
 
@@ -62,7 +69,14 @@ export default async function FinancePage() {
       </div>
 
       <main className="container-wrap py-8">
-        <FinanceQueue
+        <form method="get" className="mb-6 flex gap-3 items-center">
+          <label htmlFor="event-selector">Event</label>
+          <select id="event-selector" name="eventId" defaultValue={selected?.id} className="rounded bg-zinc-900 p-2 border border-zinc-700">
+            {options.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}
+          </select>
+          <button type="submit" className="rounded bg-amber-500 px-4 py-2 text-black">Open</button>
+        </form>
+        <FinanceQueue key={selected?.id}
           initialRegistrations={registrations}
           initialDeletedRegistrations={deletedRegistrations}
           currentUserRole={role}

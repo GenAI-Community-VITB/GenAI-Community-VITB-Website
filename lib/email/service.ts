@@ -1,3 +1,5 @@
+import nodemailer from "nodemailer";
+import { createHash } from "node:crypto";
 /**
  * Dedicated Email Service for GENAI Community VIT Bhopal
  * Encapsulates all transactional email operations, idempotency guards,
@@ -80,6 +82,7 @@ export class EmailService {
     }
 
     const recipientEmailString = recipientEmails.join(", ");
+    const contentKey = createHash("sha256").update(JSON.stringify([recipientEmails,subject,html,attachments.map(a=>[a.filename,a.content.toString("base64")])])).digest("hex");
     const supabase = createAdminSupabase();
 
     // 1. Idempotency Guard
@@ -91,6 +94,7 @@ export class EmailService {
           .select("id, status, provider_message_id, sent_at")
           .eq("registration_id", registrationId)
           .eq("email_type", emailType)
+          .eq("metadata->>contentKey", contentKey)
           .in("status", ["SENT", "DELIVERED", "sent"])
           .order("sent_at", { ascending: false })
           .limit(1)
@@ -137,7 +141,7 @@ export class EmailService {
     });
 
     // 3. Dispatch via Google Apps Script Web App Client
-    const dispatchResult = await googleAppsScriptClient.sendTransactionalEmail({
+    let dispatchResult = await googleAppsScriptClient.sendTransactionalEmail({
       to: emailRecipients,
       subject,
       htmlContent: html,
@@ -150,6 +154,20 @@ export class EmailService {
         ...metadata,
       },
     });
+
+    let provider = "google_apps_script";
+    let attempts = 1;
+    // SMTP is used when the relay is unconfigured or explicitly rejects delivery.
+    // A network timeout is ambiguous; automatically retrying it could send duplicate mail.
+    const relayRejected = !googleAppsScriptClient.isConfigured() || dispatchResult.httpStatus === 429 || (!!dispatchResult.httpStatus && dispatchResult.httpStatus < 500);
+    if (!dispatchResult.success && relayRejected && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+      provider = "gmail_smtp"; attempts++;
+      try {
+        const transport = nodemailer.createTransport({service:"gmail",auth:{user:process.env.GMAIL_USER,pass:process.env.GMAIL_APP_PASSWORD.replace(/\s/g,"")},connectionTimeout:15000,socketTimeout:25000});
+        const sent = await transport.sendMail({from:process.env.GMAIL_USER,to:recipientEmails,subject,html,text:plainText,attachments:attachments.map(a=>({...a,content:typeof a.content === "string" ? Buffer.from(a.content.replace(/^data:[^,]+,/,""),"base64") : a.content}))});
+        dispatchResult = {success:sent.rejected.length===0,messageId:sent.messageId,error:sent.rejected.length ? "Some recipients were rejected by SMTP." : undefined,provider:"google_apps_script"};
+      } catch (error) { dispatchResult = {success:false,error:error instanceof Error ? error.message : "SMTP delivery failed",provider:"google_apps_script"}; }
+    }
 
     const status: EmailDeliveryStatus = dispatchResult.success ? "SENT" : "FAILED";
     const nowIso = new Date().toISOString();
@@ -168,15 +186,17 @@ export class EmailService {
           sender_id: senderId || null,
           sender_role: senderRole,
           status,
-          provider: "google_apps_script",
+          provider,
           provider_message_id: dispatchResult.messageId || null,
-          attempt_count: 1,
+          attempt_count: attempts,
           last_attempt_at: nowIso,
           sent_at: dispatchResult.success ? nowIso : null,
           failed_at: dispatchResult.success ? null : nowIso,
           failure_reason: dispatchResult.error || null,
           metadata: {
             ...metadata,
+            contentKey,
+            retryPayload: emailType === "password_reset_otp" ? null : { html, plainText, attachments: gasAttachments },
             messageId: dispatchResult.messageId,
             recipientCount: recipientEmails.length,
             isTemporaryError: dispatchResult.isTemporaryError,
@@ -186,6 +206,7 @@ export class EmailService {
         .select("id")
         .single();
 
+      if (dbErr) console.error("Email delivery log write failed", dbErr.code);
       if (!dbErr && insertedLog) {
         logId = insertedLog.id;
       }
@@ -382,44 +403,33 @@ export class EmailService {
       query = query.eq("event_id", eventId);
     }
 
-    const { data: failedLogs } = await query;
-    if (!failedLogs || failedLogs.length === 0) {
-      return { attempted: 0, succeeded: 0, failed: 0 };
-    }
-
-    let succeeded = 0;
-    let failed = 0;
-
-    for (const log of failedLogs as EmailLogRecord[]) {
-      const nowIso = new Date().toISOString();
-      const dispatchResult = await googleAppsScriptClient.sendTransactionalEmail({
-        to: log.recipient_email,
-        subject: log.subject,
-        htmlContent: log.metadata?.html || "<p>Notification update from GENAI Community</p>",
-      });
-
-      const newStatus: EmailDeliveryStatus = dispatchResult.success ? "SENT" : "FAILED";
-
-      await supabase
-        .from("email_logs")
-        .update({
-          status: newStatus,
-          attempt_count: (log.attempt_count || 1) + 1,
-          last_attempt_at: nowIso,
-          provider_message_id: dispatchResult.messageId || log.provider_message_id,
-          sent_at: dispatchResult.success ? nowIso : log.sent_at,
-          failed_at: dispatchResult.success ? null : nowIso,
-          failure_reason: dispatchResult.error || null,
-        })
-        .eq("id", log.id);
-
-      if (dispatchResult.success) {
-        succeeded++;
-      } else {
-        failed++;
+    const { data: failedLogs, error: queryError } = await query.limit(100);
+    if(queryError) throw new Error(queryError.message);
+    if(!failedLogs?.length) return {attempted:0,succeeded:0,failed:0};
+    let succeeded=0,failed=0;
+    for(const log of failedLogs as EmailLogRecord[]) {
+      const retry = log.metadata?.retryPayload;
+      if(!retry?.html || log.email_type === "password_reset_otp") { failed++; continue; }
+      let retryHtml=retry.html;
+      let retryAttachments=retry.attachments || [];
+      if(log.email_type === "payment_approved_qr" && log.registration_id) {
+        const {data:reg,error}=await supabase.from("registrations").select("*,event:events(*)").eq("id",log.registration_id).single();
+        if(error || !reg?.qr_token || !["verified","checked_in"].includes(reg.registration_status)) { failed++; continue; }
+        const {getRegistrationConfirmedTemplate}=await import("@/lib/email/templates");
+        const {generateEntryPassQRCodeBuffer}=await import("@/lib/qr/generator");
+        const cid=`entry-pass-${reg.registration_number}`;
+        retryHtml=getRegistrationConfirmedTemplate({fullName:reg.full_name,vitRegNumber:reg.vit_registration_number,registrationNumber:reg.registration_number,eventTitle:reg.event.title,eventDate:formatISTDate(reg.event.event_date),venue:reg.event.venue,qrContentId:cid}).html;
+        const qr=await generateEntryPassQRCodeBuffer({qrToken:reg.qr_token,registrationNumber:reg.registration_number,fullName:reg.full_name,vitRegNumber:reg.vit_registration_number});
+        retryAttachments=[{filename:"entry-pass.png",content:qr.toString("base64"),contentType:"image/png",cid}];
       }
-
-      await new Promise((r) => setTimeout(r, 200));
+      const sent=await this.send({to:log.recipient_email.split(",").map(v=>v.trim()),subject:log.subject,html:retryHtml,plainText:retry.plainText,emailType:log.email_type,registrationId:log.registration_id,eventId:log.event_id,attachments:retryAttachments,forceResend:false});
+      if(sent.logId) {
+        const updated=await supabase.from("email_logs").update({attempt_count:(log.attempt_count || 1)+1}).eq("id",sent.logId);
+        if(updated.error) throw new Error(updated.error.message);
+      }
+      const saved=await supabase.from("email_logs").update({status:sent.success ? "SENT" : sent.logId ? "CANCELLED" : "FAILED",attempt_count:(log.attempt_count || 1)+1,last_attempt_at:new Date().toISOString(),failure_reason:sent.error || null}).eq("id",log.id);
+      if(saved.error) throw new Error(saved.error.message);
+      if(sent.success) succeeded++; else failed++;
     }
 
     return {

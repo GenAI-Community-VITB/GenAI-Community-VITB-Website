@@ -22,12 +22,12 @@ This guide explains how to deploy the **100% Free** Google Apps Script Web App r
 
 ---
 
-### Step 3: Configure Authentication Secret Token (Optional but Recommended)
+### Step 3: Configure Authentication Secret Token (Required)
 1. In Google Apps Script, click on the **⚙️ Project Settings** (gear icon) on the left sidebar.
 2. Scroll down to **Script Properties** and click **Add script property**.
 3. Add:
    - **Property:** `AUTH_TOKEN`
-   - **Value:** Choose a strong secret token (e.g. `GENAI_GAS_EMAIL_SECRET_2026` or your own random key).
+   - **Value:** Choose a strong secret token (e.g. `replace-with-a-random-32-byte-secret` or your own random key).
 4. Click **Save script properties**.
 
 ---
@@ -52,7 +52,7 @@ Add these variables to your environment:
 ```env
 # Google Apps Script + Gmail Transactional Email Engine
 GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbx.../exec"
-GOOGLE_APPS_SCRIPT_TOKEN="GENAI_GAS_EMAIL_SECRET_2026"
+GOOGLE_APPS_SCRIPT_TOKEN="replace-with-a-random-32-byte-secret"
 EMAIL_SENDER_NAME="GENAI Community VIT Bhopal"
 EMAIL_REPLY_TO="gen_ai@vitbhopal.ac.in"
 EMAIL_BATCH_SIZE="15"
@@ -71,7 +71,7 @@ EMAIL_MAX_RETRIES="3"
 Invoke-RestMethod -Uri "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec" `
   -Method POST `
   -ContentType "application/json" `
-  -Body '{"token":"GENAI_GAS_EMAIL_SECRET_2026","to":"your-email@gmail.com","subject":"Test Email from GENAI","html":"<h1>Email Relay Operational!</h1><p>Sent via Google Apps Script + Gmail.</p>"}'
+  -Body '{"token":"replace-with-a-random-32-byte-secret","to":"your-email@gmail.com","subject":"Test Email from GENAI","html":"<h1>Email Relay Operational!</h1><p>Sent via Google Apps Script + Gmail.</p>"}'
 ```
 
 **Expected JSON Response:**

@@ -224,7 +224,7 @@ GOOGLE_SPREADSHEET_ID_INTERNAL="your_internal_spreadsheet_id"
 
 # --- Google Apps Script + Transactional Email Relay ---
 GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbx.../exec"
-GOOGLE_APPS_SCRIPT_TOKEN="GENAI_GAS_EMAIL_SECRET_2026"
+GOOGLE_APPS_SCRIPT_TOKEN="replace-with-a-random-32-byte-secret"
 EMAIL_SENDER_NAME="GENAI Community VIT Bhopal"
 EMAIL_REPLY_TO="gen_ai@vitbhopal.ac.in"
 

@@ -162,6 +162,8 @@ export const getHierarchyMembers = cache(async () => {
     const { data: profiles } = await admin
       .from("user_profiles")
       .select("id, email, full_name, assigned_to_name, avatar_url, drive_file_id, role, is_voided, github_url, official_email, roles:member_roles(team, position)")
+      .eq("is_active", true)
+      .eq("is_voided", false)
       .order("created_at", { ascending: true });
 
     if (!profiles || profiles.length === 0) {
@@ -195,9 +197,7 @@ export const getHierarchyMembers = cache(async () => {
 
       const authenticEmail = (p.official_email || p.email || "")?.toLowerCase().trim();
       const memberDisplayName = p.assigned_to_name || p.full_name || "member";
-      const validEmail = authenticEmail.endsWith("@vitbhopal.ac.in")
-        ? authenticEmail
-        : `${memberDisplayName.toLowerCase().trim().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, ".")}@vitbhopal.ac.in`;
+      const validEmail = authenticEmail.endsWith("@vitbhopal.ac.in") ? authenticEmail : "";
 
       return {
         id: p.id,

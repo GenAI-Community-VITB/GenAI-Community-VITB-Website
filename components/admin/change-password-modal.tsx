@@ -121,8 +121,8 @@ export function ChangePasswordButton() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (newPassword.length < 12) {
+      setError("Password must be at least 12 characters long.");
       return;
     }
 
@@ -405,7 +405,7 @@ export function ChangePasswordButton() {
                       </button>
                       <button
                         type="submit"
-                        disabled={isPending || otpCode.length !== 6 || newPassword.length < 8}
+                        disabled={isPending || otpCode.length !== 6 || newPassword.length < 12}
                         className="flex-1 rounded-2xl bg-gradient-to-r from-[#f5b642] to-[#df9e28] py-2.5 text-xs font-bold text-black hover:brightness-110 disabled:opacity-50 transition shadow-[0_0_20px_rgba(245,182,66,0.25)] cursor-pointer"
                       >
                         {isPending ? "Verifying OTP..." : "Verify OTP & Update"}

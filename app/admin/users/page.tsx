@@ -1,4 +1,4 @@
-import { requireStaffRole, isSupremeExecutive } from "@/lib/auth/permissions";
+import { STAFF_PROFILE_FIELDS, requireStaffRole, isSupremeExecutive } from "@/lib/auth/permissions";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { UserManagement } from "@/components/admin/user-management";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
@@ -16,9 +16,10 @@ export default async function UsersPage() {
 
   const { data: users, error } = await supabase
     .from("user_profiles")
-    .select("*, roles:member_roles(*)")
+    .select(STAFF_PROFILE_FIELDS)
     .order("created_at", { ascending: false });
 
+  if (error) throw new Error(error.message);
   const isSupreme = isSupremeExecutive(role, profile.roles, profile.email || user.email);
 
   return (

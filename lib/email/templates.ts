@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/security/content";
 const CLUB_NAME = "Generative AI Community";
 const INSTITUTION = "VIT Bhopal University";
 const GOLD_COLOR = "#f5b642";
@@ -15,7 +16,7 @@ function baseEmailLayout(content: string, preheader: string = ""): string {
 <body style="margin: 0; padding: 0; background-color: #050403; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #e5e5e5; -webkit-font-smoothing: antialiased;">
   <!-- Preheader preview text -->
   <div style="display: none; max-height: 0px; overflow: hidden; opacity: 0; font-size: 1px; color: #050403;">
-    ${preheader || "Official communications from Generative AI Community - VIT Bhopal"}
+    ${escapeHtml(preheader || "Official communications from Generative AI Community - VIT Bhopal")}
   </div>
 
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #050403; padding: 32px 16px;">
@@ -86,11 +87,11 @@ export function getSubmissionReceivedTemplate(params: {
         Registration Successful — Verification Pending
       </span>
       <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Registration Successful</h2>
-      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle} · Ref ID: ${registrationNumber}</p>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${escapeHtml(eventTitle)} · Ref ID: ${escapeHtml(registrationNumber)}</p>
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
-      Hi <strong>${fullName}</strong>,
+      Hi <strong>${escapeHtml(fullName)}</strong>,
     </p>
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
       Your registration form submission has been successfully received by our systems. Payment verification is currently pending review by the club finance team.
@@ -101,15 +102,15 @@ export function getSubmissionReceivedTemplate(params: {
       <table width="100%" border="0" cellspacing="0" cellpadding="8">
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace; width: 42%;">Pass Reference ID:</td>
-          <td style="font-size: 15px; font-weight: 800; color: ${GOLD_COLOR}; font-family: monospace;">${registrationNumber}</td>
+          <td style="font-size: 15px; font-weight: 800; color: ${GOLD_COLOR}; font-family: monospace;">${escapeHtml(registrationNumber)}</td>
         </tr>
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">VIT Reg Number:</td>
-          <td style="font-size: 14px; font-weight: 600; color: #ffffff; font-family: monospace;">${vitRegNumber}</td>
+          <td style="font-size: 14px; font-weight: 600; color: #ffffff; font-family: monospace;">${escapeHtml(vitRegNumber)}</td>
         </tr>
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Transaction / UTR:</td>
-          <td style="font-size: 14px; color: #ffffff; font-family: monospace;">${transactionId}</td>
+          <td style="font-size: 14px; color: #ffffff; font-family: monospace;">${escapeHtml(transactionId)}</td>
         </tr>
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Amount Paid:</td>
@@ -155,11 +156,11 @@ export function getRegistrationConfirmedTemplate(params: {
       <h2 style="margin: 14px 0 6px 0; font-size: 26px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
         Official Entrance QR Pass
       </h2>
-      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle}</p>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${escapeHtml(eventTitle)}</p>
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
-      Hi <strong>${fullName}</strong> (${vitRegNumber}),
+      Hi <strong>${escapeHtml(fullName)}</strong> (${escapeHtml(vitRegNumber)}),
     </p>
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
       Your payment verification is complete! Here is your official admission pass. Please save or screenshot this QR code to present at the venue check-in desk.
@@ -171,12 +172,12 @@ export function getRegistrationConfirmedTemplate(params: {
         Admit Pass Identifier
       </p>
       <p style="margin: 0 0 20px 0; font-size: 24px; font-weight: 900; color: ${GOLD_COLOR}; font-family: monospace; letter-spacing: 1px;">
-        ${registrationNumber}
+        ${escapeHtml(registrationNumber)}
       </p>
       
       <!-- QR Image Frame -->
       <div style="background-color: #ffffff; padding: 14px; border-radius: 16px; display: inline-block; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
-        <img src="cid:${qrContentId}" alt="Event Entry QR Code Pass" width="220" height="220" style="display: block; border: 0;" />
+        <img src="cid:${escapeHtml(qrContentId)}" alt="Event Entry QR Code Pass" width="220" height="220" style="display: block; border: 0;" />
       </div>
 
       <p style="margin: 0; font-size: 13px; font-weight: 700; color: #ffffff;">
@@ -192,15 +193,15 @@ export function getRegistrationConfirmedTemplate(params: {
       <table width="100%" border="0" cellspacing="0" cellpadding="8">
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace; width: 32%;">Event:</td>
-          <td style="font-size: 14px; font-weight: 700; color: #ffffff;">${eventTitle}</td>
+          <td style="font-size: 14px; font-weight: 700; color: #ffffff;">${escapeHtml(eventTitle)}</td>
         </tr>
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Date & Time:</td>
-          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${eventDate}</td>
+          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${escapeHtml(eventDate)}</td>
         </tr>
         <tr>
           <td style="font-size: 12px; color: #71717a; text-transform: uppercase; font-family: monospace;">Venue:</td>
-          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${venue}</td>
+          <td style="font-size: 14px; font-weight: 600; color: #ffffff;">${escapeHtml(venue)}</td>
         </tr>
       </table>
     </div>
@@ -243,22 +244,22 @@ export function getPaymentRejectedTemplate(params: {
         Verification Notice
       </span>
       <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Payment Update Required</h2>
-      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${eventTitle} · Ref: ${registrationNumber}</p>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${escapeHtml(eventTitle)} · Ref: ${escapeHtml(registrationNumber)}</p>
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
-      Hi <strong>${fullName}</strong>,
+      Hi <strong>${escapeHtml(fullName)}</strong>,
     </p>
     <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
-      Our Finance team reviewed your payment submission for <strong>${eventTitle}</strong>, but was unable to verify the transaction proof provided.
+      Our Finance team reviewed your payment submission for <strong>${escapeHtml(eventTitle)}</strong>, but was unable to verify the transaction proof provided.
     </p>
 
     <div style="background-color: #1a0f0f; border: 1px solid #4a1d1d; border-radius: 14px; padding: 20px; margin-bottom: 24px;">
       <p style="margin: 0 0 6px 0; font-size: 12px; color: #f87171; text-transform: uppercase; font-family: monospace; font-weight: 700;">Reason Identified:</p>
-      <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color: #ffffff;">${rejectionReason}</p>
+      <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color: #ffffff;">${escapeHtml(rejectionReason)}</p>
       ${
         rejectionExplanation
-          ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #a1a1aa; font-family: monospace;">Staff Notes:</p><p style="margin: 0; font-size: 13px; color: #d4d4d8; line-height: 1.5;">${rejectionExplanation}</p>`
+          ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #a1a1aa; font-family: monospace;">Staff Notes:</p><p style="margin: 0; font-size: 13px; color: #d4d4d8; line-height: 1.5;">${escapeHtml(rejectionExplanation)}</p>`
           : ""
       }
     </div>
@@ -282,12 +283,12 @@ export function getCustomEmailTemplate(params: {
   const { subject, message, senderRole = "GenAI Community Staff" } = params;
 
   const content = `
-    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 800; color: #ffffff;">${subject}</h2>
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 800; color: #ffffff;">${escapeHtml(subject)}</h2>
     <div style="font-size: 15px; line-height: 1.7; color: #d4d4d8; white-space: pre-wrap; margin-bottom: 24px;">
-      ${message}
+      ${escapeHtml(message)}
     </div>
     <p style="margin: 24px 0 0 0; font-size: 13px; color: #71717a; font-family: monospace;">
-      Dispatched by <strong>${senderRole}</strong> · GenAI Community VIT Bhopal
+      Dispatched by <strong>${escapeHtml(senderRole)}</strong> · GenAI Community VIT Bhopal
     </p>
   `;
 
@@ -342,7 +343,7 @@ export function getOTPEmailTemplate(params: {
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
-      Hi <strong>${fullName || "Club Member"}</strong> (${email}),
+      Hi <strong>${escapeHtml(fullName || "Club Member")}</strong> (${escapeHtml(email)}),
     </p>
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
       We received a request to reset your password. Use the single-use OTP code below to verify your identity and configure a new password.
@@ -354,7 +355,7 @@ export function getOTPEmailTemplate(params: {
         One-Time Verification Code
       </p>
       <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: ${GOLD_COLOR}; font-family: monospace; padding: 8px 0;">
-        ${otpCode}
+        ${escapeHtml(otpCode)}
       </div>
       <p style="margin: 8px 0 0 0; font-size: 12px; color: #f59e0b; font-family: monospace;">
         ⏱️ Expires in ${validMinutes} minutes
@@ -397,10 +398,10 @@ export function getLoginSecurityAlertTemplate(params: {
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
-      Hi <strong>${fullName || "Club Member"}</strong>,
+      Hi <strong>${escapeHtml(fullName || "Club Member")}</strong>,
     </p>
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
-      Your official account (<strong>${email}</strong>) has just logged into the GenAI Community Admin Portal.
+      Your official account (<strong>${escapeHtml(email)}</strong>) has just logged into the GenAI Community Admin Portal.
     </p>
 
     <!-- Sign-in Details Table -->
@@ -408,11 +409,11 @@ export function getLoginSecurityAlertTemplate(params: {
       <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a; width: 40%;">Timestamp (IST):</td>
-          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600; font-family: monospace;">${loginTime}</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600; font-family: monospace;">${escapeHtml(loginTime)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Staff Role:</td>
-          <td style="padding: 6px 0; font-size: 13px; color: ${GOLD_COLOR}; font-weight: 700;">${roleTitle}</td>
+          <td style="padding: 6px 0; font-size: 13px; color: ${GOLD_COLOR}; font-weight: 700;">${escapeHtml(roleTitle)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Client Target:</td>
@@ -464,15 +465,15 @@ export function getEventReminderTemplate(params: {
       <span style="display: inline-block; background-color: rgba(245, 182, 66, 0.15); border: 1px solid rgba(245, 182, 66, 0.4); color: ${GOLD_COLOR}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
         ⚡ Live Event Reminder
       </span>
-      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Get Ready for ${eventTitle}</h2>
-      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">Pass ID: ${registrationNumber}</p>
+      <h2 style="margin: 12px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Get Ready for ${escapeHtml(eventTitle)}</h2>
+      <p style="margin: 0; font-size: 14px; color: #a1a1aa;">Pass ID: ${escapeHtml(registrationNumber)}</p>
     </div>
 
     <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #e4e4e7;">
-      Hi <strong>${fullName}</strong>,
+      Hi <strong>${escapeHtml(fullName)}</strong>,
     </p>
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
-      This is a quick reminder that <strong>${eventTitle}</strong> is happening soon! Your registration is confirmed and we look forward to seeing you.
+      This is a quick reminder that <strong>${escapeHtml(eventTitle)}</strong> is happening soon! Your registration is confirmed and we look forward to seeing you.
     </p>
 
     <!-- Schedule Details Card -->
@@ -480,19 +481,19 @@ export function getEventReminderTemplate(params: {
       <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a; width: 40%;">Event Date:</td>
-          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600;">${eventDate}</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600;">${escapeHtml(eventDate)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Reporting Time:</td>
-          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600;">${eventTime}</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-weight: 600;">${escapeHtml(eventTime)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a;">Venue:</td>
-          <td style="padding: 6px 0; font-size: 13px; color: ${GOLD_COLOR}; font-weight: 700;">${venue}</td>
+          <td style="padding: 6px 0; font-size: 13px; color: ${GOLD_COLOR}; font-weight: 700;">${escapeHtml(venue)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-size: 13px; color: #71717a;">VIT Reg Number:</td>
-          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-family: monospace;">${vitRegNumber}</td>
+          <td style="padding: 6px 0; font-size: 13px; color: #ffffff; font-family: monospace;">${escapeHtml(vitRegNumber)}</td>
         </tr>
       </table>
     </div>
@@ -504,7 +505,7 @@ export function getEventReminderTemplate(params: {
         <p style="margin: 0 0 12px 0; font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
           Your Gate Admission QR Code
         </p>
-        <img src="cid:${qrContentId}" alt="Entry QR Pass" width="220" height="220" style="display: block; margin: 0 auto; border-radius: 12px; border: 2px solid ${GOLD_COLOR};" />
+        <img src="cid:${escapeHtml(qrContentId)}" alt="Entry QR Pass" width="220" height="220" style="display: block; margin: 0 auto; border-radius: 12px; border: 2px solid ${GOLD_COLOR};" />
         <p style="margin: 12px 0 0 0; font-size: 11px; color: #71717a;">
           Please present this QR code at the registration desk for instant entry.
         </p>

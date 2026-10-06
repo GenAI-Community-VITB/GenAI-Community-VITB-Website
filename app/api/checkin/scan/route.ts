@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { user, profile, role } = await getAuthenticatedStaff();
 
-    if (!user || !profile || !role || !hasRole(role, "volunteer", profile.roles)) {
+    if (!user || !profile || !role) {
       return NextResponse.json(
         { success: false, message: "Unauthorized: Volunteer or Tech login required." },
         { status: 401 }

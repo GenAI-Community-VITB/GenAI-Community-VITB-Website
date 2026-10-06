@@ -22,10 +22,12 @@ export async function verifyCloudflareTurnstile(
 ): Promise<TurnstileVerificationResult> {
   const secretKey = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || DEFAULT_TEST_SECRET;
 
+  if (process.env.NODE_ENV === "production" && secretKey === DEFAULT_TEST_SECRET) return { success: false, error: "Turnstile is not configured." };
+
   // If Turnstile is not enforced or token is testing bypass in development
   if (!token) {
     // If no secret key is configured in production, log notice and pass gracefully
-    if (!process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
+    if (process.env.NODE_ENV !== "production" && !process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
       return { success: true, hostname: "localhost" };
     }
     return {
@@ -35,7 +37,7 @@ export async function verifyCloudflareTurnstile(
   }
 
   // Fast-track test bypass tokens
-  if (token === "cf-test-pass" || token === "test-token") {
+  if (process.env.NODE_ENV !== "production" && (token === "cf-test-pass" || token === "test-token")) {
     return { success: true, hostname: "test-environment" };
   }
 

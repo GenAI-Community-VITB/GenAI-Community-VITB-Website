@@ -1,5 +1,7 @@
 "use server";
+import { campusDateTime, validateEventTimes } from "@/lib/utils/event-time";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -32,13 +34,12 @@ function zodIssuesMessage(err: ZodError) {
   return err.issues.map((i) => `${i.path.join(".") || "form"}: ${i.message}`).join("; ");
 }
 
-const HARDCODED_ADMIN_EMAIL = process.env.HARDCODED_ADMIN_EMAIL ?? "admin.club.core@genai.local";
-const HARDCODED_ADMIN_PASSWORD = process.env.HARDCODED_ADMIN_PASSWORD ?? "G3nAI!Club#Root$2026@Ultra";
 const ADMIN_SESSION_COOKIE = "club_admin_session";
 
 import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import { verifyCloudflareTurnstile } from "@/lib/security/turnstile";
-import { isTeamLoginAllowed } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, requireStaffActionRole, assertCanManageStaff } from "@/lib/auth/permissions";
+import { enforceAuthLimit } from "@/lib/security/auth-rate-limit";
 
 const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -87,8 +88,7 @@ async function uploadImageIfPresent(file: unknown): Promise<string | undefined> 
     if (err.message?.startsWith("Invalid file type") || err.message?.startsWith("Image file too large")) {
       throw err;
     }
-    console.error("Asset upload fallback:", err?.message || err);
-    return undefined;
+    throw new Error("Image upload failed. Please retry before saving.");
   }
 }
 
@@ -100,7 +100,7 @@ async function pingGoogleFormWebhook() {
   if (!webhookUrl) return;
   try {
     // Fire and forget - don't await so we don't slow down the admin's action
-    fetch(webhookUrl, { method: "POST" }).catch(() => {});
+    fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync_teams", token: process.env.GOOGLE_DRIVE_RELAY_TOKEN }) }).catch(() => {});
   } catch (e) {
     // Ignore errors
   }
@@ -169,34 +169,7 @@ function logEventLifecycle(
 }
 
 /**
- * Cookie-only “dev admin” bypass. Does not create a Supabase session — DB writes still require
- * a real Supabase login for RLS.
- */
-export async function tryHardcodedAdminSession(
-  email: string,
-  password: string,
-): Promise<{ ok: true } | { ok: false }> {
-  const cleanEmail = (email || "").trim().toLowerCase();
-  const targetEmail = (HARDCODED_ADMIN_EMAIL || "admin.club.core@genai.local").trim().toLowerCase();
-  const targetPassword = HARDCODED_ADMIN_PASSWORD || "G3nAI!Club#Root$2026@Ultra";
-
-  if (cleanEmail !== targetEmail || password !== targetPassword) {
-    return { ok: false };
-  }
-  const cookieStore = await cookies();
-  cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24, // 24 hours
-  });
-  return { ok: true };
-}
-
-/**
- * Unified Server-Side Staff & Admin Login Handler
- * Sets session cookies atomically on the response headers.
+ * Sends a security notification after a verified staff login.
  */
 async function dispatchLoginSecurityEmail(email: string) {
   try {
@@ -257,165 +230,28 @@ async function dispatchLoginSecurityEmail(email: string) {
 }
 
 export async function loginStaff(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
-  const email = (formData.get("email") as string || "").trim().toLowerCase();
-  const password = (formData.get("password") as string || "").trim();
-  const turnstileToken = (formData.get("cf_turnstile_response") as string || formData.get("turnstile_token") as string || "").trim();
-
-  if (!email || !password) {
-    return { ok: false, error: "Please enter both your official email and password." };
-  }
-
-  // Cloudflare Turnstile Bot Check
-  const turnstileRes = await verifyCloudflareTurnstile(turnstileToken);
-  if (!turnstileRes.success) {
-    return { ok: false, error: turnstileRes.error || "Security verification failed. Please complete the Cloudflare challenge." };
-  }
-
-  // 1. Try Root / Dev Admin credentials
-  const hardcoded = await tryHardcodedAdminSession(email, password);
-  if (hardcoded.ok) {
-    dispatchLoginSecurityEmail(email).catch(() => {});
+  try {
+    const email = formString(formData, "email").toLowerCase();
+    const password = String(formData.get("password") || "");
+    const { headers } = await import("next/headers");
+    const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    await enforceAuthLimit(`login:${email}`);
+    await enforceAuthLimit(`login-ip:${ip}`, 30);
+    const captcha = await verifyCloudflareTurnstile(formString(formData, "cf_turnstile_response") || formString(formData, "cf-turnstile-response"), ip);
+    if (!captcha.success) return { ok: false, error: captcha.error || "Security verification failed." };
+    const client = await createServerSupabase();
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) return { ok: false, error: "Invalid email or password." };
+    const staff = await getAuthenticatedStaff();
+    if (!staff.user) {
+      await client.auth.signOut();
+      return { ok: false, error: "This account does not have enabled staff access." };
+    }
+    const jar = await cookies();
+    jar.delete("club_admin_email"); jar.delete("club_admin_session");
+    after(() => dispatchLoginSecurityEmail(email));
     return { ok: true };
-  }
-
-  // 2. Try Supabase Auth via Server Client (Atomically sets auth cookies)
-  let authErrorDetail = "";
-  try {
-    const supabase = await createServerSupabase();
-    const adminSupabase = createAdminSupabase();
-
-    // Check user_profiles and team login policy before completing login
-    const { data: profile } = await adminSupabase
-      .from("user_profiles")
-      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name, roles:member_roles(*)")
-      .ilike("email", email)
-      .maybeSingle();
-
-    if (profile) {
-      if (profile.is_login_disabled || profile.is_voided || profile.is_active === false) {
-        return {
-          ok: false,
-          error: `Account Login Disabled: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has login access disabled. Please contact the Technical Lead or President.`,
-        };
-      }
-
-      if (!isTeamLoginAllowed(profile.role, profile.roles, profile.email)) {
-        return {
-          ok: false,
-          error: `Account Login Disabled: Logins are currently restricted to President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts only.`,
-        };
-      }
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (!error && data.user) {
-      const cookieStore = await cookies();
-      cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24, // 24 hours
-      });
-
-      cookieStore.set("club_admin_email", email, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24, // 24 hours
-      });
-
-      dispatchLoginSecurityEmail(email).catch(() => {});
-      return { ok: true };
-    }
-    if (error) {
-      authErrorDetail = error.message;
-    }
-  } catch (err: any) {
-    authErrorDetail = err?.message || "Auth client initialization failed";
-  }
-
-  // 3. Resilient Fallback: Verify directly against user_profiles table
-  try {
-    const adminSupabase = createAdminSupabase();
-    const { data: profile, error: profileErr } = await adminSupabase
-      .from("user_profiles")
-      .select("id, email, password, is_active, is_login_disabled, is_voided, role, full_name, assigned_to_name, roles:member_roles(*)")
-      .ilike("email", email)
-      .maybeSingle();
-
-    if (profileErr) {
-      return {
-        ok: false,
-        error: `Database profile lookup failed: ${profileErr.message} (Supabase code: ${profileErr.code || "unknown"})`,
-      };
-    }
-
-    if (!profile) {
-      return {
-        ok: false,
-        error: `No staff account found with email "${email}". Please verify that you are using your registered @vitbhopal.ac.in email or contact the Student Coordinator.`,
-      };
-    }
-
-    if (profile.is_login_disabled || profile.is_voided || profile.is_active === false) {
-      return {
-        ok: false,
-        error: `Account Login Disabled: The account for "${email}" (${profile.assigned_to_name || profile.full_name || "Member"}) has login access disabled. Please contact the Technical Lead or President.`,
-      };
-    }
-
-    if (!isTeamLoginAllowed(profile.role, profile.roles, profile.email)) {
-      return {
-        ok: false,
-        error: `Account Login Disabled: Logins are currently restricted to President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts only.`,
-      };
-    }
-
-    if (profile.password && profile.password === password) {
-      // Automatically synchronize password with Supabase Auth service
-      try {
-        await adminSupabase.auth.admin.updateUserById(profile.id, {
-          password: password,
-          email_confirm: true,
-        });
-      } catch {}
-
-      // Set admin session cookies
-      const cookieStore = await cookies();
-      cookieStore.set(ADMIN_SESSION_COOKIE, "1", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24,
-      });
-
-      cookieStore.set("club_admin_email", profile.email || email, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24,
-      });
-
-      dispatchLoginSecurityEmail(profile.email || email).catch(() => {});
-      return { ok: true };
-    }
-
-    return {
-      ok: false,
-      error: `Incorrect password entered for "${email}". ${authErrorDetail ? `(Auth response: ${authErrorDetail})` : "Please verify your credentials or use the Forgot Password option."}`,
-    };
-  } catch (fallbackErr: any) {
-    console.error("Database fallback login check error:", fallbackErr);
-    return {
-      ok: false,
-      error: `Authentication failed: ${fallbackErr?.message || "Internal server error"}.`,
-    };
-  }
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Sign in failed." }; }
 }
 
 export async function logoutStaff(): Promise<void> {
@@ -435,6 +271,7 @@ export const logoutAdmin = logoutStaff;
 
 export async function upsertMember(formData: FormData): Promise<{ success: boolean; member?: any; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
     const rawId = formOptionalId(formData);
     const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
@@ -498,6 +335,7 @@ export async function upsertMember(formData: FormData): Promise<{ success: boole
 
 export async function deleteMember(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const id = String(formData.get("id") || "").trim();
     if (!id) return { success: false, error: "Member ID is required." };
     const supabase = createAdminSupabase();
@@ -533,6 +371,7 @@ export async function deleteMember(formData: FormData): Promise<{ success: boole
 
 export async function upsertProject(formData: FormData): Promise<{ success: boolean; project?: any; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const { getAuthenticatedStaff } = await import("@/lib/auth/permissions");
     const { user } = await getAuthenticatedStaff();
     if (!user) {
@@ -589,6 +428,7 @@ export async function upsertProject(formData: FormData): Promise<{ success: bool
 
 export async function deleteProject(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const { getAuthenticatedStaff } = await import("@/lib/auth/permissions");
     const { user } = await getAuthenticatedStaff();
     if (!user) {
@@ -618,6 +458,7 @@ export async function deleteProject(formData: FormData): Promise<{ success: bool
 
 export async function upsertEvent(formData: FormData): Promise<{ success: boolean; event?: any; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const rawId = formOptionalId(formData);
     const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
     const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
@@ -652,13 +493,13 @@ export async function upsertEvent(formData: FormData): Promise<{ success: boolea
       slug: autoSlug,
       description: formString(formData, "description"),
       venue: formString(formData, "venue"),
-      event_date: formString(formData, "event_date"),
+      event_date: campusDateTime(formString(formData, "event_date")),
       status: (formString(formData, "status") as "upcoming" | "live" | "past") || "upcoming",
       registration_fee: formData.has("registration_fee") ? Number(formData.get("registration_fee")) : 200,
       max_capacity: formData.has("max_capacity") ? Number(formData.get("max_capacity")) : 2000,
-      registration_deadline: registrationDeadline || null,
-      event_start_time: eventStartTime || null,
-      event_end_time: eventEndTime || null,
+      registration_deadline: campusDateTime(registrationDeadline),
+      event_start_time: campusDateTime(eventStartTime, formString(formData, "event_date")),
+      event_end_time: campusDateTime(eventEndTime, formString(formData, "event_date")),
       is_registration_open: isRegistrationOpen,
       image_url: uploaded ?? (formString(formData, "image_url") || null),
       register_url: formString(formData, "register_url") || null,
@@ -671,6 +512,7 @@ export async function upsertEvent(formData: FormData): Promise<{ success: boolea
       spotlight_priority: spotlightPriority,
     });
     if (!parsed.success) return { success: false, error: `Invalid event details: ${zodIssuesMessage(parsed.error)}` };
+    validateEventTimes(parsed.data.event_start_time || null, parsed.data.event_end_time || null, parsed.data.registration_deadline);
     const supabase = createAdminSupabase();
     const eventPayload: Record<string, unknown> = { ...parsed.data };
 
@@ -703,58 +545,11 @@ export async function upsertEvent(formData: FormData): Promise<{ success: boolea
     const cleanedPayload = { ...eventPayload };
     if (!isEdit) delete cleanedPayload.id;
 
-    // Resilient schema adaptation loop to handle any missing optional columns in Supabase schema cache
-    let lastError: any = null;
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const res = isEdit
-        ? await supabase.from("events").update(cleanedPayload).eq("id", rawId).select().single()
-        : await supabase.from("events").insert(cleanedPayload).select().single();
-
-      if (!res.error) {
-        result = res.data;
-        lastError = null;
-        break;
-      }
-
-      lastError = res.error;
-      const errMsg = res.error.message || "";
-
-      // Extract column name from error message if schema cache or missing column error
-      const colMatch =
-        errMsg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
-        errMsg.match(/column "?([a-zA-Z0-9_]+)"? of relation "events" does not exist/i) ||
-        errMsg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i);
-
-      if (colMatch && colMatch[1] && colMatch[1] in cleanedPayload) {
-        delete cleanedPayload[colMatch[1]];
-        continue;
-      }
-
-      // Check known optional columns
-      if (errMsg.includes("allowed_degrees") && "allowed_degrees" in cleanedPayload) {
-        delete cleanedPayload.allowed_degrees;
-        continue;
-      }
-      if (errMsg.includes("allowed_branches") && "allowed_branches" in cleanedPayload) {
-        delete cleanedPayload.allowed_branches;
-        continue;
-      }
-      if (errMsg.includes("guidelines") && "guidelines" in cleanedPayload) {
-        delete cleanedPayload.guidelines;
-        continue;
-      }
-      if (errMsg.includes("spotlight") && ("spotlight_message" in cleanedPayload || "spotlight_priority" in cleanedPayload)) {
-        delete cleanedPayload.spotlight_message;
-        delete cleanedPayload.spotlight_priority;
-        continue;
-      }
-
-      break;
-    }
-
-    if (lastError) {
-      return { success: false, error: `Database error ${isEdit ? "updating" : "inserting"} event: ${lastError.message}` };
-    }
+    const saved = isEdit
+      ? await supabase.from("events").update(cleanedPayload).eq("id", rawId).select().single()
+      : await supabase.from("events").insert(cleanedPayload).select().single();
+    if (saved.error) throw new Error(`Event save failed: ${saved.error.message}`);
+    result = saved.data;
 
     // Log event lifecycle to Event Lifecycle Log (fire-and-forget)
     logEventLifecycle(
@@ -785,6 +580,7 @@ export async function upsertEvent(formData: FormData): Promise<{ success: boolea
 
 export async function deleteEvent(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const id = String(formData.get("id") || "").trim();
     if (!id) return { success: false, error: "Event ID is required." };
     const supabase = createAdminSupabase();
@@ -816,6 +612,7 @@ export async function deleteEvent(formData: FormData): Promise<{ success: boolea
 
 export async function upsertTeam(formData: FormData): Promise<{ success: boolean; team?: any; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const rawId = formOptionalId(formData);
     const isEdit = Boolean(rawId && UUID_REGEX.test(rawId));
     const uploaded = await uploadImageIfPresent((formData.get("image_file") as File) || null);
@@ -875,6 +672,7 @@ export async function upsertTeam(formData: FormData): Promise<{ success: boolean
 
 export async function deleteTeam(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const id = String(formData.get("id") || "").trim();
     if (!id) return { success: false, error: "Team ID is required." };
     const supabase = createAdminSupabase();
@@ -897,6 +695,7 @@ export async function deleteTeam(formData: FormData): Promise<{ success: boolean
 }
 
 export async function approveMember(formData: FormData) {
+  await requireStaffActionRole("tech");
   const id = String(formData.get("id") || "").trim();
   if (!id) throw new Error("Member ID is required.");
   const supabase = createAdminSupabase();
@@ -932,6 +731,7 @@ export async function approveMember(formData: FormData) {
  */
 export async function updateUserProfileAvatarAction(formData: FormData) {
   const userId = String(formData.get("user_id") || "").trim();
+  await assertCanManageStaff(userId);
   const file = formData.get("avatar_file") as File | null;
   const avatarUrlInput = String(formData.get("avatar_url") || "").trim();
 

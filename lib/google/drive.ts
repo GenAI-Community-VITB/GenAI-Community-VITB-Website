@@ -1,3 +1,4 @@
+import { validateImageUpload } from "@/lib/security/image-upload";
 import { google, drive_v3 } from "googleapis";
 import { Readable } from "stream";
 import crypto from "crypto";
@@ -138,13 +139,16 @@ async function uploadBufferToDrive(
   mimeType: string,
   folderPath: string[],
   overrideFolderId?: string,
+  visibility: "public" | "private" = "public",
 ): Promise<{ fileId: string; viewUrl: string; isDataUrl: boolean; isDuplicate?: boolean }> {
   // 1. Check for Duplicate Image via SHA-256 Checksum
+  if (mimeType !== "application/json" || visibility !== "private") validateImageUpload(buffer, mimeType);
   const hash = computeBufferHash(buffer);
+  const cacheKey = `${visibility}:${overrideFolderId || ""}:${folderPath.join("/")}:${hash}`;
   const pathLabel = folderPath.join("/");
 
-  if (uploadedImageHashCache.has(hash)) {
-    const existing = uploadedImageHashCache.get(hash)!;
+  if (uploadedImageHashCache.has(cacheKey)) {
+    const existing = uploadedImageHashCache.get(cacheKey)!;
     console.log(`[Storage] Duplicate image detected (${hash.slice(0, 8)}...). Re-linking existing asset: ${existing.fileId}`);
 
     // Log duplicate attempt to Google Sheets & Supabase
@@ -177,10 +181,14 @@ async function uploadBufferToDrive(
   const relayUrl = process.env.GOOGLE_DRIVE_RELAY_URL?.trim() || process.env.GOOGLE_FORM_WEBHOOK_URL?.trim();
 
   // 2. Try Google Apps Script Drive Relay
-  if (relayUrl) {
+  const relayToken = process.env.GOOGLE_DRIVE_RELAY_TOKEN?.trim();
+  if (relayUrl && relayToken) {
     try {
       const payload = {
         action: "upload",
+        token: relayToken,
+        visibility,
+        viewerEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim(),
         fileName,
         mimeType,
         base64: buffer.toString("base64"),
@@ -193,15 +201,16 @@ async function uploadBufferToDrive(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
         redirect: "follow",
+        signal: AbortSignal.timeout(15_000),
       });
 
       if (res.ok) {
         const text = await res.text();
         try {
           const data = JSON.parse(text);
-          if (data.success && data.fileId) {
+          if (data.success === true && data.fileId && data.private === true) {
             const viewUrl = `/api/drive/asset/${data.fileId}`;
-            uploadedImageHashCache.set(hash, { fileId: data.fileId, viewUrl, folderPath: pathLabel });
+            uploadedImageHashCache.set(cacheKey, { fileId: data.fileId, viewUrl, folderPath: pathLabel });
             return { fileId: data.fileId, viewUrl, isDataUrl: false };
           }
         } catch {}
@@ -242,6 +251,12 @@ async function uploadBufferToDrive(
         requestBody.driveId = sharedDriveId;
       }
 
+      if (targetFolderId) {
+        const permissions = await drive.permissions.list({ fileId: targetFolderId, fields: "permissions(type)", supportsAllDrives: true });
+        if (permissions.data.permissions?.some(permission => permission.type === "anyone" || permission.type === "domain")) {
+          throw new Error("Upload folder must be private; public/domain permissions would expose uploads.");
+        }
+      }
       const response = await drive.files.create({
         requestBody,
         media: {
@@ -254,16 +269,9 @@ async function uploadBufferToDrive(
 
       const fileId = response.data.id;
       if (fileId) {
-        try {
-          await drive.permissions.create({
-            fileId,
-            requestBody: { role: "reader", type: "anyone" },
-            supportsAllDrives: true,
-          });
-        } catch {}
-
+        // Files remain private; public images are served only after publication checks.
         const viewUrl = `/api/drive/asset/${fileId}`;
-        uploadedImageHashCache.set(hash, { fileId, viewUrl, folderPath: pathLabel });
+        uploadedImageHashCache.set(cacheKey, { fileId, viewUrl, folderPath: pathLabel });
 
         return { fileId, viewUrl, isDataUrl: false };
       }
@@ -277,18 +285,19 @@ async function uploadBufferToDrive(
   const dataUrl = `data:${mimeType};base64,${base64}`;
   const fallbackId = `storage_${Date.now()}_${Math.random().toString(36).slice(-6)}`;
 
+  const supabase = createAdminSupabase();
+  const { error: storageError } = await supabase.from("sync_failures").insert({
+    operation: "screenshot_payload",
+    entity_id: fallbackId,
+    error_message: `Google Drive fallback storage (${pathLabel})`,
+    payload: { fileId: fallbackId, base64, mimeType, fileName, hash, folderPath, visibility },
+  });
+  if (storageError) throw new Error("File could not be saved. Please retry the upload.");
+  // Cache only after durable persistence succeeds, and bound per-process memory.
+  if (localScreenshotCache.size >= 20) localScreenshotCache.delete(localScreenshotCache.keys().next().value!);
+  if (uploadedImageHashCache.size >= 200) uploadedImageHashCache.delete(uploadedImageHashCache.keys().next().value!);
   localScreenshotCache.set(fallbackId, { buffer, mimeType });
-  uploadedImageHashCache.set(hash, { fileId: fallbackId, viewUrl: dataUrl, folderPath: pathLabel });
-
-  try {
-    const supabase = createAdminSupabase();
-    await supabase.from("sync_failures").insert({
-      operation: "screenshot_payload",
-      entity_id: fallbackId,
-      error_message: `Google Drive fallback storage (${pathLabel})`,
-      payload: { fileId: fallbackId, base64, mimeType, fileName, hash, folderPath },
-    });
-  } catch {}
+  uploadedImageHashCache.set(cacheKey, { fileId: fallbackId, viewUrl: dataUrl, folderPath: pathLabel });
 
   return {
     fileId: fallbackId,
@@ -326,6 +335,7 @@ export async function uploadPaymentScreenshotToDrive(params: {
     mimeType,
     folderPath,
     paymentsFolderId,
+    "private",
   );
 
   return {
@@ -333,7 +343,7 @@ export async function uploadPaymentScreenshotToDrive(params: {
     fileName,
     mimeType,
     folderId: paymentsFolderId || "payments-storage",
-    viewUrl: result.isDataUrl ? `/api/admin/drive/preview/${result.fileId}` : result.viewUrl,
+    viewUrl: `/api/admin/drive/preview/${result.fileId}`,
   };
 }
 
@@ -399,6 +409,7 @@ export async function uploadEventBackupToDrive({
     "application/json",
     folderPath,
     backupsFolderId,
+    "private",
   );
 
   return {
@@ -550,7 +561,7 @@ export async function getDriveFileStream(
   // 2. High-reliability CDN fallback for Google Drive files
   try {
     const cdnUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
-    const cdnRes = await fetch(cdnUrl);
+    const cdnRes = await fetch(cdnUrl, { signal: AbortSignal.timeout(10_000) });
     if (cdnRes.ok) {
       const arrayBuf = await cdnRes.arrayBuffer();
       const buffer = Buffer.from(arrayBuf);

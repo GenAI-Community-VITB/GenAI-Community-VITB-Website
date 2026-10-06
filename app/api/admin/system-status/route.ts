@@ -6,10 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { role } = await getAuthenticatedStaff();
+    const { role, profile } = await getAuthenticatedStaff();
 
-    // Only authorized staff (Volunteer, Finance, Tech, Leads) can access diagnostics
-    if (!role || !hasRole(role, "volunteer")) {
+    // Operational diagnostics are restricted to technical administrators.
+    if (!role || !hasRole(role, "tech", profile?.roles)) {
       return NextResponse.json(
         { success: false, message: "Unauthorized access." },
         { status: 401 },

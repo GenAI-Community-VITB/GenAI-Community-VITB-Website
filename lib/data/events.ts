@@ -74,7 +74,7 @@ export const getUpcomingRegisterableEvent = cache(
       // Next look for upcoming events with registration open
       const now = new Date().getTime();
       const upcoming = events
-        .filter((e) => e.is_registration_open && e.status !== "past")
+        .filter((e) => e.is_registration_open && e.status !== "past" && new Date(e.event_date).getTime() >= now && new Date(e.event_date).getTime() <= now + daysWindow * 86400000)
         .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
 
       if (upcoming.length > 0) {
@@ -82,7 +82,7 @@ export const getUpcomingRegisterableEvent = cache(
       }
 
       // Fallback: Return the latest event
-      return events[0] || null;
+      return null;
     } catch {
       return null;
     }
@@ -92,99 +92,19 @@ export const getUpcomingRegisterableEvent = cache(
 /**
  * Fetches an event by slug or ID with resilient fallback.
  */
-export const getEventBySlugOrId = cache(
-  async (slugOrId: string): Promise<Event | null> => {
-    if (!slugOrId) return null;
-    const cleanParam = decodeURIComponent(slugOrId).trim();
-
-    try {
-      const supabase = await createServerSupabase();
-
-      // 1. Try matching slug
-      const { data: bySlug, error: slugErr } = await supabase
-        .from("events")
-        .select("*")
-        .eq("slug", cleanParam)
-        .maybeSingle();
-
-      if (bySlug) {
-        return bySlug as Event;
-      }
-
-      // 2. Try matching UUID if format matches
-      if (UUID_REGEX.test(cleanParam)) {
-        const { data: byId } = await supabase
-          .from("events")
-          .select("*")
-          .eq("id", cleanParam)
-          .maybeSingle();
-
-        if (byId) {
-          return byId as Event;
-        }
-      }
-
-      // 3. Fallback: Query via Admin Client (in case RLS or session timing causes issue)
-      const adminSupabase = createAdminSupabase();
-      const { data: adminBySlug } = await adminSupabase
-        .from("events")
-        .select("*")
-        .eq("slug", cleanParam)
-        .maybeSingle();
-
-      if (adminBySlug) {
-        return adminBySlug as Event;
-      }
-
-      if (UUID_REGEX.test(cleanParam)) {
-        const { data: adminById } = await adminSupabase
-          .from("events")
-          .select("*")
-          .eq("id", cleanParam)
-          .maybeSingle();
-
-        if (adminById) {
-          return adminById as Event;
-        }
-      }
-
-      // 4. Case-insensitive slug or title fallback
-      const { data: ilikeEvent } = await adminSupabase
-        .from("events")
-        .select("*")
-        .or(`slug.ilike.${cleanParam},title.ilike.${cleanParam}`)
-        .limit(1)
-        .maybeSingle();
-
-      if (ilikeEvent) {
-        return ilikeEvent as Event;
-      }
-
-      // 5. Ultimate fallback: if looking for test-event or generic, get first available event
-      const { data: firstEvent } = await adminSupabase
-        .from("events")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      return (firstEvent as Event) ?? null;
-    } catch (err) {
-      console.error(`Error fetching event ${slugOrId}:`, err);
-      try {
-        const adminSupabase = createAdminSupabase();
-        const { data } = await adminSupabase
-          .from("events")
-          .select("*")
-          .limit(1)
-          .maybeSingle();
-        return (data as Event) ?? null;
-      } catch {
-        return null;
-      }
-    }
-  },
-);
+export const getEventBySlugOrId = cache(async (slugOrId: string): Promise<Event | null> => {
+  if (!slugOrId) return null;
+  let value: string;
+  try { value = decodeURIComponent(slugOrId).trim(); } catch { return null; }
+  const db = await createServerSupabase();
+  const slug = await db.from("events").select("*").eq("slug", value).maybeSingle();
+  if (slug.error) throw new Error(slug.error.message);
+  if (slug.data) return slug.data as Event;
+  if (!UUID_REGEX.test(value)) return null;
+  const id = await db.from("events").select("*").eq("id", value).maybeSingle();
+  if (id.error) throw new Error(id.error.message);
+  return id.data as Event | null;
+});
 
 /**
  * Fetches all approved VIT Bhopal branches (M.Tech at top, followed by B.Tech).

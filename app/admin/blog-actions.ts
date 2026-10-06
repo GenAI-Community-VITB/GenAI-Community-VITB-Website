@@ -1,29 +1,21 @@
 "use server";
 
+import { linkedInPostUrl } from "@/lib/security/content";
+import { requireStaffActionRole } from "@/lib/auth/permissions";
+
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { BlogPost } from "@/lib/types";
 import { summarizeLinkedInPostWithAI } from "@/lib/ai/blog-agent";
 import { revalidatePath } from "next/cache";
 
 // Resilient memory cache fallback if Supabase table has not yet been executed in SQL editor
-let inMemoryBlogPosts: BlogPost[] = [];
 
-function isTableMissingError(err: any): boolean {
-  if (!err) return false;
-  const str = (err.message || err.details || err.hint || JSON.stringify(err) || String(err)).toLowerCase();
-  const code = String(err.code || "").toUpperCase();
-  return (
-    code === "PGRST205" ||
-    code === "42P01" ||
-    str.includes("schema cache") ||
-    str.includes("could not find the table") ||
-    str.includes("does not exist") ||
-    str.includes("blog_posts")
-  );
-}
+
+
 
 export async function getAllAdminBlogPostsAction(): Promise<{ success: boolean; posts?: BlogPost[]; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const supabase = createAdminSupabase();
     const { data, error } = await supabase
       .from("blog_posts")
@@ -31,20 +23,16 @@ export async function getAllAdminBlogPostsAction(): Promise<{ success: boolean; 
       .order("published_at", { ascending: false });
 
     if (error) {
-      if (isTableMissingError(error)) {
-        return { success: true, posts: inMemoryBlogPosts };
-      }
+
       return { success: false, error: error.message };
     }
 
     const dbPosts = (data || []) as BlogPost[];
     // Merge any memory posts not yet in DB
-    const all = [...inMemoryBlogPosts.filter((m) => !dbPosts.some((d) => d.id === m.id)), ...dbPosts];
+    const all = dbPosts;
     return { success: true, posts: all };
   } catch (err: any) {
-    if (isTableMissingError(err)) {
-      return { success: true, posts: inMemoryBlogPosts };
-    }
+
     return { success: false, error: err.message || "Failed to fetch blog posts." };
   }
 }
@@ -61,6 +49,7 @@ export async function generateAiSummaryAction(params: {
   error?: string;
 }> {
   try {
+    await requireStaffActionRole("tech");
     const result = await summarizeLinkedInPostWithAI({
       rawContent: params.rawContent,
       postUrl: params.postUrl || "https://www.linkedin.com/company/genai-community-vit-bhopal/posts/",
@@ -88,6 +77,7 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
   warning?: string;
 }> {
   try {
+    await requireStaffActionRole("tech");
     const supabase = createAdminSupabase();
     const rawId = formData.get("id") ? String(formData.get("id")).trim() : null;
     const isEdit = Boolean(rawId);
@@ -131,28 +121,7 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
         .single();
 
       if (error) {
-        if (isTableMissingError(error)) {
-          const updatedPost: BlogPost = {
-            id: rawId!,
-            title,
-            summary,
-            original_content: originalContent || summary,
-            post_url: postUrl,
-            author_name: authorName,
-            tags: tags.length > 0 ? tags : ["AI", "Community"],
-            is_published: isPublished,
-            image_url: imageUrl,
-            published_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          inMemoryBlogPosts = inMemoryBlogPosts.map((p) => (p.id === rawId ? updatedPost : p));
-          return {
-            success: true,
-            post: updatedPost,
-            warning: "Note: The blog_posts table is pending in Supabase. Run supabase/schema.sql in SQL Editor to persist to DB.",
-          };
-        }
+
         return { success: false, error: `Database error updating blog post: ${error.message}` };
       }
       savedPost = data;
@@ -168,28 +137,7 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
         .single();
 
       if (error) {
-        if (isTableMissingError(error)) {
-          const newMemPost: BlogPost = {
-            id: payload.id,
-            title,
-            summary,
-            original_content: originalContent || summary,
-            post_url: postUrl,
-            author_name: authorName,
-            tags: tags.length > 0 ? tags : ["AI", "Community"],
-            is_published: isPublished,
-            image_url: imageUrl,
-            published_at: payload.published_at,
-            created_at: payload.created_at,
-            updated_at: payload.updated_at,
-          };
-          inMemoryBlogPosts = [newMemPost, ...inMemoryBlogPosts];
-          return {
-            success: true,
-            post: newMemPost,
-            warning: "Note: The blog_posts table is pending in Supabase. Run supabase/schema.sql in SQL Editor to persist to DB.",
-          };
-        }
+
         return { success: false, error: `Database error inserting blog post: ${error.message}` };
       }
       savedPost = data;
@@ -209,14 +157,15 @@ export async function upsertBlogPostAction(formData: FormData): Promise<{
 
 export async function deleteBlogPostAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireStaffActionRole("tech");
     const id = String(formData.get("id") || "").trim();
     if (!id) return { success: false, error: "Blog post ID is required." };
 
-    inMemoryBlogPosts = inMemoryBlogPosts.filter((p) => p.id !== id);
+
 
     const supabase = createAdminSupabase();
     const { error } = await supabase.from("blog_posts").delete().eq("id", id);
-    if (error && !isTableMissingError(error)) {
+    if (error) {
       return { success: false, error: `Database error deleting blog post: ${error.message}` };
     }
 
@@ -243,10 +192,8 @@ export async function importFromLinkedInUrlAction(params: {
   warning?: string;
 }> {
   try {
-    const cleanUrl = params.postUrl.trim();
-    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-      return { success: false, error: "Please enter a valid HTTP/HTTPS LinkedIn post URL." };
-    }
+    await requireStaffActionRole("tech");
+    const cleanUrl = linkedInPostUrl(params.postUrl.trim());
 
     // 1. Scrape metadata from LinkedIn post URL
     let extractedText = params.rawContentHint?.trim() || "";
@@ -255,6 +202,7 @@ export async function importFromLinkedInUrlAction(params: {
 
     try {
       const response = await fetch(cleanUrl, {
+        redirect: "error",
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
           Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -332,19 +280,7 @@ export async function importFromLinkedInUrlAction(params: {
       .single();
 
     if (insertError) {
-      if (isTableMissingError(insertError)) {
-        inMemoryBlogPosts = [newPostRecord, ...inMemoryBlogPosts];
-        try {
-          revalidatePath("/blogs");
-          revalidatePath("/");
-          revalidatePath("/admin");
-        } catch {}
-        return {
-          success: true,
-          post: newPostRecord,
-          warning: "Note: The blog_posts table is pending in Supabase. Run supabase/schema.sql in SQL Editor to persist to DB.",
-        };
-      }
+
       return { success: false, error: `Database error inserting blog post: ${insertError.message}` };
     }
 

@@ -190,7 +190,8 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
       return;
     }
 
-    const cleanPhone = phone.trim().replace(/[\s\-\+]/g, "").replace(/^91/, "");
+    const phoneDigits = phone.trim().replace(/[\s\-\+]/g, "");
+    const cleanPhone = phoneDigits.length === 12 && phoneDigits.startsWith("91") ? phoneDigits.slice(2) : phoneDigits;
     if (!/^[6-9][0-9]{9}$/.test(cleanPhone)) {
       setError("Please enter a valid 10-digit Indian mobile number.");
       return;
@@ -217,7 +218,7 @@ export function RegistrationForm({ event, branches = [], isFull = false }: Regis
       formData.append("phone_number", cleanPhone);
       formData.append("transaction_id", transactionId.trim());
       formData.append("screenshot_file", compressedFile);
-      formData.append("cf_turnstile_response", turnstileToken || "cf-test-pass");
+      formData.append("cf_turnstile_response", turnstileToken || "");
 
       // 35-second client-side timeout for clear user feedback
       const controller = new AbortController();

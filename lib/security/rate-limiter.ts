@@ -1,8 +1,11 @@
+import { createHash } from "node:crypto";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
 export type RateLimitCategory =
   | "general"
   | "auth"
+  | "on_spot"
   | "registration"
   | "payment"
   | "email"
@@ -35,6 +38,8 @@ function getCategoryConfig(category: RateLimitCategory): RateLimitConfig {
         maxRequests: parseInt(process.env.RATE_LIMIT_AUTH_REQUESTS || "5", 10),
         windowSeconds: parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_SECONDS || "600", 10), // 5 per 10 mins
       };
+    case "on_spot":
+      return { maxRequests: 60, windowSeconds: 600 };
     case "registration":
       return {
         maxRequests: parseInt(process.env.RATE_LIMIT_REGISTRATION_REQUESTS || "10", 10),
@@ -120,6 +125,15 @@ export async function checkRateLimit(
   category: RateLimitCategory = "general"
 ): Promise<RateLimitResult> {
   const config = getCategoryConfig(category);
+  if (process.env.NODE_ENV === "production") {
+    const key = createHash("sha256").update(`request:${category}:${identifier}`).digest("hex");
+    const {data,error} = await createAdminSupabase().rpc("consume_auth_limit", {
+      p_key: key, p_limit: config.maxRequests, p_seconds: config.windowSeconds,
+    });
+    if (error) throw new Error("Request protection is temporarily unavailable. Please try again later.");
+    return { limited: data !== true, remaining: 0, resetInSeconds: config.windowSeconds, totalLimit: config.maxRequests, category };
+  }
+
   const now = Date.now();
   const windowMs = config.windowSeconds * 1000;
   const key = `${category}:${identifier}`;

@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const { role, profile } = await getAuthenticatedStaff();
 
-    if (!role || !hasRole(role, "tech", profile?.roles)) {
+    if (!role || !hasRole(role, "finance", profile?.roles)) {
       return NextResponse.json(
         { success: false, error: "Unauthorized: Tech or Top-6 role required." },
         { status: 403 },
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Action 2: Retry sync failures
+    if (!hasRole(role, "tech", profile?.roles)) return NextResponse.json({ success:false,error:"Tech access required to retry synchronization." },{status:403});
     const retryResult = await retrySyncFailures();
     return NextResponse.json({
       success: true,

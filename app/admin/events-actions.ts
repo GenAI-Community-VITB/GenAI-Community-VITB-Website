@@ -1,9 +1,13 @@
 "use server";
+import { campusDateTime, validateEventTimes } from "@/lib/utils/event-time";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import {
-  requireStaffRole,
+  requireStaffActionRole,
+  assertCanManageStaff,
+  STAFF_PROFILE_FIELDS,
   getAuthenticatedStaff,
   isExecutiveLeader,
   isSupremeExecutive,
@@ -21,7 +25,7 @@ import type { UserProfile } from "@/lib/types";
  * Reviews a student registration payment (Approve/Reject) from Finance or Tech portal.
  */
 export async function handlePaymentReviewAction(formData: FormData) {
-  const { user, profile, role } = await requireStaffRole("finance");
+  const { user, profile, role } = await requireStaffActionRole("finance");
 
   const paymentId = String(formData.get("payment_id") || "").trim();
   const registrationId = String(formData.get("registration_id") || "").trim();
@@ -36,7 +40,7 @@ export async function handlePaymentReviewAction(formData: FormData) {
     rejectionReason,
     rejectionExplanation,
     reviewerId: user.id,
-    reviewerEmail: profile.email || user.email,
+    reviewerEmail: profile.email || user.email || "",
     reviewerRole: role,
   });
 
@@ -53,7 +57,7 @@ export async function handlePaymentReviewAction(formData: FormData) {
  * Sends a custom email to a student from Finance or Tech portal.
  */
 export async function handleCustomEmailAction(formData: FormData) {
-  const { user, profile, role } = await requireStaffRole("finance");
+  const { user, profile, role } = await requireStaffActionRole("finance");
 
   const registrationId = String(formData.get("registration_id") || "").trim() || undefined;
   const recipientEmail = String(formData.get("recipient_email") || "").trim();
@@ -66,7 +70,7 @@ export async function handleCustomEmailAction(formData: FormData) {
     subject,
     message,
     senderId: user.id,
-    senderEmail: profile.email || user.email,
+    senderEmail: profile.email || user.email || "",
     senderRole: role,
   });
 
@@ -83,12 +87,12 @@ export async function handleCustomEmailAction(formData: FormData) {
  * Tech-only: Configures event capacity, registration deadline, event timings, and open/closed state.
  */
 export async function updateEventConfigurationAction(formData: FormData) {
-  const { user, profile, role } = await requireStaffRole("tech");
+  const { user, profile, role } = await requireStaffActionRole("tech");
 
   const eventId = String(formData.get("event_id") || "").trim();
   const title = String(formData.get("title") || "").trim();
   const maxCapacity = Number(formData.get("max_capacity") || 2000);
-  const registrationFee = Number(formData.get("registration_fee") || 200);
+  const registrationFee = Number(formData.get("registration_fee") ?? 200);
   const registrationDeadline = formData.get("registration_deadline")
     ? String(formData.get("registration_deadline")).trim()
     : null;
@@ -121,9 +125,9 @@ export async function updateEventConfigurationAction(formData: FormData) {
     title,
     max_capacity: maxCapacity,
     registration_fee: registrationFee,
-    registration_deadline: registrationDeadline || null,
-    event_start_time: eventStartTime || null,
-    event_end_time: eventEndTime || null,
+    registration_deadline: campusDateTime(registrationDeadline),
+    event_start_time: campusDateTime(eventStartTime, previousEvent?.event_date),
+    event_end_time: campusDateTime(eventEndTime, previousEvent?.event_date),
     is_registration_open: isRegistrationOpen,
     upi_id: upiId,
     updated_at: new Date().toISOString(),
@@ -133,24 +137,14 @@ export async function updateEventConfigurationAction(formData: FormData) {
     updatePayload.guidelines = guidelinesArray;
   }
 
-  let { error } = await supabase
-    .from("events")
-    .update(updatePayload)
-    .eq("id", eventId);
-
-  if (error && error.message.includes("guidelines")) {
-    delete updatePayload.guidelines;
-    const retry = await supabase.from("events").update(updatePayload).eq("id", eventId);
-    error = retry.error;
-  }
-
-  if (error) {
-    throw new Error(`Failed to update event settings: ${error.message}`);
-  }
+  validateEventTimes(updatePayload.event_start_time as string | null, updatePayload.event_end_time as string | null, updatePayload.registration_deadline as string | null);
+  if (!Number.isInteger(maxCapacity) || maxCapacity<1 || !Number.isFinite(registrationFee) || registrationFee<0) throw new Error("Invalid capacity or fee.");
+  const { error } = await supabase.from("events").update(updatePayload).eq("id", eventId).select("id").single();
+  if (error) throw new Error(`Failed to update event settings: ${error.message}`);
 
   await logAuditEvent({
     actorUserId: user.id,
-    actorEmail: profile.email || user.email,
+    actorEmail: profile.email || user.email || "",
     actorRole: role,
     action: "event_settings_updated",
     targetType: "event",
@@ -176,456 +170,99 @@ export async function updateEventConfigurationAction(formData: FormData) {
  * Tech-only: Creates or updates a staff user (Tech, Finance, Volunteer) with safe guard against deleting last Tech lead.
  */
 export async function upsertStaffUserAction(formData: FormData) {
-  const { user, profile, role } = await requireStaffRole("tech");
-
-  const userId = formData.get("id") ? String(formData.get("id")).trim() : undefined;
+  const actor = await requireStaffActionRole("tech");
+  const db = createAdminSupabase();
+  let id = String(formData.get("id") || "").trim();
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") || "").trim();
-  const assignedToName = formData.get("assigned_to_name") ? String(formData.get("assigned_to_name")).trim() : fullName;
-  const staffRole = String(formData.get("role") || "").trim() as "tech" | "finance" | "volunteer";
-  let password = formData.get("password") ? String(formData.get("password")).trim() : undefined;
-  const isActive = formData.get("is_active") === "on" || formData.get("is_active") === "true";
-
-  let generatedPassword = "";
-  if (!userId && (!password || password.length < 8)) {
-    generatedPassword = `GenAI@${Math.random().toString(36).slice(-5)}!${Math.floor(100 + Math.random() * 900)}`;
-    password = generatedPassword;
-  }
-
-  const parsed = userManagementSchema.safeParse({
-    id: userId,
-    email,
-    full_name: fullName,
-    role: staffRole,
-    password,
-    is_active: isActive,
-  });
-
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message || "Invalid user parameters");
-  }
-
-  const rolesJson = String(formData.get("roles_json") || "[]").trim();
-  let assignedRoles: Array<{ team: string; position: string }> = [];
-  try {
-    assignedRoles = JSON.parse(rolesJson);
-  } catch {
-    assignedRoles = [];
-  }
-
-  const supabase = createAdminSupabase();
-
-  // Load existing target profile & roles if editing
-  let previousProfile: any = null;
-  let previousRoles: any[] = [];
-  if (userId) {
-    const { data: prevProf } = await supabase
-      .from("user_profiles")
-      .select("*, roles:member_roles(*)")
-      .eq("id", userId)
-      .maybeSingle();
-    previousProfile = prevProf;
-    previousRoles = prevProf?.roles || [];
-  }
-
-  // Check if target is currently an Executive or being assigned an Executive role
-  const isTargetExecutive =
-    isExecutiveAccount(staffRole, assignedRoles) ||
-    (previousProfile ? isExecutiveAccount(previousProfile.role, previousRoles) : false);
-
-  const actorIsSupreme = isSupremeExecutive(role, profile.roles, profile.email || user.email);
-
-  if (isTargetExecutive) {
-    if (!actorIsSupreme) {
-      throw new Error(
-        "Permission Denied: Only the President, AI/ML Lead, and Technical Lead are authorized to appoint or modify Top Executive members.",
-      );
-    }
-    if (!isActive) {
-      throw new Error("Action blocked: Top Executive accounts are protected and cannot be disabled.");
-    }
-  }
-
-  // Handle optional avatar file upload to Google Drive
-  const avatarFile = formData.get("avatar_file") as File | null;
-  let avatarDriveFileId: string | undefined = undefined;
-  let avatarUrl: string | undefined = undefined;
-
-  if (avatarFile && typeof avatarFile === "object" && "size" in avatarFile && avatarFile.size > 0) {
-    try {
-      const arrayBuffer = await avatarFile.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const driveRes = await uploadMemberAvatarToDrive({
-        buffer,
-        fileName: avatarFile.name,
-        mimeType: avatarFile.type || "image/jpeg",
-        memberName: assignedToName || fullName,
-      });
-      avatarDriveFileId = driveRes.fileId;
-      avatarUrl = driveRes.viewUrl;
-    } catch (err) {
-      console.error("Avatar upload failed, skipping:", err);
-    }
-  }
-
-  const githubUrl = formData.get("github_url") ? String(formData.get("github_url")).trim() : undefined;
-
-  if (userId) {
-    // Check if trying to disable or demote the last active Tech user
-    if (!isActive || staffRole !== "tech") {
-      const { data: activeTechs } = await supabase
-        .from("user_profiles")
-        .select("id")
-        .eq("role", "tech")
-        .eq("is_active", true);
-
-      if (activeTechs && activeTechs.length <= 1 && activeTechs.some((t) => t.id === userId)) {
-        throw new Error("Action blocked: You cannot disable or demote the only remaining active Tech lead.");
-      }
-    }
-
-    const updatePayload: Record<string, unknown> = {
-      full_name: fullName,
-      assigned_to_name: assignedToName,
-      role: staffRole,
-      is_active: isActive,
-      updated_at: new Date().toISOString(),
-    };
-    if (githubUrl !== undefined) {
-      updatePayload.github_url = githubUrl || null;
-    }
-    if (password && password.length >= 8) {
-      updatePayload.password = password;
-    }
-    if (avatarDriveFileId) {
-      updatePayload.drive_file_id = avatarDriveFileId;
-      updatePayload.avatar_url = avatarUrl;
-    }
-
-    const { error: profileErr } = await supabase
-      .from("user_profiles")
-      .update(updatePayload)
-      .eq("id", userId);
-
-    if (profileErr) throw new Error(profileErr.message);
-
-    // Persist multi-roles
-    await supabase.from("member_roles").delete().eq("user_id", userId);
-    if (assignedRoles.length > 0) {
-      await supabase.from("member_roles").insert(
-        assignedRoles.map((r) => ({
-          user_id: userId,
-          team: r.team,
-          position: r.position,
-        })),
-      );
-    }
-
-    if (password && password.length >= 8) {
-      await supabase.auth.admin.updateUserById(userId!, { password });
-    }
-
-    // Comprehensive Audit Log for user profile edits
-    await logAuditEvent({
-      actorUserId: user.id,
-      actorEmail: profile.email || user.email,
-      actorRole: role,
-      action: "member_profile_updated",
-      targetType: "user",
-      targetId: userId!,
-      previousState: {
-        full_name: (previousProfile as any)?.full_name,
-        assigned_to_name: (previousProfile as any)?.assigned_to_name,
-        avatar_url: (previousProfile as any)?.avatar_url,
-        drive_file_id: (previousProfile as any)?.drive_file_id,
-        role: (previousProfile as any)?.role,
-        is_active: (previousProfile as any)?.is_active,
-      },
-      newState: {
-        full_name: fullName,
-        assigned_to_name: assignedToName,
-        avatar_url: avatarUrl || (previousProfile as any)?.avatar_url,
-        drive_file_id: avatarDriveFileId || (previousProfile as any)?.drive_file_id,
-        role: staffRole,
-        is_active: isActive,
-        roles: assignedRoles,
-      },
-      metadata: {
-        member_email: email,
-        avatar_updated: Boolean(avatarDriveFileId),
-        name_updated: fullName !== (previousProfile as any)?.full_name,
-        assigned_to_updated: assignedToName !== (previousProfile as any)?.assigned_to_name,
-        password_changed: Boolean(password && password.length >= 8),
-      },
-    });
+  const role = String(formData.get("role") || "volunteer");
+  const isActive = ["on", "true"].includes(String(formData.get("is_active")));
+  const roles = JSON.parse(String(formData.get("roles_json") || "[]"));
+  if (!Array.isArray(roles) || roles.some(r => !r.team || !r.position)) throw new Error("Invalid team assignments.");
+  if (isExecutiveAccount(role, roles) && !isSupremeExecutive(actor.role, actor.profile.roles)) throw new Error("Only executive leadership can grant executive roles.");
+  if (role === "superadmin" && actor.role !== "superadmin") throw new Error("Only a system administrator can grant this role.");
+  const suppliedPassword = String(formData.get("password") || "");
+  if (suppliedPassword && suppliedPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
+  const parsed = userManagementSchema.safeParse({ id: id || undefined, email, full_name: fullName, role, is_active: isActive, password: suppliedPassword || undefined });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || "Invalid staff details.");
+  let created = false;
+  let generatedPassword: string | undefined;
+  if (id) {
+    const { target } = await assertCanManageStaff(id);
+    if (target.email.toLowerCase() !== email) throw new Error("Login email cannot be changed here. Provision a replacement account instead.");
+    if (isExecutiveAccount(target.role, target.roles) && (!isActive || !isExecutiveAccount(role, roles))) throw new Error("Executive accounts cannot be disabled or demoted here.");
   } else {
-    // Create new Supabase auth user
-    const { data: newUser, error: createAuthErr } = await supabase.auth.admin.createUser({
-      email,
-      password: password!,
-      email_confirm: true,
-      user_metadata: { full_name: fullName, role: staffRole, assigned_to_name: assignedToName },
-    });
-
-    if (createAuthErr || !newUser.user) {
-      throw new Error(createAuthErr?.message || "Failed to create authentication user");
-    }
-
-    const { error: insertProfileErr } = await supabase.from("user_profiles").upsert({
-      id: newUser.user.id,
-      email,
-      full_name: fullName,
-      assigned_to_name: assignedToName,
-      password: password!,
-      github_url: githubUrl || null,
-      avatar_url: avatarUrl || null,
-      drive_file_id: avatarDriveFileId || null,
-      role: staffRole,
-      is_active: isActive,
-    });
-
-    if (insertProfileErr) throw new Error(insertProfileErr.message);
-
-    // Persist multi-roles for new member
-    if (assignedRoles.length > 0) {
-      await supabase.from("member_roles").insert(
-        assignedRoles.map((r) => ({
-          user_id: newUser.user.id,
-          team: r.team,
-          position: r.position,
-        })),
-      );
-    }
-
-    await logAuditEvent({
-      actorUserId: user.id,
-      actorEmail: profile.email || user.email,
-      actorRole: role,
-      action: "user_created",
-      targetType: "user",
-      targetId: newUser.user.id,
-      newState: { email, full_name: fullName, assigned_to_name: assignedToName, role: staffRole, is_active: isActive, roles: assignedRoles },
-    });
+    generatedPassword = suppliedPassword || randomBytes(24).toString("base64url");
+    const { data, error } = await db.auth.admin.createUser({ email, password: generatedPassword, email_confirm: true });
+    if (error || !data.user) throw new Error(error?.message || "Account creation failed.");
+    id = data.user.id; created = true;
   }
-
-  // Sync to public members table for seamless 2-way reflection across admin and website
+  const patch: Record<string, unknown> = { id, email, full_name: fullName, assigned_to_name: String(formData.get("assigned_to_name") || fullName), role, is_active: isActive };
+  if (created) { patch.is_login_disabled = !isTeamLoginAllowed(role, roles); patch.is_voided = false; }
   try {
-    const matchName = assignedToName || fullName;
-    const primaryRole = assignedRoles[0];
-    const teamSlug = primaryRole?.team ? primaryRole.team.replace(/_/g, "-") : undefined;
-
-    let resolvedTeamId: string | undefined = undefined;
-    if (teamSlug) {
-      const { data: teamRec } = await supabase
-        .from("teams")
-        .select("id")
-        .or(`slug.eq.${teamSlug},name.ilike.%${primaryRole.team.replace(/_/g, " ")}%`)
-        .maybeSingle();
-      if (teamRec) resolvedTeamId = teamRec.id;
+    const avatar = formData.get("avatar_file") as File | null;
+    if (avatar?.size) {
+      if (avatar.size > 8 * 1024 * 1024 || !/^image\/(png|jpeg|webp|gif|avif)$/.test(avatar.type)) throw new Error("Choose an image smaller than 8MB.");
+      const uploaded = await uploadMemberAvatarToDrive({ buffer: Buffer.from(await avatar.arrayBuffer()), fileName: avatar.name, mimeType: avatar.type, memberName: fullName });
+      patch.avatar_url = uploaded.viewUrl; patch.drive_file_id = uploaded.fileId;
     }
-
-    const { data: existingMember } = await supabase
-      .from("members")
-      .select("id")
-      .or(`official_email.ilike.${email},name.ilike.${matchName}`)
-      .maybeSingle();
-
-    if (existingMember) {
-      const memberUpdate: Record<string, unknown> = {
-        name: matchName,
-        role: fullName || staffRole,
-        position: primaryRole?.position ? primaryRole.position.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Core Member",
-        official_email: email.endsWith("@vitbhopal.ac.in") ? email : undefined,
-        status: isActive ? "active" : "pending",
-      };
-      if (avatarUrl) memberUpdate.image_url = avatarUrl;
-      if (resolvedTeamId) memberUpdate.team_id = resolvedTeamId;
-
-      await supabase.from("members").update(memberUpdate).eq("id", existingMember.id);
+    const { error } = await db.rpc("save_staff_profile", { p_profile: patch, p_roles: roles });
+    if (error) throw new Error(error.message);
+  } catch (error) {
+    if (created) {
+      const cleanup = await db.auth.admin.deleteUser(id);
+      if (cleanup.error) throw new Error("Profile save failed and account cleanup failed. The new account has no enabled profile; contact an administrator.");
     }
-  } catch (syncErr) {
-    console.warn("Public member sync notice:", syncErr);
+    throw error;
   }
-
+  if (!created && suppliedPassword) {
+    const { error } = await db.auth.admin.updateUserById(id, { password: suppliedPassword });
+    if (error) throw new Error(`Profile saved, but password change failed: ${error.message}`);
+    generatedPassword = suppliedPassword;
+  }
   revalidatePath("/admin/users");
-  revalidatePath("/admin");
-  revalidatePath("/team");
-  revalidatePath("/about");
-  revalidatePath("/");
-  return { success: true, generatedPassword: generatedPassword || undefined, email };
+  return { success: true, id, generatedPassword, email };
 }
 
-/**
- * Admin Action: Disables login access for a staff member without deleting their records, password, or roles.
- */
 export async function disableStaffLoginAction(userId: string, reason: string) {
-  const { user, profile, role } = await requireStaffRole("tech");
-  const supabase = createAdminSupabase();
-
-  // Load target user profile & roles
-  const { data: targetProfile } = await supabase
-    .from("user_profiles")
-    .select("*, roles:member_roles(*)")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (!targetProfile) {
-    throw new Error("Target user not found");
-  }
-
-  // Guard against disabling yourself
-  if (userId === user.id) {
-    throw new Error("You cannot disable login access for your own account.");
-  }
-
-  // Guard against disabling Top Executive accounts
-  if (isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
-    throw new Error("Action blocked: Top Executive accounts are protected and cannot be disabled.");
-  }
-
-  const { error: disableErr } = await supabase
-    .from("user_profiles")
-    .update({
-      is_active: false,
-      is_login_disabled: true,
-      login_disabled_at: new Date().toISOString(),
-      login_disabled_reason: reason.trim() || "Login access disabled by executive administration",
-      is_voided: true, // legacy compatibility
-      voided_at: new Date().toISOString(),
-      voided_reason: reason.trim() || "Login access disabled",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  if (disableErr) throw new Error(disableErr.message);
-
-  await logAuditEvent({
-    actorUserId: user.id,
-    actorEmail: profile.email || user.email,
-    actorRole: role,
-    action: "user_login_disabled",
-    targetType: "user",
-    targetId: userId,
-    reason: reason.trim() || "Account login access disabled",
-    metadata: {
-      target_email: targetProfile.email,
-      target_name: targetProfile.full_name,
-      assigned_to_name: targetProfile.assigned_to_name,
-    },
-  });
-
-  revalidatePath("/admin/users");
-  revalidatePath("/admin");
-  return { success: true };
+  const { actor, target } = await assertCanManageStaff(userId);
+  if (actor.user.id === userId || isExecutiveAccount(target.role, target.roles)) throw new Error("Executive and own accounts cannot be disabled here.");
+  if (reason.trim().length < 3) throw new Error("Provide a reason.");
+  const { error } = await createAdminSupabase().from("user_profiles").update({ is_login_disabled: true, login_disabled_at: new Date().toISOString(), login_disabled_reason: reason }).eq("id", userId).select("id").single();
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/users"); return { success: true };
 }
 
-/** Legacy alias */
 export const voidStaffUserAction = disableStaffLoginAction;
 
 /**
  * Admin Action: Enables login access for a staff member profile, restores active status, and assigns/synchronizes credentials.
  */
 export async function enableStaffLoginAction(userId: string, customPassword?: string) {
-  const { user, profile, role } = await requireStaffRole("tech");
-  const supabase = createAdminSupabase();
-
-  const { data: targetProfile } = await supabase
-    .from("user_profiles")
-    .select("*, roles:member_roles(*)")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (!targetProfile) {
-    throw new Error("Target user not found");
-  }
-
-  // Generate random strong password if none provided
-  const newPassword =
-    customPassword && customPassword.trim().length >= 8
-      ? customPassword.trim()
-      : targetProfile.password && targetProfile.password.length >= 8
-      ? targetProfile.password
-      : `GenAI#${Math.random().toString(36).slice(2, 6).toUpperCase()}!${Math.floor(1000 + Math.random() * 9000)}`;
-
-  // Re-create or update Supabase Auth User
-  try {
-    const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
-      email: targetProfile.email,
-      password: newPassword,
-      email_confirm: true,
-      user_metadata: { full_name: targetProfile.full_name, role: targetProfile.role },
-    });
-
-    if (authErr && authErr.message.includes("already registered")) {
-      await supabase.auth.admin.updateUserById(userId, {
-        password: newPassword,
-        email_confirm: true,
-      });
-    }
-  } catch (err: any) {
-    console.warn("Auth user synchronization notice:", err.message);
-  }
-
-  // Enable user profile
-  const { error: updateErr } = await supabase
-    .from("user_profiles")
-    .update({
-      is_active: true,
-      is_login_disabled: false,
-      login_disabled_at: null,
-      login_disabled_reason: null,
-      is_voided: false, // legacy compatibility
-      voided_at: null,
-      voided_reason: null,
-      password: newPassword,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  if (updateErr) throw new Error(updateErr.message);
-
-  // Restore default role if missing
-  const existingRoles = Array.isArray(targetProfile.roles) ? targetProfile.roles : [];
-  if (existingRoles.length === 0) {
-    await supabase.from("member_roles").insert({
-      user_id: userId,
-      team: "technical",
-      position: "core_member",
-    });
-  }
-
-  // Audit log
-  await logAuditEvent({
-    actorUserId: user.id,
-    actorEmail: profile.email || user.email,
-    actorRole: role,
-    action: "user_login_enabled",
-    targetType: "user",
-    targetId: userId,
-    reason: "Account login enabled and credentials synchronized by administrator",
-    metadata: {
-      target_email: targetProfile.email,
-      target_name: targetProfile.full_name,
-      assigned_to_name: targetProfile.assigned_to_name,
-    },
-  });
-
-  revalidatePath("/admin/users");
-  revalidatePath("/admin");
-  revalidatePath("/team");
-  revalidatePath("/");
-
-  return { success: true, newPassword, email: targetProfile.email };
+  const { target } = await assertCanManageStaff(userId);
+  const db = createAdminSupabase();
+  const assignment = await db.from("event_volunteers").select("id").eq("user_id", userId).limit(1);
+  if (assignment.error) throw new Error(assignment.error.message);
+  if (!isTeamLoginAllowed(target.role, target.roles) && !assignment.data.length) throw new Error("Assign an eligible team or event before enabling login.");
+  const auth = await db.auth.admin.getUserById(userId);
+  if (auth.error || !auth.data.user) throw new Error("The linked Supabase Auth account is missing. Provision a replacement account.");
+  const newPassword = customPassword || randomBytes(24).toString("base64url");
+  if (newPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
+  const changed = await db.auth.admin.updateUserById(userId, { password: newPassword });
+  if (changed.error) throw new Error(changed.error.message);
+  const { error } = await db.from("user_profiles").update({ is_active: true, is_login_disabled: false, is_voided: false, login_disabled_at: null, login_disabled_reason: null }).eq("id", userId).select("id").single();
+  if (error) throw new Error(`Password updated but login could not be enabled: ${error.message}`);
+  revalidatePath("/admin/users"); return { success: true, newPassword, email: target.email };
 }
 
-/** Legacy alias */
 export const unvoidStaffUserAction = enableStaffLoginAction;
 
 /**
  * Admin-only: Updates GitHub Profile URL for a member.
  */
 export async function updateMemberGitHubUrlAction(userId: string, githubUrl: string) {
-  const { user, profile, role } = await requireStaffRole("tech");
+  await assertCanManageStaff(userId);
+  const { user, profile, role } = await requireStaffActionRole("tech");
   const cleanUrl = (githubUrl || "").trim();
 
   const supabase = createAdminSupabase();
@@ -661,7 +298,7 @@ export async function updateMemberGitHubUrlAction(userId: string, githubUrl: str
 
   await logAuditEvent({
     actorUserId: user.id,
-    actorEmail: profile.email || user.email,
+    actorEmail: profile.email || user.email || "",
     actorRole: role,
     action: "github_url_updated",
     targetType: "user",
@@ -683,221 +320,42 @@ export async function updateMemberGitHubUrlAction(userId: string, githubUrl: str
  * Logins are active ONLY for President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team.
  * For all other accounts, login is disabled.
  */
-export async function enforceTeamLoginPolicyAction(): Promise<{
-  success: boolean;
-  enabledCount: number;
-  disabledCount: number;
-  error?: string;
-}> {
-  try {
-    const { user, profile, role } = await requireStaffRole("tech");
-    const supabase = createAdminSupabase();
-
-    const { data: allProfiles, error: fetchErr } = await supabase
-      .from("user_profiles")
-      .select("id, email, full_name, assigned_to_name, role, is_active, is_login_disabled, is_voided, roles:member_roles(*)");
-
-    if (fetchErr) throw new Error(fetchErr.message);
-
-    let enabledCount = 0;
-    let disabledCount = 0;
-
-    for (const p of allProfiles || []) {
-      const allowed = isTeamLoginAllowed(p.role, p.roles, p.email);
-
-      if (allowed) {
-        // Enable account if disabled
-        if (p.is_login_disabled || p.is_voided || !p.is_active) {
-          await supabase
-            .from("user_profiles")
-            .update({
-              is_login_disabled: false,
-              is_voided: false,
-              is_active: true,
-              login_disabled_reason: null,
-              voided_reason: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", p.id);
-        }
-        enabledCount++;
-      } else {
-        // Disable login for non-exempt teams
-        if (!p.is_login_disabled || !p.is_voided || p.is_active) {
-          await supabase
-            .from("user_profiles")
-            .update({
-              is_login_disabled: true,
-              is_voided: true,
-              is_active: false,
-              login_disabled_reason: "Logins currently restricted to President, Vice President, Tech, AIML, Finance, and HR teams",
-              voided_reason: "Logins currently restricted to President, Vice President, Tech, AIML, Finance, and HR teams",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", p.id);
-        }
-        disabledCount++;
-      }
-    }
-
-    await logAuditEvent({
-      actorUserId: user.id,
-      actorEmail: profile.email || user.email,
-      actorRole: role,
-      action: "TEAM_LOGIN_POLICY_ENFORCED",
-      targetType: "system_policy",
-      targetId: "login_permissions",
-      reason: "Enforced login whitelist for President, VP, Tech, AIML, Finance, and HR teams",
-      metadata: {
-        enabledCount,
-        disabledCount,
-      },
-    });
-
-    revalidatePath("/admin/users");
-    revalidatePath("/admin");
-    return { success: true, enabledCount, disabledCount };
-  } catch (err: any) {
-    return { success: false, enabledCount: 0, disabledCount: 0, error: err.message || "Failed to enforce team login policy." };
+export async function enforceTeamLoginPolicyAction(): Promise<{success:boolean;enabledCount:number;disabledCount:number;error?:string}> {
+  await requireStaffActionRole("superadmin");
+  const db=createAdminSupabase();
+  const profiles=await db.from("user_profiles").select(STAFF_PROFILE_FIELDS);
+  const assignments=await db.from("event_volunteers").select("user_id");
+  if (profiles.error || assignments.error) throw new Error(profiles.error?.message || assignments.error?.message);
+  const assigned=new Set(assignments.data.map(v=>v.user_id));
+  let enabledCount=0,disabledCount=0;
+  for (const p of profiles.data) {
+    if (isTeamLoginAllowed(p.role,p.roles) || assigned.has(p.id)) { if(p.is_active && !p.is_login_disabled && !p.is_voided) enabledCount++; continue; }
+    const saved=await db.from("user_profiles").update({is_login_disabled:true,login_disabled_reason:"No eligible team or event assignment",login_disabled_at:new Date().toISOString()}).eq("id",p.id).select("id").single();
+    if(saved.error) throw new Error(saved.error.message);
+    disabledCount++;
   }
-}
-
-/**
- * Tech-only: Soft-disables a staff user with safeguard for last tech lead and Top Executive accounts.
- */
-export async function toggleStaffUserActiveAction(userId: string, currentActive: boolean) {
-  const { user, profile, role } = await requireStaffRole("tech");
-
-  const supabase = createAdminSupabase();
-
-  const { data: targetProfile } = await supabase
-    .from("user_profiles")
-    .select("*, roles:member_roles(*)")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (!targetProfile) {
-    throw new Error("Target user not found");
-  }
-
-  // Guard against disabling Top Executive accounts
-  if (isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
-    throw new Error("Action blocked: Top Executive accounts are protected and cannot be disabled.");
-  }
-
-  if (currentActive) {
-    // Check if last tech
-    if (targetProfile?.role === "tech") {
-      const { data: activeTechs } = await supabase
-        .from("user_profiles")
-        .select("id")
-        .eq("role", "tech")
-        .eq("is_active", true);
-
-      if (activeTechs && activeTechs.length <= 1 && activeTechs.some((t) => t.id === userId)) {
-        throw new Error("Action blocked: You cannot disable the only remaining active Tech lead.");
-      }
-    }
-  }
-
-  const { error } = await supabase
-    .from("user_profiles")
-    .update({ is_active: !currentActive, updated_at: new Date().toISOString() })
-    .eq("id", userId);
-
-  if (error) throw new Error(error.message);
-
-  await logAuditEvent({
-    actorUserId: user.id,
-    actorEmail: profile.email || user.email,
-    actorRole: role,
-    action: currentActive ? "user_disabled" : "user_enabled",
-    targetType: "user",
-    targetId: userId,
-  });
-
   revalidatePath("/admin/users");
-  revalidatePath("/admin");
-  return { success: true };
+  return {success:true,enabledCount,disabledCount};
 }
 
-/**
- * Allows any logged-in staff member to change their own password.
- */
+export async function toggleStaffUserActiveAction(userId: string, _currentActive: boolean) {
+  const { actor, target } = await assertCanManageStaff(userId);
+  if (actor.user.id === userId || isExecutiveAccount(target.role, target.roles)) throw new Error("Executive and own accounts cannot be deactivated here.");
+  const { error } = await createAdminSupabase().from("user_profiles").update({ is_active: !target.is_active }).eq("id", userId).eq("is_active", target.is_active).select("id").single();
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/users"); return { success: true };
+}
+
 export async function changeMyPasswordAction(newPassword: string) {
-  const { user, profile, role } = await getAuthenticatedStaff();
-  const trimmed = (newPassword || "").trim();
-
-  if (trimmed.length < 8) {
-    throw new Error("New password must be at least 8 characters long.");
-  }
-
-  const supabase = createAdminSupabase();
-
-  // Update in Supabase Auth
-  const { error: authErr } = await supabase.auth.admin.updateUserById(user.id, {
-    password: trimmed,
-  });
-
-  if (authErr) {
-    throw new Error(authErr.message || "Failed to update password.");
-  }
-
-  // Update user_profiles password and updated_at
-  await supabase
-    .from("user_profiles")
-    .update({
-      password: trimmed,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
-
-  await logAuditEvent({
-    actorUserId: user.id,
-    actorEmail: profile?.email || user.email,
-    actorRole: role || "volunteer",
-    action: "password_changed",
-    targetType: "user",
-    targetId: user.id,
-    reason: "Self-service password update",
-    metadata: {
-      user_email: profile?.email || user.email,
-      assigned_to_name: profile?.assigned_to_name || profile?.full_name,
-      role: role || "volunteer",
-    },
-  });
-
-  // Mirror to Google Sheets Email Logs tab: Record timestamp and actor without exposing new password
-  try {
-    const { appendToGoogleSheet } = await import("@/lib/google/sheets");
-    const { formatISTDate } = await import("@/lib/utils/format");
-    const logId = `PWR-${Date.now()}`;
-    const istTime = formatISTDate(new Date(), true);
-    const actorName = profile?.assigned_to_name || profile?.full_name || user.email || "Self";
-
-    appendToGoogleSheet("Email Logs", [
-      [
-        logId,
-        istTime,
-        profile?.email || user.email || "genaicommunityvitbofficial@gmail.com",
-        "self_password_changed",
-        "Community User Management",
-        `Updated by: ${actorName} (${role || "Staff"})`,
-        "success",
-        "Self-service password modification (Password masked)",
-        0,
-      ],
-    ]).catch((err) => console.error("Error logging self password change to Email Logs:", err));
-  } catch {}
-
+  const { user } = await requireStaffActionRole("volunteer");
+  if (newPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
+  const { error } = await createAdminSupabase().auth.admin.updateUserById(user.id, { password: newPassword });
+  if (error) throw new Error(error.message);
   return { success: true };
 }
 
-/**
- * Sends a 6-digit OTP to the currently authenticated staff member's registered email.
- */
 export async function requestMyPasswordOTPAction() {
-  const { user, profile } = await getAuthenticatedStaff();
+  const { user, profile } = await requireStaffActionRole("volunteer");
   const email = (profile?.email || user.email || "").trim().toLowerCase();
 
   if (!email) {
@@ -922,7 +380,7 @@ export async function requestMyPasswordOTPAction() {
  * Verifies OTP code and updates the authenticated staff member's password.
  */
 export async function verifyMyOTPAndChangePasswordAction(otp: string, newPassword: string) {
-  const { user, profile } = await getAuthenticatedStaff();
+  const { user, profile } = await requireStaffActionRole("volunteer");
   const email = (profile?.email || user.email || "").trim().toLowerCase();
 
   if (!email) {
@@ -949,7 +407,7 @@ export async function verifyMyOTPAndChangePasswordAction(otp: string, newPasswor
  * Self-service: Allows any logged-in staff member to update their own avatar image.
  */
 export async function updateMyAvatarAction(formData: FormData) {
-  const { user, profile } = await getAuthenticatedStaff();
+  const { user, profile } = await requireStaffActionRole("volunteer");
   const file = formData.get("avatar_file") as File | null;
 
   if (!file || file.size === 0) {
@@ -1021,7 +479,7 @@ export async function updateMyAvatarAction(formData: FormData) {
  * Self-service: Retrieves account profile info for the currently authenticated staff member.
  */
 export async function getMyAccountInfoAction() {
-  const { user, profile, role, isTop6 } = await getAuthenticatedStaff();
+  const { user, profile, role, isTop6 } = await requireStaffActionRole("volunteer");
   return {
     id: user.id,
     email: profile?.email || user.email || "",
@@ -1038,69 +496,16 @@ export async function getMyAccountInfoAction() {
  * Top-6 only: Resets a staff member's password and stores the new password.
  */
 export async function resetStaffPasswordAction(userId: string, customPassword?: string) {
-  const { user, profile, role } = await requireStaffRole("tech");
-  const supabase = createAdminSupabase();
-
-  const newPassword =
-    customPassword && customPassword.trim().length >= 8
-      ? customPassword.trim()
-      : `GenAI@${Math.random().toString(36).slice(-5)}!${Math.floor(100 + Math.random() * 900)}`;
-
-  const { error: authErr } = await supabase.auth.admin.updateUserById(userId, {
-    password: newPassword,
-  });
-
-  if (authErr) throw new Error(authErr.message);
-
-  await supabase
-    .from("user_profiles")
-    .update({
-      password: newPassword,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  await logAuditEvent({
-    actorUserId: user.id,
-    actorEmail: profile.email || user.email,
-    actorRole: role,
-    action: "password_reset",
-    targetType: "user",
-    targetId: userId,
-  });
-
-  // Mirror to Google Sheets Email Logs tab: Record timestamp and who changed it without writing the new password
-  try {
-    const { appendToGoogleSheet } = await import("@/lib/google/sheets");
-    const { formatISTDate } = await import("@/lib/utils/format");
-    const logId = `PWR-${Date.now()}`;
-    const istTime = formatISTDate(new Date(), true);
-    const actorName = profile.full_name || profile.assigned_to_name || user.email || "Top-6 Admin";
-
-    appendToGoogleSheet("Email Logs", [
-      [
-        logId,
-        istTime,
-        userId,
-        "password_reset_direct",
-        "Member Management",
-        `Reset by: ${actorName} (${role})`,
-        "sent",
-        "Staff password changed (Credentials masked for security)",
-        0,
-      ],
-    ]).catch((err) => console.error("Error logging direct password reset to Email Logs:", err));
-  } catch {}
-
-  revalidatePath("/admin/users");
+  await assertCanManageStaff(userId);
+  const newPassword = customPassword || randomBytes(24).toString("base64url");
+  if (newPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
+  const { error } = await createAdminSupabase().auth.admin.updateUserById(userId, { password: newPassword });
+  if (error) throw new Error(error.message);
   return { success: true, newPassword };
 }
 
-/**
- * Finance Staff / Admin: Removes and archives a registration record (into deleted_registrations vault).
- */
 export async function deleteRegistrationAction(formData: FormData) {
-  const { user, profile, role } = await requireStaffRole("finance");
+  const { user, profile, role } = await requireStaffActionRole("finance");
 
   const registrationId = String(formData.get("registration_id") || "").trim();
   const reason = String(formData.get("reason") || "Staff manual removal").trim();
@@ -1132,7 +537,7 @@ export async function deleteRegistrationAction(formData: FormData) {
  * Staff Action: Restores an archived registration back into active status.
  */
 export async function restoreRegistrationAction(formData: FormData) {
-  const { user, role } = await requireStaffRole("finance");
+  const { user, role } = await requireStaffActionRole("finance");
 
   const deletedId = String(formData.get("deleted_id") || "").trim();
 
@@ -1161,7 +566,7 @@ export async function restoreRegistrationAction(formData: FormData) {
  * Top-6 / Exec only: Fetches all volunteers assigned to a specific event.
  */
 export async function getEventVolunteersAction(eventId: string) {
-  const { isTop6, role } = await requireStaffRole("volunteer");
+  const { isTop6, role } = await requireStaffActionRole("volunteer");
   const supabase = createAdminSupabase();
 
   try {
@@ -1173,7 +578,7 @@ export async function getEventVolunteersAction(eventId: string) {
 
     if (error) {
       console.warn("Could not query event_volunteers table:", error.message);
-      return { success: true, volunteers: [] };
+      throw new Error(error.message);
     }
 
     return { success: true, volunteers: data || [] };
@@ -1186,226 +591,30 @@ export async function getEventVolunteersAction(eventId: string) {
  * Top-6 & Event Lead: Assigns a club member as a scanner volunteer for an event, automatically enabling their login and sending credentials.
  */
 export async function assignEventVolunteerAction(formData: FormData) {
-  const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
-  const isEventLead = profile?.roles?.some((r: any) => r.team === "event_management" && String(r.position || "").includes("lead"));
-  if (!isTop6 && role !== "tech" && !isEventLead) {
-    throw new Error("Unauthorized: Only Top Executives and Event Leads can assign gate volunteers.");
-  }
-
-  const eventId = String(formData.get("event_id") || "").trim();
-  const targetUserId = String(formData.get("user_id") || "").trim();
-
-  if (!eventId || !targetUserId) {
-    throw new Error("Event ID and Member ID are required.");
-  }
-
-  const supabase = createAdminSupabase();
-
-  const { error } = await supabase.from("event_volunteers").upsert(
-    {
-      event_id: eventId,
-      user_id: targetUserId,
-      assigned_by: user.id,
-      assigned_at: new Date().toISOString(),
-    },
-    { onConflict: "event_id,user_id" },
-  );
-
-  if (error) {
-    throw new Error(error.message || "Failed to assign volunteer to event.");
-  }
-
-  // Load target user profile and automatically enable account with random password
-  const { data: targetProfile } = await supabase
-    .from("user_profiles")
-    .select("id, email, full_name, assigned_to_name, role, password")
-    .eq("id", targetUserId)
-    .maybeSingle();
-
-  if (targetProfile) {
-    const volunteerPassword = `GenAI#VOL!${Math.floor(1000 + Math.random() * 9000)}`;
-
-    // Enable account & set new password
-    await supabase
-      .from("user_profiles")
-      .update({
-        is_active: true,
-        is_login_disabled: false,
-        login_disabled_at: null,
-        login_disabled_reason: null,
-        password: volunteerPassword,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", targetUserId);
-
-    // Sync to Supabase Auth
-    try {
-      const { error: authErr } = await supabase.auth.admin.updateUserById(targetUserId, {
-        password: volunteerPassword,
-        email_confirm: true,
-      });
-      if (authErr && authErr.message.includes("not found")) {
-        await supabase.auth.admin.createUser({
-          email: targetProfile.email,
-          password: volunteerPassword,
-          email_confirm: true,
-          user_metadata: { full_name: targetProfile.full_name, role: "volunteer" },
-        });
-      }
-    } catch (e: any) {
-      console.warn("Volunteer auth update notice:", e?.message);
-    }
-
-    // Fetch event title for email context
-    const { data: eventData } = await supabase
-      .from("events")
-      .select("title, venue, event_date")
-      .eq("id", eventId)
-      .maybeSingle();
-
-    // Send credentials to official VIT email
-    if (targetProfile.email) {
-      const { sendEmail } = await import("@/lib/email/mailer");
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://genai-vitbhopal.vercel.app";
-      await sendEmail({
-        to: targetProfile.email,
-        emailType: "custom_email",
-        eventId: eventId,
-        subject: `Gate Volunteer Assignment & Access Credentials — ${eventData?.title || "GenAI Club Event"}`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0c0a08; color: #ffffff; padding: 32px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #2e2618;">
-            <div style="border-bottom: 1px solid #2e2618; padding-bottom: 16px; margin-bottom: 20px;">
-              <span style="font-size: 11px; font-weight: 800; color: #f5b642; text-transform: uppercase; letter-spacing: 0.1em; background: rgba(245, 182, 66, 0.1); padding: 4px 10px; border-radius: 9999px; border: 1px solid rgba(245, 182, 66, 0.2);">Official Assignment</span>
-              <h2 style="color: #ffffff; margin: 12px 0 4px 0; font-size: 22px; font-weight: 800;">Gate Scanner Volunteer Credentials</h2>
-              <p style="color: #a1a1aa; font-size: 13px; margin: 0;">Event: <strong style="color: #f5b642;">${eventData?.title || "Upcoming Community Event"}</strong></p>
-            </div>
-            
-            <p style="font-size: 14px; line-height: 1.6; color: #d4d4d8;">
-              Hello <strong>${targetProfile.assigned_to_name || targetProfile.full_name}</strong>,<br/>
-              You have been appointed as an official gate scanner volunteer. Your volunteer login account has been automatically activated.
-            </p>
-
-            <div style="background-color: #14110b; border: 1px solid #2e2618; padding: 20px; border-radius: 12px; margin: 24px 0;">
-              <div style="margin-bottom: 12px;">
-                <span style="font-size: 11px; color: #71717a; text-transform: uppercase; font-weight: 700;">Volunteer Portal URL</span><br/>
-                <a href="${appUrl}/admin/login" style="color: #f5b642; font-size: 14px; font-weight: 600; text-decoration: none;">${appUrl}/admin/login</a>
-              </div>
-              <div style="margin-bottom: 12px;">
-                <span style="font-size: 11px; color: #71717a; text-transform: uppercase; font-weight: 700;">Official Login Email</span><br/>
-                <strong style="color: #ffffff; font-size: 15px;">${targetProfile.email}</strong>
-              </div>
-              <div>
-                <span style="font-size: 11px; color: #71717a; text-transform: uppercase; font-weight: 700;">Temporary Access Key</span><br/>
-                <strong style="color: #4ade80; font-family: monospace; font-size: 18px; letter-spacing: 0.05em;">${volunteerPassword}</strong>
-              </div>
-            </div>
-
-            <p style="font-size: 12px; color: #71717a; line-height: 1.5;">
-              🔒 <strong>Permissions Notice:</strong> Your volunteer account is restricted exclusively to the QR Scanner, attendance check-ins, and scan history for your assigned event. Login access will automatically expire upon event completion.
-            </p>
-          </div>
-        `,
-      }).catch((err: any) => console.warn("Failed to dispatch volunteer email:", err));
-    }
-  }
-
-  // Audit log
-  try {
-    await logAuditEvent({
-      actorUserId: user.id,
-      actorEmail: profile?.email || user.email,
-      actorRole: role,
-      action: "event_volunteer_assigned",
-      targetType: "event",
-      targetId: eventId,
-      newState: { eventId, assignedUserId: targetUserId, email: targetProfile?.email },
-    });
-  } catch {}
-
-  revalidatePath("/admin/events");
-  revalidatePath("/admin/scanner");
-  return { success: true };
+  const { user } = await requireStaffActionRole("tech");
+  const eventId = String(formData.get("event_id") || "");
+  const targetUserId = String(formData.get("user_id") || "");
+  await assertCanManageStaff(targetUserId);
+  const db = createAdminSupabase();
+  const { error } = await db.from("event_volunteers").upsert({ event_id: eventId, user_id: targetUserId, assigned_by: user.id }, { onConflict: "event_id,user_id" });
+  if (error) throw new Error(error.message);
+  const enabled = await db.from("user_profiles").update({ is_active: true, is_login_disabled: false, is_voided: false, login_disabled_at: null, login_disabled_reason: null }).eq("id", targetUserId).select("id").single();
+  if (enabled.error) throw new Error(`Assignment saved, but enabling access failed: ${enabled.error.message}`);
+  revalidatePath("/admin/events"); return { success: true };
 }
 
-/**
- * Top-6 & Event Lead: Revokes a member's scanner volunteer role for an event and disables login if no other active duties.
- */
 export async function removeEventVolunteerAction(formData: FormData) {
-  const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
-  const isEventLead = profile?.roles?.some((r: any) => r.team === "event_management" && String(r.position || "").includes("lead"));
-  if (!isTop6 && role !== "tech" && !isEventLead) {
-    throw new Error("Unauthorized: Only Top Executives and Event Leads can revoke gate volunteers.");
-  }
-
-  const eventId = String(formData.get("event_id") || "").trim();
-  const targetUserId = String(formData.get("user_id") || "").trim();
-
-  if (!eventId || !targetUserId) {
-    throw new Error("Event ID and Member ID are required.");
-  }
-
-  const supabase = createAdminSupabase();
-
-  const { error } = await supabase
-    .from("event_volunteers")
-    .delete()
-    .eq("event_id", eventId)
-    .eq("user_id", targetUserId);
-
-  if (error) {
-    throw new Error(error.message || "Failed to remove volunteer from event.");
-  }
-
-  // Check if volunteer has other active volunteer assignments
-  const { data: remainingAssignments } = await supabase
-    .from("event_volunteers")
-    .select("id")
-    .eq("user_id", targetUserId);
-
-  if (!remainingAssignments || remainingAssignments.length === 0) {
-    const { data: targetProfile } = await supabase
-      .from("user_profiles")
-      .select("*, roles:member_roles(*)")
-      .eq("id", targetUserId)
-      .maybeSingle();
-
-    if (targetProfile && !isExecutiveAccount(targetProfile.role, targetProfile.roles)) {
-      await supabase
-        .from("user_profiles")
-        .update({
-          is_active: false,
-          is_login_disabled: true,
-          login_disabled_at: new Date().toISOString(),
-          login_disabled_reason: "Volunteer assignment revoked or completed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", targetUserId);
-    }
-  }
-
-  // Audit log
-  try {
-    await logAuditEvent({
-      actorUserId: user.id,
-      actorEmail: profile?.email || user.email,
-      actorRole: role,
-      action: "event_volunteer_revoked",
-      targetType: "event",
-      targetId: eventId,
-      newState: { eventId, revokedUserId: targetUserId },
-    });
-  } catch {}
-
-  revalidatePath("/admin/events");
-  revalidatePath("/admin/scanner");
-  return { success: true };
+  await requireStaffActionRole("tech");
+  const eventId = String(formData.get("event_id") || "");
+  const userId = String(formData.get("user_id") || "");
+  await assertCanManageStaff(userId);
+  const { error } = await createAdminSupabase().from("event_volunteers").delete().eq("event_id", eventId).eq("user_id", userId).select("id").single();
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/events"); return { success: true };
 }
 
-/**
- * Tech/Superadmin Action: Manually overrides attendance status for a participant with full audit trail.
- */
 export async function overrideAttendanceStatusAction(formData: FormData) {
-  const { user, profile, role } = await requireStaffRole("tech");
+  const { user, profile, role } = await requireStaffActionRole("tech");
 
   const registrationId = String(formData.get("registration_id") || "").trim();
   const newStatus = String(formData.get("new_status") || "checked_in").trim();
@@ -1421,7 +630,7 @@ export async function overrideAttendanceStatusAction(formData: FormData) {
     newStatus,
     reason,
     actorId: user.id,
-    actorName: profile.full_name || profile.assigned_to_name || user.email,
+    actorName: profile.full_name || profile.assigned_to_name || user.email || "Staff",
     actorRole: role,
   });
 
@@ -1459,7 +668,7 @@ export async function importParticipantsBulkAction(params: {
   }>;
   sendEmailDirectly?: boolean;
 }) {
-  await requireStaffRole("tech");
+  await requireStaffActionRole("tech");
   const { importParticipantsBulkAction: bulkImport } = await import("@/lib/data/registrations");
   const res = await bulkImport(params);
   revalidatePath("/admin/events");
@@ -1471,7 +680,7 @@ export async function importParticipantsBulkAction(params: {
  * Exports real-time event attendance data in CSV format.
  */
 export async function exportAttendanceDataAction(eventId: string) {
-  await requireStaffRole("tech");
+  await requireStaffActionRole("finance");
   const { exportAttendanceDataAction: exportAttendance } = await import("@/lib/data/registrations");
   return await exportAttendance(eventId);
 }
@@ -1480,201 +689,30 @@ export async function exportAttendanceDataAction(eventId: string) {
  * Fetches all 50 active community club members for volunteer assignment modal.
  */
 export async function getAllStaffMembersAction(): Promise<{ success: boolean; members: UserProfile[] }> {
-  try {
-    const supabase = createAdminSupabase();
-    const [profilesRes, membersRes] = await Promise.all([
-      supabase
-        .from("user_profiles")
-        .select("id, email, full_name, assigned_to_name, role, is_active, avatar_url, roles:member_roles(team, position)")
-        .order("assigned_to_name", { ascending: true }),
-      supabase
-        .from("members")
-        .select("id, name, role, position, official_email, team_id, teams(name, slug)")
-        .order("name", { ascending: true }),
-    ]);
-
-    const profiles = (profilesRes.data as any[]) || [];
-    const members = (membersRes.data as any[]) || [];
-
-    const memberMap = new Map<string, UserProfile>();
-
-    // 1. Add all active user_profiles
-    profiles.forEach((p) => {
-      if (p.is_active !== false) {
-        memberMap.set(p.id, p);
-      }
-    });
-
-    // 2. Cross-reference with members table to ensure all 50 members are present
-    members.forEach((m) => {
-      // Find if already present by email or name
-      const existing = Array.from(memberMap.values()).find(
-        (p) =>
-          (p.email && m.official_email && p.email.toLowerCase() === m.official_email.toLowerCase()) ||
-          (p.assigned_to_name && p.assigned_to_name.toLowerCase() === m.name.toLowerCase()) ||
-          (p.full_name && p.full_name.toLowerCase() === m.name.toLowerCase())
-      );
-
-      if (!existing) {
-        memberMap.set(m.id, {
-          id: m.id,
-          email: m.official_email || `${m.name.toLowerCase().replace(/\s+/g, ".")}@vitbhopal.ac.in`,
-          full_name: m.name,
-          assigned_to_name: m.name,
-          role: m.role || "core_member",
-          is_active: true,
-          roles: [{ team: m.teams?.slug || "general", position: m.position || m.role || "Core Member" }],
-        } as any);
-      }
-    });
-
-    const result = Array.from(memberMap.values()).sort((a, b) =>
-      (a.assigned_to_name || a.full_name || "").localeCompare(b.assigned_to_name || b.full_name || "")
-    );
-
-    return { success: true, members: result };
-  } catch (err: any) {
-    console.error("Error fetching staff members for volunteer assignment:", err);
-    return { success: false, members: [] };
-  }
+  await requireStaffActionRole("tech");
+  const { data, error } = await createAdminSupabase().from("user_profiles").select(STAFF_PROFILE_FIELDS).order("full_name");
+  if (error) throw new Error(error.message);
+  return { success: true, members: data as UserProfile[] };
 }
 
-/**
- * Dispatches official Administrative Portal Login Credentials email to a single staff member.
- */
 export async function sendStaffCredentialsEmailAction(userId: string) {
-  const { user, profile, role } = await requireStaffRole("superadmin");
-  const supabase = createAdminSupabase();
-
-  // Fetch target profile
-  const { data: targetProfile, error: profileErr } = await supabase
-    .from("user_profiles")
-    .select("id, email, full_name, role, assigned_to_name, password, is_active, is_login_disabled, is_voided, roles")
-    .eq("id", userId)
-    .single();
-
-  if (profileErr || !targetProfile) {
-    throw new Error("Staff user profile not found.");
-  }
-
-  if (targetProfile.is_login_disabled || targetProfile.is_voided || targetProfile.is_active === false) {
-    throw new Error("Cannot send credentials: This user's login access is currently disabled/voided.");
-  }
-
-  // Ensure password exists or generate fresh one
-  let activePassword = targetProfile.password;
-  if (!activePassword) {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    activePassword = `GenAI#2026!${randomSuffix}`;
-    await supabase
-      .from("user_profiles")
-      .update({ password: activePassword, updated_at: new Date().toISOString() })
-      .eq("id", userId);
-
-    try {
-      await supabase.auth.admin.updateUserById(userId, {
-        password: activePassword,
-        email_confirm: true,
-      });
-    } catch (err: any) {
-      console.warn("Supabase Auth sync notice:", err.message);
-    }
-  }
-
-  const { EmailService } = await import("@/lib/email/service");
-  const recipientName = targetProfile.assigned_to_name || targetProfile.full_name || "Admin Member";
-  const portalUrl = process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/admin/login` : "https://genai-vitb.vercel.app/admin/login";
-
-  const emailHtml = `
-  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0c0a08; color: #f5f5f7; border: 1px solid #2e2618; border-radius: 20px; overflow: hidden; padding: 32px;">
-    <div style="text-align: center; margin-bottom: 24px;">
-      <div style="display: inline-block; padding: 8px 16px; background: rgba(245, 182, 66, 0.1); border: 1px solid rgba(245, 182, 66, 0.4); border-radius: 999px; color: #f5b642; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
-        Administrative Operations Portal
-      </div>
-      <h1 style="color: #ffffff; font-size: 22px; font-weight: 900; margin: 16px 0 6px; letter-spacing: -0.5px;">
-        Your Administrative Access Credentials
-      </h1>
-      <p style="color: #a1a1aa; font-size: 13px; margin: 0;">
-        Generative AI Community &bull; VIT Bhopal University
-      </p>
-    </div>
-
-    <div style="background-color: #14100b; border: 1px solid #2e2618; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
-      <p style="font-size: 14px; color: #e4e4e7; margin: 0 0 16px;">
-        Hello <strong>${recipientName}</strong>,
-      </p>
-      <p style="font-size: 13px; color: #a1a1aa; line-height: 1.6; margin: 0 0 16px;">
-        Your administrative portal access for the <strong>GenAI Community Operations Matrix</strong> is active and enabled. Use the secure credentials below to access your executive workspace:
-      </p>
-
-      <div style="background-color: #070707; border: 1px solid #332b1d; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-          <tr>
-            <td style="color: #71717a; padding: 6px 0; width: 140px; font-weight: 600;">Login Portal:</td>
-            <td style="color: #f5b642; padding: 6px 0; font-weight: bold;"><a href="${portalUrl}" style="color: #f5b642; text-decoration: none;">${portalUrl}</a></td>
-          </tr>
-          <tr>
-            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">Email / User ID:</td>
-            <td style="color: #ffffff; padding: 6px 0; font-family: monospace; font-weight: bold;">${targetProfile.email}</td>
-          </tr>
-          <tr>
-            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">User UUID:</td>
-            <td style="color: #a1a1aa; padding: 6px 0; font-family: monospace; font-size: 11px;">${targetProfile.id}</td>
-          </tr>
-          <tr>
-            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">Assigned Role:</td>
-            <td style="color: #38bdf8; padding: 6px 0; font-weight: bold; text-transform: uppercase; font-size: 11px;">${targetProfile.role}</td>
-          </tr>
-          <tr>
-            <td style="color: #71717a; padding: 6px 0; font-weight: 600;">Access Password:</td>
-            <td style="color: #4ade80; padding: 6px 0; font-family: monospace; font-size: 14px; font-weight: bold;">${activePassword}</td>
-          </tr>
-        </table>
-      </div>
-
-      <div style="text-align: center; margin: 20px 0 10px;">
-        <a href="${portalUrl}" style="display: inline-block; background: linear-gradient(135deg, #f5b642, #ffd06a); color: #000000; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 28px; border-radius: 12px; text-decoration: none; box-shadow: 0 0 20px rgba(245, 182, 66, 0.3);">
-          Log In To Admin Matrix &rarr;
-        </a>
-      </div>
-    </div>
-
-    <div style="border-top: 1px solid #1f1a12; padding-top: 16px; font-size: 11px; color: #71717a; line-height: 1.5; text-align: center;">
-      <p style="margin: 0 0 6px;">
-        🔒 <strong>Security Policy:</strong> For maximum account security, please change your password upon your first login using the profile settings in the upper-right corner.
-      </p>
-      <p style="margin: 0;">
-        This automated transmission was dispatched on behalf of the Executive Directorate, GenAI Community VIT Bhopal.
-      </p>
-    </div>
-  </div>
-  `;
-
-  const sendResult = await EmailService.send({
-    to: targetProfile.email,
-    recipientName,
-    subject: `🔐 Your Administrative Portal Login Credentials - GenAI Community VIT Bhopal`,
-    html: emailHtml,
-    emailType: "custom_email",
-    senderId: user.id,
-    senderRole: role || "superadmin",
-    forceResend: true,
-  });
-
-  return { success: sendResult.success, email: targetProfile.email, sendResult };
+  const { target } = await assertCanManageStaff(userId);
+  if (!target.is_active || target.is_voided || target.is_login_disabled) throw new Error("Enable the account before sending access instructions.");
+  const { sendEmail } = await import("@/lib/email/mailer");
+  const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://genai-club.vercel.app"}/admin/login`;
+  const result = await sendEmail({ to: target.email, subject: "Your GenAI staff portal access", html: `<p>Your staff portal access is enabled.</p><p><a href="${loginUrl}">Open the staff portal</a> and use Forgot password to request a one-time code and set your own password.</p>`, emailType: "custom_email" });
+  if (!result.success) throw new Error(result.error || "Email delivery failed.");
+  return { success: true };
 }
 
-/**
- * Broadcasts official login credentials to ALL enabled/active staff members.
- */
 export async function broadcastAllEnabledStaffCredentialsAction() {
-  const { user, profile, role } = await requireStaffRole("superadmin");
+  const { user, profile, role } = await requireStaffActionRole("superadmin");
   const supabase = createAdminSupabase();
 
   // Query all enabled staff members
   const { data: staffList, error: staffErr } = await supabase
     .from("user_profiles")
-    .select("id, email, full_name, role, assigned_to_name, password, is_active, is_login_disabled, is_voided, roles")
+    .select(STAFF_PROFILE_FIELDS)
     .order("created_at", { ascending: true });
 
   if (staffErr) throw new Error(staffErr.message);
@@ -1710,7 +748,7 @@ export async function broadcastAllEnabledStaffCredentialsAction() {
   // Audit log
   await logAuditEvent({
     actorUserId: user.id,
-    actorEmail: profile.email || user.email,
+    actorEmail: profile.email || user.email || "",
     actorRole: role,
     action: "staff_credentials_broadcasted",
     targetType: "user",

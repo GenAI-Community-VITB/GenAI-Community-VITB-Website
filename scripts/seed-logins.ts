@@ -15,7 +15,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-export const DEFAULT_PASSWORD = "GenAICommunity@2026-27";
+
 
 export interface MemberRosterItem {
   email: string;
@@ -643,7 +643,6 @@ export async function seedLogins() {
         {
           id: userId,
           email: item.email,
-          password: isAuthorizedLogin ? uniquePassword : "",
           full_name: item.fullName,
           assigned_to_name: item.assignedToName,
           role: item.primaryRole,
@@ -689,5 +688,5 @@ export async function seedLogins() {
 }
 
 if (process.argv[1] && process.argv[1].includes("seed-logins")) {
-  seedLogins();
+  throw new Error("Legacy bulk login seeding is retired. Use scripts/bootstrap-admin.mjs for the system administrator and the admin portal for staff provisioning.");
 }

@@ -45,7 +45,7 @@ export class GoogleAppsScriptEmailClient {
 
   constructor() {
     this.webAppUrl = (process.env.GOOGLE_APPS_SCRIPT_URL || "").trim();
-    this.secretToken = (process.env.GOOGLE_APPS_SCRIPT_TOKEN || "GENAI_GAS_EMAIL_SECRET_2026").trim();
+    this.secretToken = (process.env.GOOGLE_APPS_SCRIPT_TOKEN || "").trim();
     this.defaultSenderName = (process.env.EMAIL_SENDER_NAME || "GENAI Community VIT Bhopal").trim();
     this.defaultReplyTo = (process.env.EMAIL_REPLY_TO || "gen_ai@vitbhopal.ac.in").trim();
   }
@@ -55,7 +55,7 @@ export class GoogleAppsScriptEmailClient {
    */
   public isConfigured(): boolean {
     return Boolean(
-      this.webAppUrl &&
+      this.secretToken && this.webAppUrl &&
       this.webAppUrl.startsWith("https://script.google.com") &&
       !this.webAppUrl.includes("mock")
     );
@@ -78,17 +78,7 @@ export class GoogleAppsScriptEmailClient {
 
     const to = recipientList.join(", ");
 
-    // Development / Mock mode fallback
-    if (!this.isConfigured()) {
-      console.log(
-        `[Google Apps Script Mock Mode] Dispatching Email -> To: ${to} | Subject: "${options.subject}" | Sender: "${senderName}"`
-      );
-      return {
-        success: true,
-        messageId: `mock-gas-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        provider: "google_apps_script",
-      };
-    }
+    if (!this.isConfigured()) return { success:false,error:"Email provider is not configured.",provider:"google_apps_script" };
 
     const payload = {
       token: this.secretToken,
@@ -121,7 +111,7 @@ export class GoogleAppsScriptEmailClient {
 
       const resData = await response.json().catch(() => null);
 
-      if (!response.ok || (resData && !resData.success)) {
+      if (!response.ok || resData?.success !== true) {
         const errMsg = resData?.error || `Google Apps Script returned HTTP ${response.status}`;
         const isRateLimitOrQuota =
           response.status === 429 ||

@@ -52,10 +52,16 @@ export function CloudflareTurnstile({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
 
-  const siteKey =
-    process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY || DEFAULT_TEST_SITEKEY;
+  const siteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY
+    || (process.env.NODE_ENV !== "production" ? DEFAULT_TEST_SITEKEY : "");
+  const callbacksRef = useRef({ onVerify, onExpire, onError });
+  useEffect(() => { callbacksRef.current = { onVerify, onExpire, onError }; }, [onVerify, onExpire, onError]);
 
   useEffect(() => {
+    if (!siteKey || (process.env.NODE_ENV === "production" && siteKey === DEFAULT_TEST_SITEKEY)) {
+      callbacksRef.current.onError?.("Security verification is not configured. Contact the administrator.");
+      return;
+    }
     let isMounted = true;
 
     function initWidget() {
@@ -79,13 +85,13 @@ export function CloudflareTurnstile({
           callback: (token: string) => {
             if (isMounted) {
               setIsVerified(true);
-              onVerify(token);
+              callbacksRef.current.onVerify(token);
             }
           },
           "expired-callback": () => {
             if (isMounted) {
               setIsVerified(false);
-              onExpire?.();
+              callbacksRef.current.onExpire?.();
             }
           },
           "error-callback": (err: any) => {
@@ -94,9 +100,9 @@ export function CloudflareTurnstile({
               // In dev mode, auto-pass on error if test key
               if (process.env.NODE_ENV !== "production") {
                 setIsVerified(true);
-                onVerify("cf-test-pass");
+                callbacksRef.current.onVerify("cf-test-pass");
               } else {
-                onError?.(String(err));
+                callbacksRef.current.onError?.(String(err));
               }
             }
           },
@@ -111,8 +117,7 @@ export function CloudflareTurnstile({
     // Check if Turnstile script is already present
     if (typeof window !== "undefined" && window.turnstile) {
       initWidget();
-      return;
-    }
+    } else {
 
     const scriptId = "cf-turnstile-script";
     let script = document.getElementById(scriptId) as HTMLScriptElement | null;
@@ -123,16 +128,16 @@ export function CloudflareTurnstile({
       script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
       script.async = true;
       script.defer = true;
-      script.onload = () => {
-        if (isMounted) initWidget();
-      };
+      script.addEventListener("load", initWidget);
       document.head.appendChild(script);
     } else {
       script.addEventListener("load", initWidget);
     }
 
+    }
     return () => {
       isMounted = false;
+      document.getElementById("cf-turnstile-script")?.removeEventListener("load", initWidget);
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);
@@ -141,7 +146,7 @@ export function CloudflareTurnstile({
         }
       }
     };
-  }, [siteKey, theme, size, action, onVerify, onExpire, onError]);
+  }, [siteKey, theme, size, action]);
 
   return (
     <div className={`space-y-2 ${className}`}>
