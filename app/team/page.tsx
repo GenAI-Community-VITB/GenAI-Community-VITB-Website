@@ -6,8 +6,8 @@ import { getHierarchyMembers, getTeamsWithMembers } from "@/lib/data/public";
 import { BreadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublicHierarchyRoster, getTeamHierarchy } from "@/lib/data/team-hierarchy";
 import { EditableHierarchyTree } from "@/components/site/editable-hierarchy-tree";
+import { connection } from "next/server";
 
-export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Meet Our Team & Community Hierarchy",
@@ -26,6 +26,8 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamHierarchyPage() {
+  // Read the latest saved layout at request time, never during a credential-free build.
+  await connection();
   const layout = await getTeamHierarchy();
   const roster = layout ? await getPublicHierarchyRoster() : [];
   const [hierarchyMembers, teamsWithMembers] = layout ? [null, null] : await Promise.all([
