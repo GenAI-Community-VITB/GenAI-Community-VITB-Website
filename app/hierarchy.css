@@ -1,0 +1,54 @@
+/* Scoped to the saved public hierarchy and the admin preview. */
+.neon-hierarchy { --hierarchy-accent: #f5b642; max-width: 1240px; margin: auto; padding: 32px 12px 72px; }
+.neon-hierarchy-heading { text-align: center; margin-bottom: 48px; }
+.neon-hierarchy-heading > p { color: #f5b642; text-transform: uppercase; letter-spacing: .22em; font-size: 10px; font-weight: 800; }
+.neon-hierarchy-heading h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 900; letter-spacing: -.04em; margin: 12px 0; color: white; }
+.neon-hierarchy-heading h2 span { color: #f5b642; }
+.neon-hierarchy-heading > div { font-size: 13px; color: #a1a1aa; }
+.neon-hierarchy-diagram { position: relative; isolation: isolate; }
+.neon-hierarchy-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: -1; }
+.neon-hierarchy-wires path { fill: none; stroke: #f5b642; stroke-width: 1.4; stroke-opacity: .65; stroke-linejoin: round; filter: drop-shadow(0 0 5px #f5b642aa); }
+.neon-hierarchy-wires circle { fill: #ffcc66; filter: drop-shadow(0 0 5px #ffbd43); }
+.neon-tree-branch { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 46px 20px; list-style: none; margin: 0; padding: 0 20px; }
+.neon-tree-branch--connected { padding-top: 62px; }
+.neon-tree-leader { width: 100%; min-width: 0; }
+.neon-tree-leaf { width: calc((100% - 60px) / 4); min-width: 0; }
+.neon-leader-anchor { max-width: 384px; margin: auto; position: relative; }
+.neon-member { position: relative; display: flex; align-items: center; gap: 13px; padding: 20px; border: 1px solid color-mix(in srgb, var(--hierarchy-accent) 65%, transparent); border-radius: 19px; background: linear-gradient(120deg, color-mix(in srgb, var(--hierarchy-accent) 7%, #090a0d), #0c0b09); box-shadow: 0 12px 30px #0005, inset 0 1px #ffffff05; transition: transform .2s, box-shadow .2s; }
+.neon-member:hover { transform: translateY(-3px); box-shadow: 0 0 25px color-mix(in srgb, var(--hierarchy-accent) 13%, transparent); }
+.neon-member h3 { font-size: 14px; }
+.neon-member-title { color: var(--hierarchy-accent); font-size: 11px; font-weight: 650; margin-top: 3px; overflow-wrap: anywhere; }
+.neon-member-emblem { color: var(--hierarchy-accent); }
+.neon-avatar { height: 46px; width: 46px; border-radius: 13px; flex-shrink: 0; border: 1px solid color-mix(in srgb, var(--hierarchy-accent) 50%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--hierarchy-accent) 14%, transparent); }
+.neon-avatar--initials { display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--hierarchy-accent) 12%, #080808); color: var(--hierarchy-accent); font-weight: 850; font-size: 13px; }
+.neon-social-links { display: flex; flex-wrap: wrap; gap: 10px; color: #a1a1aa; font-size: 10px; margin-top: 7px; }
+.neon-social-links:empty { display: none; }
+.neon-social-links a:hover { color: var(--hierarchy-accent); }
+.neon-team-card { width: 100%; display: flex; flex-direction: column; min-height: 208px; padding: 22px 20px 18px; border: 1px solid #2d271d; border-radius: 24px; background: linear-gradient(150deg, #100e0a, #090908); text-align: left; cursor: pointer; box-shadow: 0 14px 32px #0005; transition: transform .22s, box-shadow .22s, border-color .22s, background .22s; }
+.neon-team-card:hover, .neon-team-card.is-open { transform: translateY(-7px) scale(1.025); border-color: var(--hierarchy-accent); background: linear-gradient(145deg, color-mix(in srgb, var(--hierarchy-accent) 9%, #0c0b09), #0c0b09); box-shadow: 0 0 32px color-mix(in srgb, var(--hierarchy-accent) 18%, transparent), 0 20px 38px #0008; }
+.neon-team-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.neon-team-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; color: var(--hierarchy-accent); background: color-mix(in srgb, var(--hierarchy-accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--hierarchy-accent) 30%, transparent); }
+.neon-team-count { border: 1px solid #30291d; border-radius: 999px; background: #17130c; padding: 3px 8px; font: 10px monospace; color: #b7b1a7; white-space: nowrap; }
+.neon-team-name { margin-top: 18px; color: #fafafa; font-size: 15px; font-weight: 850; line-height: 1.4; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.neon-team-description { color: #a1a1aa; margin-top: 6px; margin-bottom: 20px; font-size: 11px; }
+.neon-team-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 13px; border-top: 1px solid #ffffff0c; color: var(--hierarchy-accent); font-size: 11px; font-weight: 750; }
+.neon-team-footer svg { transition: transform .2s; }
+.neon-roster-popout { position: fixed; z-index: 10000; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--hierarchy-accent); border-radius: 22px; padding: 18px; background: #0c0c0ffb; color: white; box-shadow: 0 0 28px color-mix(in srgb, var(--hierarchy-accent) 16%, transparent), 0 28px 80px #000d; animation: neon-roster-enter .18s ease-out; scrollbar-width: thin; scrollbar-color: var(--hierarchy-accent) #171717; }
+.neon-roster-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 15px; margin-bottom: 15px; border-bottom: 1px solid #ffffff15; }
+.neon-roster-eyebrow { color: var(--hierarchy-accent); text-transform: uppercase; letter-spacing: .1em; font-size: 9px; font-weight: 700; margin-bottom: 7px; }
+.neon-roster-header h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; line-height: 1.4; font-weight: 850; }
+.neon-roster-header h3 svg { color: var(--hierarchy-accent); }
+.neon-roster-header button { padding: 7px; border: 1px solid #ffffff20; border-radius: 9px; cursor: pointer; flex-shrink: 0; }
+.neon-roster-header button:hover { background: #ffffff10; }
+.neon-roster-branch { display: flex; flex-direction: column; gap: 10px; list-style: none; padding: 0; margin: 0; }
+.neon-roster-branch .neon-roster-branch { margin: 12px 0 4px 12px; padding-left: 12px; border-left: 1px solid color-mix(in srgb, var(--hierarchy-accent) 50%, transparent); }
+.neon-roster-group { display: flex; align-items: center; gap: 8px; color: var(--hierarchy-accent); font-size: 12px; font-weight: 750; padding: 7px 0; }
+.neon-member--compact { padding: 11px; gap: 10px; border-radius: 13px; border-color: #ffffff12; background: #ffffff03; }
+.neon-member--compact h3 { font-size: 12px; }
+.neon-member--compact .neon-avatar { width: 36px; height: 36px; font-size: 11px; border-radius: 10px; }
+.neon-team-card:focus-visible, .neon-social-links a:focus-visible, .neon-roster-header button:focus-visible { outline: 2px solid var(--hierarchy-accent); outline-offset: 4px; }
+@keyframes neon-roster-enter { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 1000px) { .neon-tree-leaf { width: calc((100% - 40px) / 3); } }
+@media (max-width: 760px) { .neon-tree-leaf { width: calc((100% - 20px) / 2); } .neon-team-card { padding: 18px 15px; } }
+@media (max-width: 480px) { .neon-tree-leaf { width: 100%; max-width: 360px; } .neon-tree-branch { padding-inline: 16px; } .neon-tree-branch--connected { padding-top: 52px; } .neon-hierarchy-heading { margin-bottom: 32px; } .neon-team-card { min-height: 190px; } }
+@media (prefers-reduced-motion: reduce) { .neon-team-card, .neon-member, .neon-team-footer svg { transition: none; } .neon-team-card:hover, .neon-team-card.is-open, .neon-member:hover { transform: none; } .neon-roster-popout { animation: none; } }
