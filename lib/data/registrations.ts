@@ -1074,6 +1074,7 @@ export async function getRegistrationsQueue(params?: {
     .from("registrations")
     .select("*, event:events(title), payments(*)", { count: "exact" })
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
 
   if (params?.eventId) {
@@ -1111,14 +1112,38 @@ export async function getRegistrationsQueue(params?: {
   };
 }
 
-/**
- * Retrieves all archived deleted registrations (Top-6 Only).
- */
-export async function getDeletedRegistrations(): Promise<DeletedRegistration[]> {
+/** Load the complete event queue in bounded batches, beyond PostgREST's row cap. */
+export async function getFinanceRegistrations(eventId: string): Promise<Array<Registration & { payments?: Payment[] }>> {
   await requireStaffActionRole("finance");
-  const {data,error}=await createAdminSupabase().from("deleted_registrations").select("*").order("created_at",{ascending:false});
-  if(error) throw new Error(error.message);
-  return (data || []) as DeletedRegistration[];
+  if (!eventId) return [];
+  const result: Array<Registration & { payments?: Payment[] }> = [];
+  const seen = new Set<string>();
+  const limit = 500;
+  for (let page = 1; ; page++) {
+    const { registrations, totalCount } = await getRegistrationsQueue({ eventId, page, limit });
+    for (const registration of registrations) {
+      if (!seen.has(registration.id)) { result.push(registration); seen.add(registration.id); }
+    }
+    if (!registrations.length || page * limit >= totalCount) break;
+  }
+  return result;
+}
+
+/** Retrieves the selected event's archived registrations in bounded batches. */
+export async function getDeletedRegistrations(eventId?: string): Promise<DeletedRegistration[]> {
+  await requireStaffActionRole("finance");
+  const result: DeletedRegistration[] = [];
+  const db = createAdminSupabase();
+  for (let offset = 0; ; offset += 500) {
+    let query = db.from("deleted_registrations").select("*", { count: "exact" })
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).range(offset, offset + 499);
+    if (eventId) query = query.eq("event_id", eventId);
+    const { data, error, count } = await query;
+    if (error) throw new Error(error.message);
+    result.push(...(data || []) as DeletedRegistration[]);
+    if (!data?.length || offset + 500 >= (count ?? 0)) break;
+  }
+  return result;
 }
 
 /**

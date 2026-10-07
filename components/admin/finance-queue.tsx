@@ -37,6 +37,8 @@ import {
 import { useScrollLock } from "@/lib/utils/scroll-lock";
 
 import { EmailOperations } from "@/components/admin/email-operations";
+import { RegistrationPagination } from "@/components/admin/registration-pagination";
+import { filterFinanceRegistrations, paginateRegistrations } from "@/lib/utils/registration-pagination";
 
 interface FinanceQueueProps {
   initialRegistrations: Array<Registration & { payments?: Payment[]; event?: { title: string } }>;
@@ -71,13 +73,16 @@ export function FinanceQueue({
   }, [initialDeletedRegistrations]);
 
   // Filters & Search
-  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showArchivedTab, setShowArchivedTab] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [branchFilterDropdownOpen, setBranchFilterDropdownOpen] = useState(false);
   const branchFilterDropdownRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState(50);
+  const [pagination, setPagination] = useState({ key: "", page: 1 });
+  const listTopRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -131,39 +136,21 @@ export function FinanceQueue({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Filtered registrations
-  const filtered = registrations.filter((reg) => {
-    // Status
-    if (statusFilter !== "all" && reg.registration_status !== statusFilter) {
-      return false;
-    }
-
-    // Source
-    if (sourceFilter !== "all" && (reg.registration_source || "online") !== sourceFilter) {
-      return false;
-    }
-
-    // Branch
-    if (branchFilter !== "all" && reg.branch_name !== branchFilter) {
-      return false;
-    }
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const p = reg.payments?.[0];
-      const match =
-        reg.full_name.toLowerCase().includes(q) ||
-        reg.vit_registration_number.toLowerCase().includes(q) ||
-        reg.personal_email.toLowerCase().includes(q) ||
-        reg.college_email.toLowerCase().includes(q) ||
-        reg.registration_number.toLowerCase().includes(q) ||
-        (p && p.transaction_id.toLowerCase().includes(q));
-      if (!match) return false;
-    }
-
-    return true;
+  // Filter the complete event before slicing the displayed page.
+  const filtered = filterFinanceRegistrations(registrations, {
+    status: statusFilter, source: sourceFilter, branch: branchFilter, search: searchQuery,
   });
+  const paginationKey = JSON.stringify([showArchivedTab, statusFilter, sourceFilter, branchFilter, searchQuery, pageSize]);
+  useEffect(() => {
+    setPagination({ key: paginationKey, page: 1 });
+  }, [paginationKey]);
+  const requestedPage = pagination.key === paginationKey ? pagination.page : 1;
+  const activePage = paginateRegistrations(filtered, requestedPage, pageSize);
+  const archivedPage = paginateRegistrations(deletedRegistrations, requestedPage, pageSize);
+  const visiblePage = showArchivedTab ? archivedPage : activePage;
+  const paging = <RegistrationPagination {...visiblePage}
+    onPageChange={page => { setPagination({ key: paginationKey, page }); listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+    onPageSizeChange={size => { setPageSize(size); setPagination({ key: "", page: 1 }); listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />;
 
   const pendingCount = registrations.filter((r) => r.registration_status === "pending").length;
   const verifiedCount = registrations.filter((r) => r.registration_status === "verified").length;
@@ -367,7 +354,7 @@ export function FinanceQueue({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-white">Student Registration Submissions</h2>
-          <p className="text-xs text-zinc-400">All submissions link automatically to the active event.</p>
+          <p className="text-xs text-zinc-400">All registrations for {activeEvent?.title || "the selected event"}. Search and totals cover the complete list.</p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
@@ -545,6 +532,8 @@ export function FinanceQueue({
         </div>
       )}
 
+      <div ref={listTopRef} className="scroll-mt-40">{paging}</div>
+
       {/* Archived / Deleted Registrations Vault View */}
       {showArchivedTab ? (
         <div className="space-y-4">
@@ -569,7 +558,7 @@ export function FinanceQueue({
               No deleted registrations in the archive.
             </div>
           ) : (
-            deletedRegistrations.map((del) => (
+            archivedPage.rows.map((del) => (
               <div
                 key={del.id}
                 className="rounded-2xl border border-red-900/30 bg-gradient-to-r from-[#170e0e] to-[#0f0a0a] p-5 transition space-y-3"
@@ -639,7 +628,7 @@ export function FinanceQueue({
             No registrations found matching the current filters.
           </div>
         ) : (
-          filtered.map((reg) => {
+          activePage.rows.map((reg) => {
             const payment = reg.payments?.[0];
             const isPendingItem = reg.registration_status === "pending";
 
@@ -822,6 +811,8 @@ export function FinanceQueue({
         )}
       </div>
       )}
+
+      {visiblePage.total > 0 && paging}
 
       {/* Screenshot Preview Modal */}
       {selectedScreenshot && (

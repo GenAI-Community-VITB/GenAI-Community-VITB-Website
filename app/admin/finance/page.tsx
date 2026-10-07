@@ -1,5 +1,5 @@
 import { requireStaffRole } from "@/lib/auth/permissions";
-import { getRegistrationsQueue, getDeletedRegistrations } from "@/lib/data/registrations";
+import { getFinanceRegistrations, getDeletedRegistrations } from "@/lib/data/registrations";
 import { getActiveBranches } from "@/lib/data/events";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { FinanceQueue } from "@/components/admin/finance-queue";
@@ -23,11 +23,11 @@ export default async function FinancePage({searchParams}: {searchParams: Promise
   if(selectedId && !selected) throw new Error("Selected event not found.");
 
 
-  const [{ registrations }, branches, { data: activeEvent }, deletedRegistrations] = await Promise.all([
-    getRegistrationsQueue({eventId:selected?.id}),
+  const [registrations, branches, { data: activeEvent }, deletedRegistrations] = await Promise.all([
+    selected ? getFinanceRegistrations(selected.id) : Promise.resolve([]),
     getActiveBranches(),
     Promise.resolve({data:selected}),
-    getDeletedRegistrations(),
+    selected ? getDeletedRegistrations(selected.id) : Promise.resolve([]),
   ]);
 
   const branchNames = branches.map((b) => b.name);

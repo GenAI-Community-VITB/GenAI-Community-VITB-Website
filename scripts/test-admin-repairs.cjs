@@ -208,6 +208,51 @@ test('export paginates beyond 1000 rows and ignores revoked check-ins', async ()
   assert.ok(!result.csvContent.includes('Old scanner'));
 });
 
+test('finance loads all 1500 event registrations in stable batches and scopes archived entries', async () => {
+  const records=Array.from({length:1500},(_,i)=>({id:String(i),event_id:'selected'}));
+  const requests=[];let denied=false,failed=false;
+  const empty={};
+  const data=load('lib/data/registrations.ts',{
+    '@/lib/auth/permissions':{requireStaffActionRole:async role=>{assert.equal(role,'finance');if(denied)throw Error('Forbidden');}},
+    '@/lib/supabase/admin':{createAdminSupabase:()=>({from:table=>{
+      const request={table,order:[],eventId:null,range:null};requests.push(request);
+      const q={select:()=>q,order:field=>{request.order.push(field);return q;},range:(a,b)=>{request.range=[a,b];return q;},eq:(field,value)=>{assert.equal(field,'event_id');request.eventId=value;return q;},then:resolve=>resolve({data:failed?null:records.slice(request.range[0],request.range[1]+1),count:records.length,error:failed?{message:'Database unavailable'}:null})};return q;
+    }})},
+    '@/lib/validation':empty,'@/lib/qr/generator':empty,'@/lib/email/mailer':empty,'@/lib/email/templates':empty,
+    '@/lib/google/sheets':empty,'@/lib/google/drive':empty,'@/lib/data/audit':empty,'@/lib/utils/format':empty,'@/lib/data/events':empty,
+  });
+  denied=true;await assert.rejects(data.getFinanceRegistrations('selected'),/Forbidden/);assert.equal(requests.length,0);
+  denied=false;
+  const result=await data.getFinanceRegistrations('selected');
+  assert.equal(result.length,1500);assert.equal(new Set(result.map(r=>r.id)).size,1500);
+  assert.deepEqual(requests.map(r=>r.range),[[0,499],[500,999],[1000,1499]]);
+  assert.ok(requests.every(r=>r.eventId==='selected'&&r.order.join(',')==='created_at,id'));
+  requests.length=0;
+  assert.equal((await data.getDeletedRegistrations('selected')).length,1500);
+  assert.ok(requests.every(r=>r.table==='deleted_registrations'&&r.eventId==='selected'));
+  requests.length=0;assert.deepEqual(await data.getFinanceRegistrations(''),[]);assert.equal(requests.length,0);
+  failed=true;await assert.rejects(data.getFinanceRegistrations('selected'),/Database unavailable/);
+});
+
+test('registration paging exposes every record, clamps shrinking last pages and filters beyond page one', () => {
+  const {paginateRegistrations:paginate,filterFinanceRegistrations:filter}=load('lib/utils/registration-pagination.ts');
+  const rows=Array.from({length:1500},(_,i)=>({id:String(i),full_name:`Student ${i}`,vit_registration_number:null,personal_email:null,college_email:null,registration_number:`REG${i}`,registration_status:i%2?'pending':'verified',registration_source:'online',branch_name:'CSE',payments:[{transaction_id:`UTR${i}`}]}));
+  for(const size of [10,25,50]){
+    const found=[];
+    for(let page=1;page<=Math.ceil(rows.length/size);page++){const slice=paginate(rows,page,size);assert.ok(slice.rows.length<=50);found.push(...slice.rows.map(r=>r.id));}
+    assert.deepEqual(found,rows.map(r=>r.id));
+  }
+  const last=paginate(rows.slice(0,159),4,50);
+  assert.equal(last.first,151);assert.equal(last.last,159);assert.equal(last.rows.length,9);
+  const reduced=paginate(rows.slice(0,150),4,50);assert.equal(reduced.page,3);assert.equal(reduced.rows.length,50);
+  assert.equal(paginate([],10,50).first,0);assert.equal(paginate([],10,50).page,1);
+  assert.equal(paginate(rows,-1,5000).rows.length,50);
+  const matched=filter(rows,{status:'all',source:'all',branch:'all',search:'UTR1499'});
+  assert.deepEqual(matched.map(r=>r.id),['1499']);
+  assert.equal(filter(rows,{status:'verified',source:'online',branch:'CSE',search:''}).length,750);
+  assert.deepEqual(filter(rows,{status:'all',source:'all',branch:'all',search:'not present'}),[]);
+});
+
 test('login verifies the submitted challenge and Auth password, then refuses a disabled profile', async () => {
   let captchaValid=true, profileEnabled=true, authCalls=0, signouts=0, receivedToken;
   const notifications=[];
