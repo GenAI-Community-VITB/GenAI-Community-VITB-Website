@@ -3,7 +3,10 @@ import { randomInt, createHmac } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { requireStaffActionRole, assertCanManageStaff } from "@/lib/auth/permissions";
+import { STAFF_PROFILE_FIELDS } from "@/lib/auth/permissions";
+import { requireCommunityMemberActor, assertCanManageCommunityStaff } from "@/lib/auth/member-management-server";
+import { canManageMemberCredentials, isCommunityExecutive, ledTeamIds } from "@/lib/auth/member-management";
+import type { UserProfile } from "@/lib/types";
 import { enforceAuthLimit } from "@/lib/security/auth-rate-limit";
 import { sendEmail } from "@/lib/email/mailer";
 import { getOTPEmailTemplate } from "@/lib/email/templates";
@@ -70,24 +73,31 @@ export async function submitPasswordResetQuery(formData:FormData) {
   return {success:true,message:"Your request has been submitted."};
 }
 export async function getPasswordResetQueries():Promise<PasswordResetQuery[]> {
-  await requireStaffActionRole("tech");
-  const {data,error}=await createAdminSupabase().from("password_reset_requests").select("*").order("created_at",{ascending:false}).limit(500);
+  const actor = await requireCommunityMemberActor();
+  if (!isCommunityExecutive(actor.profile) && !ledTeamIds(actor.profile).length) throw new Error("Only team leads and executives may view reset requests.");
+  const db = createAdminSupabase();
+  const profiles = await db.from("user_profiles").select(STAFF_PROFILE_FIELDS);
+  if (profiles.error) throw new Error(profiles.error.message);
+  const emails = (profiles.data as UserProfile[] || []).filter(p => canManageMemberCredentials(actor.profile, p)).map(p => p.email);
+  if (!emails.length) return [];
+  const {data,error}=await db.from("password_reset_requests").select("*").in("email", emails).order("created_at",{ascending:false}).limit(500);
   if (error) throw new Error(error.message);
   return data as PasswordResetQuery[];
 }
 export async function resolvePasswordResetQueryAction(formData:FormData) {
-  const {user}=await requireStaffActionRole("tech");
+  const {user}=await requireCommunityMemberActor();
   const db=createAdminSupabase();
   const id=String(formData.get("query_id") || "");
   const action=String(formData.get("action_type") || "");
   if (!["approve","reject"].includes(action)) throw new Error("Invalid action.");
   const {data:request,error}=await db.from("password_reset_requests").select("*").eq("id",id).eq("status","pending").single();
   if (error || !request) throw new Error("Pending request not found.");
+  const target=await db.from("user_profiles").select("id").eq("email",request.email).single();
+  if (target.error || !target.data) throw new Error("Account not found.");
+  // Approval AND rejection must recheck the current target team on the server.
+  await assertCanManageCommunityStaff(target.data.id);
   let newPassword:string|undefined;
   if (action==="approve") {
-    const target=await db.from("user_profiles").select("id").eq("email",request.email).single();
-    if (target.error) throw new Error("Account not found.");
-    await assertCanManageStaff(target.data.id);
     const {resetStaffPasswordAction}=await import("@/app/admin/events-actions");
     newPassword=(await resetStaffPasswordAction(target.data.id,String(formData.get("new_password") || "") || undefined)).newPassword;
   }

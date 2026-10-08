@@ -1,10 +1,12 @@
-import { requireStaffActionRole, assertCanManageStaff, isTop6Admin } from "@/lib/auth/permissions";
+import { requireStaffActionRole } from "@/lib/auth/permissions";
+import { isCommunityExecutive } from "@/lib/auth/member-management";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { decryptTemporaryPassword, encryptTemporaryPassword } from "@/lib/security/temporary-password";
+import { assertCanManageCommunityStaff } from "@/lib/auth/member-management-server";
 
 export async function requireCredentialExecutive() {
-  const actor = await requireStaffActionRole("tech");
-  if (!isTop6Admin(actor.role, actor.profile.roles)) throw new Error("Only Supreme Council and Top Executive accounts can issue, reveal or email temporary passwords.");
+  const actor = await requireStaffActionRole("volunteer");
+  if (!isCommunityExecutive(actor.profile)) throw new Error("Only Supreme Council and explicitly assigned Top Executives can manage credentials across teams.");
   return actor;
 }
 
@@ -17,8 +19,7 @@ export async function saveTemporaryPassword(userId: string, password: string, ac
 }
 
 export async function getTemporaryCredential(userId: string) {
-  const actor = await requireCredentialExecutive();
-  const { target } = await assertCanManageStaff(userId);
+  const { actor, target } = await assertCanManageCommunityStaff(userId);
   const db = createAdminSupabase();
   // Read the current login address from Auth, not a stale client/profile value.
   const auth = await db.auth.admin.getUserById(userId);

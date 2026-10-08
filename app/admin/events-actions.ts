@@ -10,9 +10,7 @@ import {
   STAFF_PROFILE_FIELDS,
   getAuthenticatedStaff,
   isExecutiveLeader,
-  isSupremeExecutive,
   isExecutiveAccount,
-  isTop6Admin,
   isTeamLoginAllowed,
 } from "@/lib/auth/permissions";
 import { reviewPayment, sendCustomStaffEmail } from "@/lib/data/registrations";
@@ -23,6 +21,8 @@ import type { UserProfile } from "@/lib/types";
 import { requireCredentialExecutive, saveTemporaryPassword, getTemporaryCredential } from "@/lib/data/staff-credentials";
 import { encryptTemporaryPassword } from "@/lib/security/temporary-password";
 import { getStaffCredentialsTemplate } from "@/lib/email/templates";
+import { assertCommunityMemberCreation, canManageMemberCredentials, isCommunityExecutive, isCommunitySupreme, ledTeamIds, canonicalMemberTeam } from "@/lib/auth/member-management";
+import { requireCommunityMemberActor, assertCanManageCommunityStaff } from "@/lib/auth/member-management-server";
 
 /**
  * Reviews a student registration payment (Approve/Reject) from Finance or Tech portal.
@@ -170,10 +170,10 @@ export async function updateEventConfigurationAction(formData: FormData) {
 }
 
 /**
- * Tech-only: Creates or updates a staff user (Tech, Finance, Volunteer) with safe guard against deleting last Tech lead.
+ * Creates or updates staff accounts within the actor's member-management scope.
  */
 export async function upsertStaffUserAction(formData: FormData) {
-  const actor = await requireStaffActionRole("tech");
+  const actor = await requireCommunityMemberActor();
   const db = createAdminSupabase();
   let id = String(formData.get("id") || "").trim();
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -182,11 +182,17 @@ export async function upsertStaffUserAction(formData: FormData) {
   const isActive = ["on", "true"].includes(String(formData.get("is_active")));
   const roles = JSON.parse(String(formData.get("roles_json") || "[]"));
   if (!Array.isArray(roles) || roles.some(r => !r.team || !r.position)) throw new Error("Invalid team assignments.");
-  if (isExecutiveAccount(role, roles) && !isSupremeExecutive(actor.role, actor.profile.roles)) throw new Error("Only executive leadership can grant executive roles.");
+  if (!id) assertCommunityMemberCreation(actor.profile, { role: role as UserProfile["role"], roles });
+  if (id && !isCommunityExecutive(actor.profile)) {
+    if (roles.some(r => !canonicalMemberTeam(r.team) || !ledTeamIds(actor.profile).includes(canonicalMemberTeam(r.team)!))) throw new Error("Member assignments must stay within the teams you lead.");
+    const { target } = await assertCanManageCommunityStaff(id);
+    if (role !== target.role || JSON.stringify(roles.map(r => [r.team,r.position]).sort()) !== JSON.stringify((target.roles || []).map(r => [r.team,r.position]).sort())) throw new Error("Only executives may change existing account roles or team assignments.");
+  }
+  if (isExecutiveAccount(role, roles) && !isCommunitySupreme(actor.profile)) throw new Error("Only council leadership can grant executive roles.");
   if (role === "superadmin" && actor.role !== "superadmin") throw new Error("Only a system administrator can grant this role.");
   const suppliedPassword = String(formData.get("password") || "");
   if (!id || suppliedPassword) {
-    await requireCredentialExecutive();
+    if (suppliedPassword && !canManageMemberCredentials(actor.profile, { role: role as UserProfile["role"], roles })) throw new Error("Only your team lead or an executive can set this member's password.");
     encryptTemporaryPassword(id || "new-account", suppliedPassword || "configuration-check");
   }
   if (suppliedPassword && suppliedPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
@@ -195,7 +201,7 @@ export async function upsertStaffUserAction(formData: FormData) {
   let created = false;
   let generatedPassword: string | undefined;
   if (id) {
-    const { target } = await assertCanManageStaff(id);
+    const { target } = await assertCanManageCommunityStaff(id);
     if (target.email.toLowerCase() !== email) throw new Error("Login email cannot be changed here. Provision a replacement account instead.");
     if (isExecutiveAccount(target.role, target.roles) && (!isActive || !isExecutiveAccount(role, roles))) throw new Error("Executive accounts cannot be disabled or demoted here.");
   } else {
@@ -230,11 +236,11 @@ export async function upsertStaffUserAction(formData: FormData) {
     generatedPassword = suppliedPassword;
   }
   revalidatePath("/admin/users");
-  return { success: true, id, generatedPassword, email };
+  return { success: true, id, generatedPassword: canManageMemberCredentials(actor.profile, { role: role as UserProfile["role"], roles }) ? generatedPassword : undefined, email };
 }
 
 export async function disableStaffLoginAction(userId: string, reason: string) {
-  const { actor, target } = await assertCanManageStaff(userId);
+  const { actor, target } = await assertCanManageCommunityStaff(userId);
   if (actor.user.id === userId || isExecutiveAccount(target.role, target.roles)) throw new Error("Executive and own accounts cannot be disabled here.");
   if (reason.trim().length < 3) throw new Error("Provide a reason.");
   const { error } = await createAdminSupabase().from("user_profiles").update({ is_login_disabled: true, login_disabled_at: new Date().toISOString(), login_disabled_reason: reason }).eq("id", userId).select("id").single();
@@ -248,8 +254,7 @@ export const voidStaffUserAction = disableStaffLoginAction;
  * Admin Action: Enables login access for a staff member profile, restores active status, and assigns/synchronizes credentials.
  */
 export async function enableStaffLoginAction(userId: string, customPassword?: string) {
-  const actor = await requireCredentialExecutive();
-  const { target } = await assertCanManageStaff(userId);
+  const { actor, target } = await assertCanManageCommunityStaff(userId);
   const db = createAdminSupabase();
   const assignment = await db.from("event_volunteers").select("id").eq("user_id", userId).limit(1);
   if (assignment.error) throw new Error(assignment.error.message);
@@ -329,11 +334,10 @@ export async function updateMemberGitHubUrlAction(userId: string, githubUrl: str
 
 /**
  * Enforces the Club Login Policy:
- * Logins are active ONLY for President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team.
- * For all other accounts, login is disabled.
+ * Enables eligible staff and assigned event volunteers; disables ineligible accounts.
  */
 export async function enforceTeamLoginPolicyAction(): Promise<{success:boolean;enabledCount:number;disabledCount:number;error?:string}> {
-  await requireStaffActionRole("superadmin");
+  await requireCredentialExecutive();
   const db=createAdminSupabase();
   const profiles=await db.from("user_profiles").select(STAFF_PROFILE_FIELDS);
   const assignments=await db.from("event_volunteers").select("user_id");
@@ -351,7 +355,7 @@ export async function enforceTeamLoginPolicyAction(): Promise<{success:boolean;e
 }
 
 export async function toggleStaffUserActiveAction(userId: string, _currentActive: boolean) {
-  const { actor, target } = await assertCanManageStaff(userId);
+  const { actor, target } = await assertCanManageCommunityStaff(userId);
   if (actor.user.id === userId || isExecutiveAccount(target.role, target.roles)) throw new Error("Executive and own accounts cannot be deactivated here.");
   const { error } = await createAdminSupabase().from("user_profiles").update({ is_active: !target.is_active }).eq("id", userId).eq("is_active", target.is_active).select("id").single();
   if (error) throw new Error(error.message);
@@ -508,8 +512,7 @@ export async function getMyAccountInfoAction() {
  * Top-6 only: Resets a staff member's password and stores the new password.
  */
 export async function resetStaffPasswordAction(userId: string, customPassword?: string) {
-  const actor = await requireCredentialExecutive();
-  await assertCanManageStaff(userId);
+  const { actor } = await assertCanManageCommunityStaff(userId);
   const newPassword = customPassword || randomBytes(24).toString("base64url");
   if (newPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
   encryptTemporaryPassword(userId, newPassword);
@@ -729,7 +732,7 @@ export async function sendStaffCredentialsEmailAction(userId: string) {
 }
 
 export async function broadcastAllEnabledStaffCredentialsAction() {
-  const { user, profile, role } = await requireStaffActionRole("superadmin");
+  const { user, profile, role } = await requireCredentialExecutive();
   const supabase = createAdminSupabase();
 
   // Query all enabled staff members

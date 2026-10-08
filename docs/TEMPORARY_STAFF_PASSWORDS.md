@@ -2,6 +2,10 @@
 
 Supreme Council and Top Executive accounts can issue and reveal temporary staff passwords in **Admin → Users**. Existing protections on executive target accounts still apply: only supreme executives can manage those targets, and the system-administrator account retains its additional restriction.
 
+Core members can add core-member accounts to their assigned teams. The server generates and stores the temporary password without returning it to the core member. Leads and co-leads can reveal, reset, email, enable or disable ordinary accounts only when every team assigned to the target account is a team they lead. Their reset-request lists use the same scope; both approval and rejection recheck authorization. Cross-team accounts and protected executive accounts require executive/council handling. Leads cannot change existing roles or team assignments, or create privileged accounts.
+
+Access follows the saved primary role and team assignments, not the display name. Legacy department lead roles imply their corresponding team, but do not grant global credential access. Explicit council and Top Executive assignments retain wider access. The users page filters the directory before sending data to the browser. Existing disabled accounts are not automatically enabled by this permission update.
+
 - Account creation, enabling login, and admin password resets save an encrypted temporary password.
 - **Show** fetches the saved value on demand, including after a browser refresh. Passwords are not included in the users-page payload.
 - **Email** sends the current Supabase Auth email and saved temporary password to that same address. The public login link is `https://www.genaiclubvitb.in/admin/login`.

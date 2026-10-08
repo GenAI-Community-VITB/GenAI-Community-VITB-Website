@@ -23,7 +23,7 @@ export function isExecutiveAccount(role?: string | null, roles?: MemberRoleAssig
   return isTop6Admin(role, roles) || executiveRoles(role, roles).some(r => ["general_secretary", "general_secretary_provisional", "joint_secretary", "assistant_secretary", "student_coordinator"].includes(r));
 }
 export function isTeamLoginAllowed(role?: string | null, roles: MemberRoleAssignment[] = [], _email?: string | null) {
-  return isTop6Admin(role, roles) || ["tech", "finance", "finance_lead", "hr", "aiml"].includes(normalize(role)) || roles.some(r => ["technical", "technical_team", "aiml", "aiml_innovation_team", "finance", "finance_team", "hr", "human_resources"].includes(normalize(r.team)));
+  return isTop6Admin(role, roles) || ["tech", "finance", "finance_lead", "hr", "aiml", "core", "core_member", "lead", "co_lead"].includes(normalize(role)) || roles.some(r => ["core_member", "lead", "co_lead"].includes(normalize(r.position)) || ["technical", "technical_team", "aiml", "aiml_innovation_team", "finance", "finance_team", "hr", "human_resources"].includes(normalize(r.team)));
 }
 export const ROLE_HIERARCHY: Record<string, number> = { member: 5, volunteer: 10, core: 10, core_member: 10, event_volunteer: 10, coordinator: 15, hr: 10, finance: 20, finance_lead: 20, event_management_lead: 25, event_head: 25, tech: 30, aiml: 10 };
 export function hasRole(role: string | null | undefined, required: string, roles: MemberRoleAssignment[] = []) {

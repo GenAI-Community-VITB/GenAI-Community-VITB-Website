@@ -20,6 +20,119 @@ function load(file, mocks = {}) {
 }
 
 const roles = load('lib/auth/roles.ts');
+const memberPolicy = load('lib/auth/member-management.ts');
+const memberProfile = (role, team, position = 'core_member') => ({ role, roles: team ? [{ team, position }] : [] });
+
+test('core additions and lead credential management stay within assigned teams without executive escalation', () => {
+  const core = memberProfile('core_member','design_team');
+  const lead = memberProfile('lead','design_team','lead');
+  const peer = memberProfile('core_member','content_team');
+  assert.equal(memberPolicy.canAddCommunityMember(core),true);
+  assert.doesNotThrow(()=>memberPolicy.assertCommunityMemberCreation(core,core));
+  for(const invalid of [peer, memberProfile('top_executive','design_team'),memberProfile('core_member','design_team','lead'),memberProfile('core_member','panel'),memberProfile('core_member')]) assert.throws(()=>memberPolicy.assertCommunityMemberCreation(core,invalid));
+  assert.equal(memberPolicy.canManageMemberCredentials(core,core),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(lead,core),true);
+  assert.equal(memberPolicy.canManageMemberCredentials(lead,peer),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(memberProfile('co_lead','design_team','co_lead'),core),true);
+  const technicalLead=memberProfile('technical_lead');
+  assert.equal(memberPolicy.isCommunityExecutive(technicalLead),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(technicalLead,memberProfile('core_member','technical_team')),true);
+  assert.equal(memberPolicy.canManageMemberCredentials(technicalLead,peer),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(lead,{...core,roles:[...core.roles,...peer.roles]}),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(lead,memberProfile('system_council','design_team')),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(memberProfile('top_executive'),peer),true);
+  assert.equal(memberPolicy.canManageMemberCredentials(memberProfile('top_executive'),memberProfile('technical_lead')),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(memberProfile('system_council'),memberProfile('superadmin')),false);
+  assert.equal(memberPolicy.canManageMemberCredentials(memberProfile('core_member','technical'),memberProfile('core_member','technical_team')),false);
+  assert.equal(roles.isTeamLoginAllowed('core_member',[{team:'design_team',position:'core_member'}]),true);
+});
+
+test('member directory renders Add Member for cores and credential controls only for authorized targets', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const { UserManagement } = load('components/admin/user-management.tsx', {
+    '@/app/admin/events-actions': {}, '@/lib/data/password-resets': {},
+    '@/lib/utils/scroll-lock': { useScrollLock() {} },
+    '@/components/ui/custom-dropdown': { CustomDropdown: () => null },
+  });
+  const own = { id: 'own', full_name: 'Own Team Member', email: 'own@example.invalid', is_active: true, ...memberProfile('core_member', 'design_team') };
+  const other = { ...own, id: 'other', full_name: 'Other Team Member', ...memberProfile('core_member', 'content_team') };
+  const render = (actor, users) => renderToStaticMarkup(React.createElement(UserManagement, { users, currentUserId: 'actor', currentUserRole: actor.role, currentUserAssignments: actor.roles, isSupremeLeader: false }));
+  const core = render(memberProfile('core_member', 'design_team'), [own]);
+  assert.match(core, /Add Member/);
+  assert.doesNotMatch(core, /Reset Requests|>Show<|>Email</);
+  const lead = render(memberProfile('lead', 'design_team', 'lead'), [own]);
+  assert.match(lead, /Reset Requests/);
+  assert.match(lead, />Show</);
+  assert.match(lead, />Email</);
+  const foreign = render(memberProfile('lead', 'design_team', 'lead'), [other]);
+  assert.doesNotMatch(foreign, />Show<|>Email</);
+});
+
+test('core member account creation rejects forged roles and stores but does not reveal the generated password', async () => {
+  let creates=0, saved=0, suppliedToAuth;
+  const actor={user:{id:'actor'},profile:memberProfile('core_member','design_team'),role:'core_member'};
+  const empty={};
+  const actions=load('app/admin/events-actions.ts',{
+    'next/cache':{revalidatePath(){}},
+    '@/lib/auth/member-management-server':{requireCommunityMemberActor:async()=>actor},
+    '@/lib/auth/permissions':roles,
+    '@/lib/supabase/admin':{createAdminSupabase:()=>({
+      auth:{admin:{createUser:async input=>{creates++;suppliedToAuth=input.password;return {data:{user:{id:'11111111-1111-4111-8111-111111111111'}}};}}},
+      rpc:async (name,args)=>{assert.equal(name,'save_staff_profile');assert.equal(args.p_profile.role,'core_member');return {error:null};},
+    })},
+    '@/lib/data/staff-credentials':{saveTemporaryPassword:async (id,password,actorId)=>{saved++;assert.equal(password,suppliedToAuth);assert.equal(actorId,'actor');}},
+    '@/lib/security/temporary-password':{encryptTemporaryPassword:()=> 'encrypted'},
+    '@/lib/validation':{userManagementSchema:{safeParse:()=>({success:true})}},
+    '@/lib/data/registrations':empty,'@/lib/google/drive':empty,'@/lib/data/audit':empty,
+  });
+  const form=new FormData();
+  form.set('email','test@example.invalid');form.set('full_name','Test Member');form.set('is_active','true');
+  form.set('role','top_executive');form.set('roles_json',JSON.stringify([{team:'design_team',position:'core_member'}]));
+  await assert.rejects(actions.upsertStaffUserAction(form),/privileged roles/);assert.equal(creates,0);
+  form.set('role','core_member');form.set('password','Known-password-123');
+  await assert.rejects(actions.upsertStaffUserAction(form),/Only your team lead/);assert.equal(creates,0);
+  form.delete('password');
+  const result=await actions.upsertStaffUserAction(form);
+  assert.equal(result.success,true);assert.equal(creates,1);assert.equal(saved,1);assert.equal(result.generatedPassword,undefined);
+  assert.ok(suppliedToAuth.length>=24);
+});
+
+test('reset requests are filtered before returning and both approve and reject recheck target teams', async () => {
+  let actor={user:{id:'actor'},profile:memberProfile('lead','design_team','lead')};
+  const profiles=[{id:'own',email:'own@example.invalid',...memberProfile('core_member','design_team')},{id:'other',email:'other@example.invalid',...memberProfile('core_member','content_team')}];
+  let requestedId='other', writes=0, resets=0, scopedEmails;
+  const mocks={
+    'next/cache':{revalidatePath(){}},'next/headers':{},
+    '@/lib/auth/permissions':{STAFF_PROFILE_FIELDS:'id,email,role,roles'},
+    '@/lib/auth/member-management-server':{
+      requireCommunityMemberActor:async()=>actor,
+      assertCanManageCommunityStaff:async id=>{const target=profiles.find(p=>p.id===id);if(!memberPolicy.canManageMemberCredentials(actor.profile,target))throw Error('Outside team scope');return {actor,target};},
+    },
+    '@/lib/supabase/admin':{createAdminSupabase:()=>({from:table=>{
+      const filters={};let updating=false;
+      const query={select:()=>query,eq:(field,value)=>{filters[field]=value;return query;},in:(field,values)=>{assert.equal(field,'email');scopedEmails=values;return query;},order:()=>query,limit:()=>query,
+        update:()=>{updating=true;writes++;return query;},
+        single:async()=>({data:updating?{id:requestedId}:table==='user_profiles'?profiles.find(p=>p.email===filters.email):{id:requestedId,email:profiles.find(p=>p.id===requestedId).email,status:'pending'}}),
+        then:resolve=>resolve({data:table==='user_profiles'?profiles:profiles.filter(p=>scopedEmails.includes(p.email)).map(p=>({id:p.id,email:p.email,status:'pending'}))}),
+      };return query;
+    }})},
+    '@/lib/security/auth-rate-limit':{},'@/lib/email/mailer':{},
+    '@/app/admin/events-actions':{resetStaffPasswordAction:async()=>{resets++;return {newPassword:'Synthetic-123!'};}},
+  };
+  const actions=load('lib/data/password-resets.ts',mocks);
+  assert.deepEqual((await actions.getPasswordResetQueries()).map(r=>r.id),['own']);
+  assert.deepEqual(scopedEmails,['own@example.invalid']);
+  const form=new FormData();form.set('query_id','other');
+  for(const action of ['approve','reject']){form.set('action_type',action);await assert.rejects(actions.resolvePasswordResetQueryAction(form),/team scope/);}
+  assert.equal(writes,0);assert.equal(resets,0);
+  requestedId='own';form.set('query_id','own');form.set('action_type','approve');
+  assert.equal((await actions.resolvePasswordResetQueryAction(form)).success,true);assert.equal(resets,1);assert.equal(writes,1);
+  actor={...actor,profile:memberProfile('core_member','design_team')};
+  await assert.rejects(actions.getPasswordResetQueries(),/Only team leads/);
+  await assert.rejects(actions.resolvePasswordResetQueryAction(form),/team scope/);
+  assert.equal(writes,1);
+});
 
 test('temporary passwords encrypt with a unique nonce, bind to the user and reject tampering or missing keys', () => {
   const previous = process.env.STAFF_CREDENTIAL_ENCRYPTION_KEY;
@@ -41,9 +154,15 @@ test('temporary passwords encrypt with a unique nonce, bind to the user and reje
   }
 });
 
-test('only explicit executives can reveal saved temporary credentials and the email comes from current Auth', async () => {
+test('credential reads require target authorization and use the current Auth email', async () => {
   let role = 'tech', touched = 0, ciphertext = 'encrypted';
   const data = load('lib/data/staff-credentials.ts', {
+    '@/lib/auth/member-management-server': { assertCanManageCommunityStaff: async () => {
+      const actor={user:{id:'actor'},profile:memberProfile(role),role};
+      const target={id:'staff',email:'outdated@example.invalid',...memberProfile('core_member','technical_team')};
+      if(!memberPolicy.canManageMemberCredentials(actor.profile,target))throw Error('Outside team scope');
+      return {actor,target};
+    } },
     '@/lib/auth/permissions': {
       requireStaffActionRole: async () => ({ user: { id: 'actor' }, profile: { roles: [] }, role }),
       isTop6Admin: roles.isTop6Admin,
@@ -55,9 +174,9 @@ test('only explicit executives can reveal saved temporary credentials and the em
       from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: ciphertext ? { ciphertext } : null }) }) }) }),
     }; } },
   });
-  for (role of ['tech','core_member','lead','co_lead','finance','volunteer']) await assert.rejects(data.getTemporaryCredential('staff'), /Only Supreme Council/);
+  for (role of ['tech','core_member','lead','co_lead','finance','volunteer']) await assert.rejects(data.getTemporaryCredential('staff'), /team scope/);
   assert.equal(touched, 0);
-  for (role of ['system_council','top_executive','superadmin','vice_president']) {
+  for (role of ['system_council','top_executive','superadmin','vice_president','technical_lead']) {
     const result = await data.getTemporaryCredential('staff');
     assert.equal(result.password,'Temporary-only'); assert.equal(result.email,'current@example.invalid');
   }

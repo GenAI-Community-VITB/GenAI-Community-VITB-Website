@@ -9,6 +9,7 @@ import { isTop6Admin, getHumanReadableRole, getMemberAssignedName } from "@/lib/
 import type { Event } from "@/lib/types";
 import { redirect } from "next/navigation";
 import { getTeamHierarchy } from "@/lib/data/team-hierarchy";
+import { canAccessMemberDirectory } from "@/lib/auth/member-management";
 
 export const revalidate = 0;
 
@@ -77,6 +78,7 @@ export default async function AdminDashboardPage() {
     <AdminDashboardClient
       hierarchyLayout={hierarchyLayout}
       canManageContent={hasRole(role, "tech", profile.roles)}
+      canManageDirectory={canAccessMemberDirectory(profile)}
       blogCount={blogCountResult.count || 0}
       teams={teams ?? []}
       members={members ?? []}

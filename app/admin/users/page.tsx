@@ -1,4 +1,4 @@
-import { STAFF_PROFILE_FIELDS, requireStaffRole, isSupremeExecutive } from "@/lib/auth/permissions";
+import { STAFF_PROFILE_FIELDS, requireStaffRole } from "@/lib/auth/permissions";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { UserManagement } from "@/components/admin/user-management";
 import { ChangePasswordButton } from "@/components/admin/change-password-modal";
@@ -7,11 +7,14 @@ import { ArrowLeft, Users, ShieldCheck } from "lucide-react";
 import { Exec6Notifications } from "@/components/admin/exec6-notifications";
 import { AdminInactivityChip } from "@/components/admin/inactivity-timer";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { canAccessMemberDirectory, canViewCommunityMember, isCommunitySupreme } from "@/lib/auth/member-management";
 
 export const revalidate = 0;
 
 export default async function UsersPage() {
-  const { user, profile, role, isTop6 } = await requireStaffRole("tech");
+  const { user, profile, role, isTop6 } = await requireStaffRole("volunteer");
+  if (!canAccessMemberDirectory(profile)) redirect("/admin");
   const supabase = createAdminSupabase();
 
   const { data: users, error } = await supabase
@@ -20,7 +23,7 @@ export default async function UsersPage() {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  const isSupreme = isSupremeExecutive(role, profile.roles, profile.email || user.email);
+  const isSupreme = isCommunitySupreme(profile);
 
   return (
     <div style={{ zoom: "115%" }} className="min-h-screen bg-[#070707] text-white">
@@ -60,12 +63,12 @@ export default async function UsersPage() {
 
       <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         <UserManagement
-          users={(users as UserProfile[]) || []}
+          users={((users as UserProfile[]) || []).filter(target => target.id === user.id || canViewCommunityMember(profile, target))}
           currentUserId={user.id}
           currentUserRole={role}
           currentUserEmail={profile.email || user.email}
           isSupremeLeader={isSupreme}
-          canViewTemporaryPasswords={isTop6}
+          currentUserAssignments={profile.roles || []}
         />
       </main>
     </div>

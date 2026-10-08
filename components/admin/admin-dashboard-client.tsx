@@ -60,6 +60,7 @@ const tabs: { id: TabId; label: string; icon: any }[] = [
 export function AdminDashboardClient(props: {
   blogCount: number;
   canManageContent: boolean;
+  canManageDirectory?: boolean;
   teams: Team[];
   members: Member[];
   hierarchyLayout: HierarchyLayout | null;
@@ -292,10 +293,10 @@ export function AdminDashboardClient(props: {
             </Link>
 
             {/* Staff Directory & Audit Logs (for Top 6 or Tech) */}
-            {(props.canManageContent) && (
+            {(props.canManageContent || props.canManageDirectory) && (
               <>
                 {/* Community Members Management */}
-                <Link
+                {props.canManageDirectory && <Link
                   href="/admin/users"
                   className="group flex items-center justify-between rounded-xl border border-[#2a2216] bg-[#13100a] p-3 transition duration-200 hover:border-emerald-500 hover:bg-[#131710] hover:shadow-[0_4px_20px_rgba(52,211,153,0.12)]"
                 >
@@ -313,10 +314,10 @@ export function AdminDashboardClient(props: {
                     </div>
                   </div>
                   <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-zinc-600 group-hover:text-emerald-400 transition" />
-                </Link>
+                </Link>}
 
                 {/* Audit Logs */}
-                <Link
+                {props.canManageContent && <Link
                   href="/admin/audit"
                   className="group flex items-center justify-between rounded-xl border border-[#2a2216] bg-[#13100a] p-3 transition duration-200 hover:border-purple-500 hover:bg-[#17111a] hover:shadow-[0_4px_20px_rgba(168,85,247,0.12)]"
                 >
@@ -334,7 +335,7 @@ export function AdminDashboardClient(props: {
                     </div>
                   </div>
                   <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-zinc-600 group-hover:text-purple-400 transition" />
-                </Link>
+                </Link>}
               </>
             )}
           </div>

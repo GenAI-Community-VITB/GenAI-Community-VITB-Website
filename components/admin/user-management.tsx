@@ -14,6 +14,7 @@ import {
 } from "@/app/admin/events-actions";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
 import { STAFF_LOGIN_URL } from "@/lib/site-url";
+import { canAddCommunityMember, canManageMemberCredentials, isCommunityExecutive, memberTeamIds, ledTeamIds } from "@/lib/auth/member-management";
 import {
   UserProfile,
   UserRole,
@@ -21,6 +22,7 @@ import {
   TEAM_POSITIONS,
   ClubTeam,
   ClubPosition,
+  MemberRoleAssignment,
 } from "@/lib/types";
 import { CustomDropdown } from "@/components/ui/custom-dropdown";
 import {
@@ -68,7 +70,7 @@ interface UserManagementProps {
   currentUserRole?: string;
   currentUserEmail?: string;
   isSupremeLeader?: boolean;
-  canViewTemporaryPasswords?: boolean;
+  currentUserAssignments?: MemberRoleAssignment[];
 }
 
 export function MemberAvatar({
@@ -189,9 +191,15 @@ export function UserManagement({
   currentUserRole,
   currentUserEmail,
   isSupremeLeader: initialIsSupremeLeader,
-  canViewTemporaryPasswords = false,
+  currentUserAssignments = [],
 }: UserManagementProps) {
   const [userList, setUserList] = useState(users);
+  const actorProfile = { role: (currentUserRole || "member") as UserRole, roles: currentUserAssignments };
+  const globalMemberAdmin = isCommunityExecutive(actorProfile);
+  const canAddMembers = canAddCommunityMember(actorProfile);
+  const canViewTemporaryPasswords = globalMemberAdmin || ledTeamIds(actorProfile).length > 0;
+  const allowedTeams = CLUB_TEAMS.filter(t => globalMemberAdmin || memberTeamIds(actorProfile).includes(t.id));
+  const defaultTeam = (allowedTeams.find(t => ledTeamIds(actorProfile).includes(t.id)) || allowedTeams[0])?.id || "technical_team";
   const isSupremeLeader =
     initialIsSupremeLeader ??
     isSupremeExecutive(currentUserRole, [], currentUserEmail);
@@ -211,15 +219,16 @@ export function UserManagement({
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [assignedToName, setAssignedToName] = useState("");
-  const [primaryRole, setPrimaryRole] = useState<UserRole>("volunteer");
+  const [primaryRole, setPrimaryRole] = useState<UserRole>(globalMemberAdmin ? "volunteer" : "core_member");
   const [password, setPassword] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [githubUrl, setGithubUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [assignedRoles, setAssignedRoles] = useState<Array<{ team: ClubTeam; position: ClubPosition }>>([
-    { team: "technical_team", position: "core_member" },
+    { team: defaultTeam, position: "core_member" },
   ]);
+  const canSetFormPassword = canManageMemberCredentials(actorProfile, { role: primaryRole, roles: assignedRoles });
 
   // Generated Credentials Pop-up
   const [generatedCredentials, setGeneratedCredentials] = useState<{
@@ -338,13 +347,13 @@ export function UserManagement({
     setEmail("");
     setFullName("");
     setAssignedToName("");
-    setPrimaryRole("volunteer");
+    setPrimaryRole(globalMemberAdmin ? "volunteer" : "core_member");
     setPassword("");
     setIsActive(true);
     setGithubUrl("");
     setAvatarFile(null);
     setAvatarPreview(null);
-    setAssignedRoles([{ team: "technical_team", position: "core_member" }]);
+    setAssignedRoles([{ team: defaultTeam, position: "core_member" }]);
     setShowCreateModal(false);
     setActionError(null);
   }
@@ -380,7 +389,8 @@ export function UserManagement({
       setUserList(prev => prev.map(u => u.id === userId ? { ...u, password: null } : u));
       return;
     }
-    if (loadingPasswords[userId] || !canViewTemporaryPasswords) return;
+    const target = userList.find(u => u.id === userId);
+    if (loadingPasswords[userId] || !target || !canManageMemberCredentials(actorProfile, target)) return;
     setLoadingPasswords(prev => ({ ...prev, [userId]: true }));
     setActionError(null);
     try {
@@ -424,7 +434,7 @@ export function UserManagement({
   }
 
   function handleAddRoleSlot() {
-    setAssignedRoles([...assignedRoles, { team: "technical_team", position: "core_member" }]);
+    setAssignedRoles([...assignedRoles, { team: defaultTeam, position: "core_member" }]);
   }
 
   function handleRemoveRoleSlot(index: number) {
@@ -455,7 +465,7 @@ export function UserManagement({
         fd.append("full_name", fullName.trim());
         fd.append("assigned_to_name", submitAssignedTo);
         fd.append("role", primaryRole);
-        if (password) {
+        if (password && canSetFormPassword) {
           fd.append("password", password.trim());
         }
         fd.append("is_active", String(isActive));
@@ -468,7 +478,7 @@ export function UserManagement({
         }
 
         const res = await upsertStaffUserAction(fd);
-        const finalPw = res.generatedPassword || password || editingUser?.password;
+        const finalPw = res.generatedPassword || (canSetFormPassword ? password : undefined) || editingUser?.password;
 
         if (!editingUser && res.generatedPassword) {
           setGeneratedCredentials({
@@ -476,7 +486,7 @@ export function UserManagement({
             password: res.generatedPassword,
             assignedTo: submitAssignedTo,
           });
-        } else if (password) {
+        } else if (password && canSetFormPassword) {
           setGeneratedCredentials({
             email: email.trim().toLowerCase(),
             password: password.trim(),
@@ -583,7 +593,7 @@ export function UserManagement({
   function handleEnforceLoginPolicy() {
     if (
       !confirm(
-        "Enforce Active Team Logins:\n\nThis will enforce login access ONLY for President, Vice President, Tech Team, AIML Team, Finance Team, and HR Team accounts, and disable logins for everyone else.\n\nProceed?",
+        "Enforce Active Team Logins:\n\nThis enables eligible council, executive, core-member, lead, supported staff and assigned event-volunteer accounts, and disables ineligible accounts.\n\nProceed?",
       )
     )
       return;
@@ -593,7 +603,7 @@ export function UserManagement({
         const res = await enforceTeamLoginPolicyAction();
         if (res.success) {
           setActionSuccess(
-            `Team login policy enforced: ${res.enabledCount} accounts enabled (Pres, VP, Tech, AIML, Fin, HR), ${res.disabledCount} accounts disabled.`,
+            `Team login policy enforced: ${res.enabledCount} eligible accounts enabled, ${res.disabledCount} accounts disabled.`,
           );
           setTimeout(() => {
             window.location.reload();
@@ -687,7 +697,7 @@ export function UserManagement({
         <div>
           <h2 className="text-xl font-bold text-white">Club Member & Password Directory</h2>
           <p className="text-xs text-zinc-400">
-            Manage member access and team assignments. Executives can reveal saved temporary passwords until the member changes their password.
+            Add members to your teams. Leads manage temporary passwords and reset requests within their team scope; council and executives manage the wider directory.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -703,20 +713,20 @@ export function UserManagement({
             />
           </div>
 
-          {canViewTemporaryPasswords && (
+          {globalMemberAdmin && (
             <button
               type="button"
               onClick={handleEnforceLoginPolicy}
               disabled={isPending}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-[#221a0e] to-[#17120a] px-3.5 py-2 text-xs font-bold text-amber-300 hover:border-amber-400 hover:text-white transition shadow-sm shrink-0 cursor-pointer disabled:opacity-50"
-              title="Enforce login policy: President, VP, Tech, AIML, Finance, HR only"
+              title="Apply current staff and event-volunteer login eligibility"
             >
               <Shield className="h-4 w-4 text-[#f5b642]" />
               <span>Enforce Active Team Logins</span>
             </button>
           )}
 
-          {canViewTemporaryPasswords && (
+          {globalMemberAdmin && (
             <button
               type="button"
               onClick={handleBroadcastCredentials}
@@ -729,20 +739,20 @@ export function UserManagement({
             </button>
           )}
 
-          <button
+          {canViewTemporaryPasswords && <button
             type="button"
             onClick={handleOpenResetQueries}
             className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-500/40 bg-[#1f190e] px-4 py-2 text-xs font-bold text-amber-300 hover:bg-[#2e2413] transition shadow-sm shrink-0 cursor-pointer"
           >
             <KeyRound className="h-4 w-4 text-[#f5b642]" />
             <span>Reset Requests</span>
-          </button>
+          </button>}
 
-          {canViewTemporaryPasswords && <button
+          {canAddMembers && <button
             type="button"
             onClick={() => {
               resetForm();
-              generateRandomPassword();
+              if (canViewTemporaryPasswords) generateRandomPassword();
               setShowCreateModal(true);
             }}
             className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#f5b642] to-[#df9e28] px-4 py-2 text-xs font-bold text-black hover:brightness-110 transition shadow-[0_0_20px_rgba(245,182,66,0.25)] shrink-0 cursor-pointer"
@@ -950,7 +960,7 @@ export function UserManagement({
 
                   {/* Password Column */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap relative">
-                    {isVoided || !canViewTemporaryPasswords || (isExecutiveAccount(u.role, u.roles) && !isSupremeLeader) ? (
+                    {isVoided || !canManageMemberCredentials(actorProfile, u) ? (
                       <span className="text-zinc-600 font-mono text-xs italic">—</span>
                     ) : (
                       <div className="relative inline-flex items-center gap-1">
@@ -1056,7 +1066,7 @@ export function UserManagement({
 
                   {/* Actions */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap text-right">
-                    {(u.is_login_disabled || u.is_voided || !u.is_active) && canViewTemporaryPasswords && (
+                    {(u.is_login_disabled || u.is_voided || !u.is_active) && canManageMemberCredentials(actorProfile, u) && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1074,11 +1084,11 @@ export function UserManagement({
 
                     {!u.is_login_disabled && !u.is_voided && u.is_active && (() => {
                       const isExec = isExecutiveAccount(u.role, u.roles);
-                      const canEditTarget = !isExec || isSupremeLeader;
+                      const canEditTarget = canManageMemberCredentials(actorProfile, u);
 
                       return (
                         <div className="inline-flex items-center gap-1.5">
-                          {canViewTemporaryPasswords && (
+                          {canEditTarget && (
                             <button
                               type="button"
                               onClick={() => handleSendSingleCredentials(u.id, u.email)}
@@ -1104,7 +1114,7 @@ export function UserManagement({
                             <button
                               type="button"
                               disabled
-                              title="Only President, AI/ML Lead, and Technical Lead can modify Top Executive accounts"
+                              title="This account is outside your management scope or requires council authorization"
                               className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-2 py-1 text-xs font-semibold text-zinc-600 cursor-not-allowed opacity-60"
                             >
                               <Pencil className="h-3 w-3 inline mr-1" />
@@ -1113,7 +1123,7 @@ export function UserManagement({
                           )}
 
                           {/* Disable Login button ONLY rendered for NON-executive accounts */}
-                          {!isExec && u.id !== currentUserId && (
+                          {canEditTarget && !isExec && u.id !== currentUserId && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1524,7 +1534,7 @@ export function UserManagement({
                     <button
                       type="button"
                       onClick={generateRandomPassword}
-                      disabled={!canViewTemporaryPasswords}
+                      disabled={!canSetFormPassword}
                       className="text-[10px] text-[#f5b642] hover:underline"
                     >
                       🎲 Auto-Generate
@@ -1532,11 +1542,11 @@ export function UserManagement({
                   </div>
                   <input
                     type="text"
-                    required={!editingUser}
+                    required={!editingUser && canSetFormPassword}
                     value={password}
-                    disabled={!canViewTemporaryPasswords}
+                    disabled={!canSetFormPassword}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={editingUser ? "Leave blank to keep current" : "Auto-generated or custom"}
+                    placeholder={!canSetFormPassword ? "Generated securely; managed by your team lead" : editingUser ? "Leave blank to keep current" : "Auto-generated or custom"}
                     className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"
                   />
                 </div>
@@ -1569,9 +1579,10 @@ export function UserManagement({
                 </div>
                 <CustomDropdown
                   value={primaryRole}
+                  disabled={!globalMemberAdmin}
                   onChange={(val) => setPrimaryRole(val as UserRole)}
                   options={
-                    isSupremeLeader
+                    !globalMemberAdmin ? [{ value: primaryRole, label: editingUser ? primaryRole.replace(/_/g, " ") : "Core Team Member" }] : isSupremeLeader
                       ? [
                           { value: "system_council", label: "👑 System Council (Supreme Authority)" },
                           { value: "top_executive", label: "⭐ Top Executive (Executive Council)" },
@@ -1667,6 +1678,7 @@ export function UserManagement({
                   <button
                     type="button"
                     onClick={handleAddRoleSlot}
+                    disabled={!!editingUser && !globalMemberAdmin}
                     className="flex items-center gap-1 text-[11px] font-bold text-[#f5b642] hover:text-[#ffd06a]"
                   >
                     <Plus className="h-3 w-3" />
@@ -1676,7 +1688,7 @@ export function UserManagement({
 
                 <div className="space-y-2.5">
                   {assignedRoles.map((roleSlot, idx) => {
-                    const positionsForTeam = TEAM_POSITIONS[roleSlot.team] || [
+                    const positionsForTeam = (!globalMemberAdmin && !editingUser ? undefined : TEAM_POSITIONS[roleSlot.team]) || [
                       { id: "core_member", title: "Core Member" },
                     ];
                     return (
@@ -1689,12 +1701,13 @@ export function UserManagement({
                           <label className="text-[10px] text-zinc-400 block mb-1">Team</label>
                           <CustomDropdown
                             value={roleSlot.team}
+                            disabled={!!editingUser && !globalMemberAdmin}
                             onChange={(val) => {
                               const newTeam = val as ClubTeam;
-                              const defaultPos = TEAM_POSITIONS[newTeam]?.[0]?.id || "core_member";
+                              const defaultPos = globalMemberAdmin ? TEAM_POSITIONS[newTeam]?.[0]?.id || "core_member" : "core_member";
                               handleRoleChange(idx, newTeam, defaultPos);
                             }}
-                            options={CLUB_TEAMS.map((t) => ({ value: t.id, label: t.name }))}
+                            options={allowedTeams.map((t) => ({ value: t.id, label: t.name }))}
                           />
                         </div>
 
@@ -1703,6 +1716,7 @@ export function UserManagement({
                           <label className="text-[10px] text-zinc-400 block mb-1">Position</label>
                           <CustomDropdown
                             value={roleSlot.position}
+                            disabled={!!editingUser && !globalMemberAdmin}
                             onChange={(val) =>
                               handleRoleChange(idx, roleSlot.team, val as ClubPosition)
                             }
@@ -1714,6 +1728,7 @@ export function UserManagement({
                           <button
                             type="button"
                             onClick={() => handleRemoveRoleSlot(idx)}
+                            disabled={!!editingUser && !globalMemberAdmin}
                             className="p-1 text-red-400 hover:text-red-300 mt-4 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4" />
