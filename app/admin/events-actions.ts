@@ -20,6 +20,9 @@ import { uploadMemberAvatarToDrive } from "@/lib/google/drive";
 import { logAuditEvent } from "@/lib/data/audit";
 import { eventSchema, userManagementSchema } from "@/lib/validation";
 import type { UserProfile } from "@/lib/types";
+import { requireCredentialExecutive, saveTemporaryPassword, getTemporaryCredential } from "@/lib/data/staff-credentials";
+import { encryptTemporaryPassword } from "@/lib/security/temporary-password";
+import { getStaffCredentialsTemplate } from "@/lib/email/templates";
 
 /**
  * Reviews a student registration payment (Approve/Reject) from Finance or Tech portal.
@@ -182,6 +185,10 @@ export async function upsertStaffUserAction(formData: FormData) {
   if (isExecutiveAccount(role, roles) && !isSupremeExecutive(actor.role, actor.profile.roles)) throw new Error("Only executive leadership can grant executive roles.");
   if (role === "superadmin" && actor.role !== "superadmin") throw new Error("Only a system administrator can grant this role.");
   const suppliedPassword = String(formData.get("password") || "");
+  if (!id || suppliedPassword) {
+    await requireCredentialExecutive();
+    encryptTemporaryPassword(id || "new-account", suppliedPassword || "configuration-check");
+  }
   if (suppliedPassword && suppliedPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
   const parsed = userManagementSchema.safeParse({ id: id || undefined, email, full_name: fullName, role, is_active: isActive, password: suppliedPassword || undefined });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || "Invalid staff details.");
@@ -208,6 +215,7 @@ export async function upsertStaffUserAction(formData: FormData) {
     }
     const { error } = await db.rpc("save_staff_profile", { p_profile: patch, p_roles: roles });
     if (error) throw new Error(error.message);
+    if (created && generatedPassword) await saveTemporaryPassword(id, generatedPassword, actor.user.id);
   } catch (error) {
     if (created) {
       const cleanup = await db.auth.admin.deleteUser(id);
@@ -218,6 +226,7 @@ export async function upsertStaffUserAction(formData: FormData) {
   if (!created && suppliedPassword) {
     const { error } = await db.auth.admin.updateUserById(id, { password: suppliedPassword });
     if (error) throw new Error(`Profile saved, but password change failed: ${error.message}`);
+    await saveTemporaryPassword(id, suppliedPassword, actor.user.id);
     generatedPassword = suppliedPassword;
   }
   revalidatePath("/admin/users");
@@ -239,6 +248,7 @@ export const voidStaffUserAction = disableStaffLoginAction;
  * Admin Action: Enables login access for a staff member profile, restores active status, and assigns/synchronizes credentials.
  */
 export async function enableStaffLoginAction(userId: string, customPassword?: string) {
+  const actor = await requireCredentialExecutive();
   const { target } = await assertCanManageStaff(userId);
   const db = createAdminSupabase();
   const assignment = await db.from("event_volunteers").select("id").eq("user_id", userId).limit(1);
@@ -248,8 +258,10 @@ export async function enableStaffLoginAction(userId: string, customPassword?: st
   if (auth.error || !auth.data.user) throw new Error("The linked Supabase Auth account is missing. Provision a replacement account.");
   const newPassword = customPassword || randomBytes(24).toString("base64url");
   if (newPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
+  encryptTemporaryPassword(userId, newPassword);
   const changed = await db.auth.admin.updateUserById(userId, { password: newPassword });
   if (changed.error) throw new Error(changed.error.message);
+  await saveTemporaryPassword(userId, newPassword, actor.user.id);
   const { error } = await db.from("user_profiles").update({ is_active: true, is_login_disabled: false, is_voided: false, login_disabled_at: null, login_disabled_reason: null }).eq("id", userId).select("id").single();
   if (error) throw new Error(`Password updated but login could not be enabled: ${error.message}`);
   revalidatePath("/admin/users"); return { success: true, newPassword, email: target.email };
@@ -496,11 +508,15 @@ export async function getMyAccountInfoAction() {
  * Top-6 only: Resets a staff member's password and stores the new password.
  */
 export async function resetStaffPasswordAction(userId: string, customPassword?: string) {
+  const actor = await requireCredentialExecutive();
   await assertCanManageStaff(userId);
   const newPassword = customPassword || randomBytes(24).toString("base64url");
   if (newPassword.length < 12) throw new Error("Use at least 12 characters for a password.");
+  encryptTemporaryPassword(userId, newPassword);
   const { error } = await createAdminSupabase().auth.admin.updateUserById(userId, { password: newPassword });
   if (error) throw new Error(error.message);
+  await saveTemporaryPassword(userId, newPassword, actor.user.id);
+  revalidatePath("/admin/users");
   return { success: true, newPassword };
 }
 
@@ -695,12 +711,19 @@ export async function getAllStaffMembersAction(): Promise<{ success: boolean; me
   return { success: true, members: data as UserProfile[] };
 }
 
+export async function revealStaffTemporaryPasswordAction(userId: string) {
+  const { actor, password, email } = await getTemporaryCredential(userId);
+  await logAuditEvent({ actorUserId: actor.user.id, actorRole: actor.role, action: "staff_temporary_password_revealed", targetType: "staff", targetId: userId });
+  return { password, email };
+}
+
 export async function sendStaffCredentialsEmailAction(userId: string) {
-  const { target } = await assertCanManageStaff(userId);
+  const { actor, target, password, email } = await getTemporaryCredential(userId);
   if (!target.is_active || target.is_voided || target.is_login_disabled) throw new Error("Enable the account before sending access instructions.");
+  if (!password) throw new Error("No current temporary password is saved. Use Reset to issue one before sending credentials.");
   const { sendEmail } = await import("@/lib/email/mailer");
-  const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://genai-club.vercel.app"}/admin/login`;
-  const result = await sendEmail({ to: target.email, subject: "Your GenAI staff portal access", html: `<p>Your staff portal access is enabled.</p><p><a href="${loginUrl}">Open the staff portal</a> and use Forgot password to request a one-time code and set your own password.</p>`, emailType: "custom_email" });
+  const template = getStaffCredentialsTemplate({ name: target.assigned_to_name || target.full_name, email, password });
+  const result = await sendEmail({ to: email, ...template, emailType: "custom_email", sensitiveContent: true, senderId: actor.user.id, senderRole: actor.role, forceResend: true });
   if (!result.success) throw new Error(result.error || "Email delivery failed.");
   return { success: true };
 }

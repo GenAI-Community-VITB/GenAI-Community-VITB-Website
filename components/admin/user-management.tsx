@@ -10,8 +10,10 @@ import {
   enforceTeamLoginPolicyAction,
   sendStaffCredentialsEmailAction,
   broadcastAllEnabledStaffCredentialsAction,
+  revealStaffTemporaryPasswordAction,
 } from "@/app/admin/events-actions";
 import { useScrollLock } from "@/lib/utils/scroll-lock";
+import { STAFF_LOGIN_URL } from "@/lib/site-url";
 import {
   UserProfile,
   UserRole,
@@ -66,6 +68,7 @@ interface UserManagementProps {
   currentUserRole?: string;
   currentUserEmail?: string;
   isSupremeLeader?: boolean;
+  canViewTemporaryPasswords?: boolean;
 }
 
 export function MemberAvatar({
@@ -186,6 +189,7 @@ export function UserManagement({
   currentUserRole,
   currentUserEmail,
   isSupremeLeader: initialIsSupremeLeader,
+  canViewTemporaryPasswords = false,
 }: UserManagementProps) {
   const [userList, setUserList] = useState(users);
   const isSupremeLeader =
@@ -200,6 +204,7 @@ export function UserManagement({
 
   // Revealable passwords state (userId -> boolean)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
+  const [loadingPasswords, setLoadingPasswords] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Form states
@@ -369,8 +374,24 @@ export function UserManagement({
     setPassword(pw);
   }
 
-  function togglePasswordVisibility(userId: string) {
-    setRevealedPasswords((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  async function togglePasswordVisibility(userId: string) {
+    if (revealedPasswords[userId]) {
+      setRevealedPasswords(prev => ({ ...prev, [userId]: false }));
+      setUserList(prev => prev.map(u => u.id === userId ? { ...u, password: null } : u));
+      return;
+    }
+    if (loadingPasswords[userId] || !canViewTemporaryPasswords) return;
+    setLoadingPasswords(prev => ({ ...prev, [userId]: true }));
+    setActionError(null);
+    try {
+      const result = await revealStaffTemporaryPasswordAction(userId);
+      setUserList(prev => prev.map(u => u.id === userId ? { ...u, password: result.password, email: result.email } : u));
+      setRevealedPasswords(prev => ({ ...prev, [userId]: true }));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not load temporary password.");
+    } finally {
+      setLoadingPasswords(prev => ({ ...prev, [userId]: false }));
+    }
   }
 
   function copyTextToClipboard(text: string, id: string) {
@@ -641,7 +662,7 @@ export function UserManagement({
 
   function handleCopyCredentials() {
     if (!generatedCredentials) return;
-    const text = `Generative AI Community 2026-27 Portal Access\nAssigned To: ${generatedCredentials.assignedTo}\nEmail / User ID: ${generatedCredentials.email}\nPassword: ${generatedCredentials.password || "Unchanged"}\nLogin Portal: https://genai-club.vercel.app/admin/login`;
+    const text = `Generative AI Community 2026-27 Portal Access\nAssigned To: ${generatedCredentials.assignedTo}\nEmail / User ID: ${generatedCredentials.email}\nTemporary Password: ${generatedCredentials.password || "Unchanged"}\nLogin Portal: ${STAFF_LOGIN_URL}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -666,7 +687,7 @@ export function UserManagement({
         <div>
           <h2 className="text-xl font-bold text-white">Club Member & Password Directory</h2>
           <p className="text-xs text-zinc-400">
-            Manage member access and team assignments. Newly generated passwords are shown only in this session.
+            Manage member access and team assignments. Executives can reveal saved temporary passwords until the member changes their password.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -682,7 +703,7 @@ export function UserManagement({
             />
           </div>
 
-          {isTop6Admin(currentUserRole) && (
+          {canViewTemporaryPasswords && (
             <button
               type="button"
               onClick={handleEnforceLoginPolicy}
@@ -695,7 +716,7 @@ export function UserManagement({
             </button>
           )}
 
-          {isTop6Admin(currentUserRole) && (
+          {canViewTemporaryPasswords && (
             <button
               type="button"
               onClick={handleBroadcastCredentials}
@@ -717,7 +738,7 @@ export function UserManagement({
             <span>Reset Requests</span>
           </button>
 
-          <button
+          {canViewTemporaryPasswords && <button
             type="button"
             onClick={() => {
               resetForm();
@@ -728,7 +749,7 @@ export function UserManagement({
           >
             <UserPlus className="h-4 w-4" />
             Add Member
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -777,7 +798,7 @@ export function UserManagement({
               <span className="font-mono font-bold text-[#f5b642] mt-0.5 block">{generatedCredentials.email}</span>
             </div>
             <div>
-              <span className="text-[10px] text-zinc-400 block uppercase tracking-wider">Allocated Password</span>
+              <span className="text-[10px] text-zinc-400 block uppercase tracking-wider">Temporary Password</span>
               <span className="font-mono font-bold text-emerald-400 mt-0.5 block">{generatedCredentials.password || "Custom / Existing"}</span>
             </div>
           </div>
@@ -823,7 +844,7 @@ export function UserManagement({
               const isTop6 = isTop6Admin(u.role, u.roles) || emailInfo.isTop6;
               const isVoided = u.is_voided;
               const isRevealed = Boolean(revealedPasswords[u.id]);
-              const displayPw = u.password || "Not stored — use Reset";
+              const displayPw = u.password || "No current temporary password — use Reset";
 
               return (
                 <tr
@@ -929,13 +950,14 @@ export function UserManagement({
 
                   {/* Password Column */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap relative">
-                    {isVoided ? (
+                    {isVoided || !canViewTemporaryPasswords || (isExecutiveAccount(u.role, u.roles) && !isSupremeLeader) ? (
                       <span className="text-zinc-600 font-mono text-xs italic">—</span>
                     ) : (
                       <div className="relative inline-flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => togglePasswordVisibility(u.id)}
+                          disabled={loadingPasswords[u.id]}
                           title={isRevealed ? "Hide Password" : "Show Password"}
                           className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
                             isRevealed
@@ -951,7 +973,7 @@ export function UserManagement({
                           ) : (
                             <>
                               <Eye className="h-3.5 w-3.5 text-[#f5b642]" />
-                              <span className="text-[11px]">Show</span>
+                              <span className="text-[11px]">{loadingPasswords[u.id] ? "Loading…" : "Show"}</span>
                             </>
                           )}
                         </button>
@@ -969,13 +991,14 @@ export function UserManagement({
                         {isRevealed && (
                           <div className="absolute left-0 bottom-full mb-2 z-50 flex items-center gap-2 rounded-2xl border border-[#f5b642]/50 bg-gradient-to-r from-[#1b150c] to-[#100d07] px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap min-w-[220px]">
                             <div className="flex flex-col min-w-0 flex-1">
-                              <span className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Allocated Password</span>
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Temporary Password</span>
                               <span className="font-mono text-xs font-bold text-emerald-400 truncate select-all">{displayPw}</span>
                             </div>
 
                             <button
                               type="button"
                               onClick={() => copyTextToClipboard(displayPw, `pw-${u.id}`)}
+                              disabled={!u.password}
                               title="Copy Password"
                               className="inline-flex items-center gap-1 rounded-lg bg-[#f5b642] px-2 py-1 text-[10px] font-bold text-black hover:bg-[#ffd06a] transition shrink-0 cursor-pointer shadow-sm"
                             >
@@ -1033,7 +1056,7 @@ export function UserManagement({
 
                   {/* Actions */}
                   <td className="px-3.5 py-2.5 whitespace-nowrap text-right">
-                    {(u.is_login_disabled || u.is_voided || !u.is_active) && isTop6Admin(currentUserRole) && (
+                    {(u.is_login_disabled || u.is_voided || !u.is_active) && canViewTemporaryPasswords && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1055,7 +1078,7 @@ export function UserManagement({
 
                       return (
                         <div className="inline-flex items-center gap-1.5">
-                          {isTop6Admin(currentUserRole) && (
+                          {canViewTemporaryPasswords && (
                             <button
                               type="button"
                               onClick={() => handleSendSingleCredentials(u.id, u.email)}
@@ -1501,6 +1524,7 @@ export function UserManagement({
                     <button
                       type="button"
                       onClick={generateRandomPassword}
+                      disabled={!canViewTemporaryPasswords}
                       className="text-[10px] text-[#f5b642] hover:underline"
                     >
                       🎲 Auto-Generate
@@ -1510,6 +1534,7 @@ export function UserManagement({
                     type="text"
                     required={!editingUser}
                     value={password}
+                    disabled={!canViewTemporaryPasswords}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={editingUser ? "Leave blank to keep current" : "Auto-generated or custom"}
                     className="w-full rounded-xl border border-[#333333] bg-[#181818] px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-[#f5b642] focus:outline-none"

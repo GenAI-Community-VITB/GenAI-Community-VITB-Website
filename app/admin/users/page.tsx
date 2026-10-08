@@ -65,6 +65,7 @@ export default async function UsersPage() {
           currentUserRole={role}
           currentUserEmail={profile.email || user.email}
           isSupremeLeader={isSupreme}
+          canViewTemporaryPasswords={isTop6}
         />
       </main>
     </div>

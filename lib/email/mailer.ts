@@ -24,6 +24,7 @@ export interface SendEmailOptions {
     contentType?: string;
   }>;
   forceResend?: boolean;
+  sensitiveContent?: boolean;
 }
 
 /**
@@ -47,6 +48,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
     senderRole: options.senderRole,
     attachments: options.attachments,
     forceResend: options.forceResend,
+    sensitiveContent: options.sensitiveContent,
   });
 
   return {

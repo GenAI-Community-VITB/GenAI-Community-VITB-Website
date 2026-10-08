@@ -1,7 +1,7 @@
 import type { MemberRoleAssignment, UserProfile } from "@/lib/types";
 
 const normalize = (value?: string | null) => (value || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
-export const TOP_6_ROLES = ["superadmin", "system_council", "president", "vice_president", "technical_lead", "technical_co_lead", "aiml_lead", "aiml_co_lead"];
+export const TOP_6_ROLES = ["superadmin", "system_council", "top_executive", "president", "vice_president", "technical_lead", "technical_co_lead", "aiml_lead", "aiml_co_lead"];
 
 function executiveRoles(role?: string | null, roles: MemberRoleAssignment[] = []): string[] {
   return [normalize(role), ...roles.map(({ team, position }) => {

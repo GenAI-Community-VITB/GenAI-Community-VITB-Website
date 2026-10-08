@@ -1,4 +1,15 @@
 import { escapeHtml } from "@/lib/security/content";
+import { STAFF_LOGIN_URL } from "@/lib/site-url";
+
+export function getStaffCredentialsTemplate(params: { name: string; email: string; password: string }) {
+  const content = `<p>Hello ${escapeHtml(params.name)},</p>
+    <p>Your GenAI staff portal account is ready.</p>
+    <p><strong>Login email:</strong> ${escapeHtml(params.email)}</p>
+    <p><strong>Temporary password:</strong> <code>${escapeHtml(params.password)}</code></p>
+    <p><a href="${STAFF_LOGIN_URL}">Sign in to the staff portal</a><br>${STAFF_LOGIN_URL}</p>
+    <p>After signing in, use Account &amp; Security to set your own password. Your personal password will not be visible in the admin panel.</p>`;
+  return { subject: "Your GenAI staff portal credentials", html: baseEmailLayout(content, "Your staff portal account details") };
+}
 const CLUB_NAME = "Generative AI Community";
 const INSTITUTION = "VIT Bhopal University";
 const GOLD_COLOR = "#f5b642";

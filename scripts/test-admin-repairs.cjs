@@ -21,6 +21,86 @@ function load(file, mocks = {}) {
 
 const roles = load('lib/auth/roles.ts');
 
+test('temporary passwords encrypt with a unique nonce, bind to the user and reject tampering or missing keys', () => {
+  const previous = process.env.STAFF_CREDENTIAL_ENCRYPTION_KEY;
+  process.env.STAFF_CREDENTIAL_ENCRYPTION_KEY = 'a1'.repeat(32);
+  try {
+    const { encryptTemporaryPassword: encrypt, decryptTemporaryPassword: decrypt } = load('lib/security/temporary-password.ts');
+    const secret = 'Synthetic-password<&>123';
+    const first = encrypt('staff-one', secret), second = encrypt('staff-one', secret);
+    assert.notEqual(first, second); assert.ok(!first.includes(secret));
+    assert.equal(decrypt('staff-one', first), secret);
+    assert.throws(() => decrypt('staff-two', first));
+    const parts = first.split('.'); parts[2] = Buffer.alloc(16).toString('base64');
+    assert.throws(() => decrypt('staff-one', parts.join('.')));
+    delete process.env.STAFF_CREDENTIAL_ENCRYPTION_KEY;
+    assert.throws(() => encrypt('staff-one', secret), /not configured/);
+  } finally {
+    if (previous === undefined) delete process.env.STAFF_CREDENTIAL_ENCRYPTION_KEY;
+    else process.env.STAFF_CREDENTIAL_ENCRYPTION_KEY = previous;
+  }
+});
+
+test('only explicit executives can reveal saved temporary credentials and the email comes from current Auth', async () => {
+  let role = 'tech', touched = 0, ciphertext = 'encrypted';
+  const data = load('lib/data/staff-credentials.ts', {
+    '@/lib/auth/permissions': {
+      requireStaffActionRole: async () => ({ user: { id: 'actor' }, profile: { roles: [] }, role }),
+      isTop6Admin: roles.isTop6Admin,
+      assertCanManageStaff: async () => ({ target: { id: 'staff', email: 'outdated@example.invalid' } }),
+    },
+    '@/lib/security/temporary-password': { decryptTemporaryPassword: (id, value) => { assert.equal(id,'staff'); assert.equal(value,'encrypted'); return 'Temporary-only'; } },
+    '@/lib/supabase/admin': { createAdminSupabase: () => { touched++; return {
+      auth: { admin: { getUserById: async () => ({ data: { user: { email: 'current@example.invalid' } } }) } },
+      from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: ciphertext ? { ciphertext } : null }) }) }) }),
+    }; } },
+  });
+  for (role of ['tech','core_member','lead','co_lead','finance','volunteer']) await assert.rejects(data.getTemporaryCredential('staff'), /Only Supreme Council/);
+  assert.equal(touched, 0);
+  for (role of ['system_council','top_executive','superadmin','vice_president']) {
+    const result = await data.getTemporaryCredential('staff');
+    assert.equal(result.password,'Temporary-only'); assert.equal(result.email,'current@example.invalid');
+  }
+  ciphertext = null;
+  assert.equal((await data.getTemporaryCredential('staff')).password, null);
+  assert.equal(roles.isTop6Admin('top_executive'), true);
+  assert.equal(roles.isSupremeExecutive('top_executive'), false);
+});
+
+test('credential email uses current saved password, escaped content and public URL; missing credentials require Reset', async () => {
+  let password = 'Temporary<&>123456', sent = [];
+  const empty = {};
+  const actions = load('app/admin/events-actions.ts', {
+    'next/cache': { revalidatePath() {} }, '@/lib/auth/permissions': empty, '@/lib/supabase/admin': empty,
+    '@/lib/data/registrations': empty, '@/lib/google/drive': empty, '@/lib/data/audit': empty, '@/lib/validation': empty,
+    '@/lib/data/staff-credentials': { getTemporaryCredential: async () => ({ actor: { user: { id: 'actor' }, role: 'top_executive' }, target: { is_active: true, full_name: '<Member>', email: 'old@example.invalid' }, email: 'current@example.invalid', password }) },
+    '@/lib/email/mailer': { sendEmail: async message => { sent.push(message); return { success: true }; } },
+  });
+  assert.equal((await actions.sendStaffCredentialsEmailAction('staff')).success, true);
+  assert.equal(sent[0].to, 'current@example.invalid'); assert.equal(sent[0].sensitiveContent, true);
+  assert.ok(sent[0].html.includes('Temporary&lt;&amp;&gt;123456'));
+  assert.ok(sent[0].html.includes('https://www.genaiclubvitb.in/admin/login'));
+  assert.ok(!sent[0].html.includes('genai-club.vercel.app')); assert.ok(!sent[0].html.includes('<Member>'));
+  password = null;
+  await assert.rejects(actions.sendStaffCredentialsEmailAction('staff'), /Use Reset/);
+  assert.equal(sent.length, 1);
+});
+
+test('credential email content is sent but never stored as a plaintext retry payload', async () => {
+  const logs = []; let delivered;
+  const { EmailService } = load('lib/email/service.ts', {
+    '@/lib/email/google-apps-script': { googleAppsScriptClient: { isConfigured: () => true, sendTransactionalEmail: async payload => { delivered = payload; return { success: true, messageId: 'test' }; } } },
+    '@/lib/supabase/admin': { createAdminSupabase: () => ({ from: () => ({ insert: row => { logs.push(row); return { select: () => ({ single: async () => ({ data: { id: 'log' } }) }) }; } }) }) },
+    '@/lib/google/sheets': { appendToGoogleSheet: async () => {} },
+    '@/lib/utils/format': { formatISTDate: String },
+  });
+  const secret = 'Synthetic-credential-123!';
+  await EmailService.send({ to: 'test@example.invalid', subject: 'Staff access', html: secret, emailType: 'custom_email', sensitiveContent: true });
+  assert.equal(delivered.htmlContent, secret);
+  assert.equal(logs[0].metadata.retryPayload, null);
+  assert.ok(!JSON.stringify(logs).includes(secret));
+});
+
 function scannerRoute({ authenticated = true, verify, confirm } = {}) {
   return load('app/api/checkin/scan/route.ts', {
     'next/server': { NextResponse: { json: (body, options = {}) => ({ body, status: options.status || 200 }) } },

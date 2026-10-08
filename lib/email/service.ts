@@ -35,6 +35,7 @@ export interface SendEmailPayload {
     cid?: string;
   }>;
   forceResend?: boolean;
+  sensitiveContent?: boolean;
   metadata?: Record<string, any>;
 }
 
@@ -196,7 +197,7 @@ export class EmailService {
           metadata: {
             ...metadata,
             contentKey,
-            retryPayload: emailType === "password_reset_otp" ? null : { html, plainText, attachments: gasAttachments },
+            retryPayload: emailType === "password_reset_otp" || payload.sensitiveContent ? null : { html, plainText, attachments: gasAttachments },
             messageId: dispatchResult.messageId,
             recipientCount: recipientEmails.length,
             isTemporaryError: dispatchResult.isTemporaryError,

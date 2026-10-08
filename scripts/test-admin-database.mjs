@@ -9,11 +9,18 @@ let checks=0;
 function checked(label) { console.log(`PASS ${++checks}: ${label}`); }
 try {
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
-    create schema auth; create table auth.users(id uuid primary key, email text);
+    create schema auth; create table auth.users(id uuid primary key, email text, encrypted_password text);
     create function auth.uid() returns uuid language sql as 'select null::uuid';
     create function auth.role() returns text language sql as 'select current_user::text';`);
   const base=(await readFile('supabase/fresh-install.sql','utf8')).replace(/create extension if not exists "pgcrypto";/,'');
   await db.exec(base);
+  await db.exec(await readFile('supabase/migrations/20261008_staff_temporary_credentials.sql','utf8'));
+  for (const role of ['anon','authenticated']) {
+    for (const permission of ['SELECT','INSERT','UPDATE','DELETE']) assert.equal(await scalar('select has_table_privilege($1,\'public.staff_temporary_credentials\',$2)',[role,permission]),false);
+    assert.equal(await scalar('select has_function_privilege($1,\'public.save_staff_temporary_credential(uuid,text,text,uuid)\',\'execute\')',[role]),false);
+  }
+  assert.equal(await scalar("select relrowsecurity from pg_class where oid='staff_temporary_credentials'::regclass"),true);
+  checked('temporary credential table and save function are inaccessible to browser roles');
   await db.exec(await readFile('supabase/migrations/20261007_team_hierarchy.sql','utf8'));
   for(const role of ['anon','authenticated']) {
     for(const permission of ['SELECT','INSERT','UPDATE','DELETE']) assert.equal(await scalar('select has_table_privilege($1,\'public.team_hierarchy_layout\',$2)',[role,permission]),false);
@@ -48,7 +55,7 @@ try {
   checked('shared competition function ACLs and schema defaults survive; legacy staff RPC overloads are restricted');
   const actor='10000000-0000-4000-8000-000000000001';
   const event='20000000-0000-4000-8000-000000000001';
-  await q('insert into auth.users values($1,$2)',[actor,'admin@example.invalid']);
+  await q('insert into auth.users(id,email) values($1,$2)',[actor,'admin@example.invalid']);
   await q(`select save_staff_profile($1::jsonb,$2::jsonb)`,[JSON.stringify({id:actor,email:'admin@example.invalid',full_name:'Admin',assigned_to_name:'Admin',role:'superadmin',is_active:true,is_login_disabled:false}),JSON.stringify([{team:'technical_team',position:'lead'}])]);
   assert.equal(await scalar('select count(*)::int from member_roles where user_id=$1',[actor]),1);
   await assert.rejects(q('select save_staff_profile($1::jsonb,$2::jsonb)',[JSON.stringify({id:actor,email:'admin@example.invalid',full_name:'Changed',role:'tech',is_active:true}),JSON.stringify([{team:'a'}])]));

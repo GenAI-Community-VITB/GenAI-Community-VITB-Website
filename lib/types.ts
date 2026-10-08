@@ -137,6 +137,7 @@ export interface UserProfile {
   assigned_to_name?: string | null;
   avatar_url?: string | null;
   drive_file_id?: string | null;
+  /** Client-session temporary password only; never selected from user_profiles. */
   password?: string | null;
   role: UserRole;
   is_active: boolean;
