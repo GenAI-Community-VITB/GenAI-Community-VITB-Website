@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedStaff, hasRole, isTop6Admin } from "@/lib/auth/permissions";
+import { getAuthenticatedStaff, isTop6Admin } from "@/lib/auth/permissions";
 import { verifyQRTokenDetails, confirmAttendance } from "@/lib/data/registrations";
 import {
   getClientIp,
   checkRateLimit,
   createRateLimitResponse,
 } from "@/lib/security/rate-limiter";
+
+async function withScanTimeout<T>(operation: Promise<T>, milliseconds: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("SCAN_TIMEOUT")), milliseconds);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,24 +43,32 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { action = "verify", qrToken, registrationId, isOverride, overrideReason } = body;
+    const { action = "scan", qrToken, registrationId, isOverride, overrideReason } = body;
 
-    // STEP 1: Verify token details (does not mark attendance)
-    if (action === "verify") {
-      if (!qrToken || typeof qrToken !== "string") {
+    // Gate scans save attendance; explicit lookups remain read-only for overrides.
+    if (action === "scan" || action === "verify") {
+      if (typeof qrToken !== "string" || !qrToken.trim()) {
         return NextResponse.json(
           { success: false, message: "QR token is required." },
           { status: 400 }
         );
       }
 
-      // 10-second timeout for verify step — fast DB lookup should never take longer
-      const result = await Promise.race([
-        verifyQRTokenDetails(qrToken),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("VERIFY_TIMEOUT")), 10_000)
-        ),
-      ]);
+      const result = await withScanTimeout((async () => {
+        const verified = await verifyQRTokenDetails(qrToken);
+        if (action === "verify" || !verified.success || verified.isAlreadyCheckedIn) return verified;
+        if (!verified.participant?.id) return { success: false, message: "Participant not found. Attendance was not recorded." };
+
+        // The RPC locks the registration and atomically writes checkins + checked_in status.
+        // Actor identity, event assignment, payment and time-window checks are server-side.
+        const recorded = await confirmAttendance({
+          registrationId: verified.participant.id,
+          scannerUserId: user.id,
+          scannerName: profile.full_name || user.email || "Staff",
+          scannerRole: role,
+        });
+        return { ...recorded, participant: recorded.participant || verified.participant };
+      })(), 25_000);
       return NextResponse.json(result);
     }
 
@@ -71,7 +93,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 15-second timeout for confirm step
-      const result = await Promise.race([
+      const result = await withScanTimeout(
         confirmAttendance({
           registrationId,
           scannerUserId: user.id,
@@ -80,10 +102,8 @@ export async function POST(req: NextRequest) {
           isOverride: Boolean(isOverride),
           overrideReason,
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("CONFIRM_TIMEOUT")), 15_000)
-        ),
-      ]);
+        15_000,
+      );
 
       return NextResponse.json(result);
     }
@@ -93,9 +113,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   } catch (err: any) {
-    if (err?.message === "VERIFY_TIMEOUT" || err?.message === "CONFIRM_TIMEOUT") {
+    if (err?.message === "SCAN_TIMEOUT") {
       return NextResponse.json(
-        { success: false, message: "Scan verification timed out. Please try again." },
+        { success: false, message: "Could not confirm the scan result in time. Scan again to check whether attendance was saved; duplicate scans will not add another entry." },
         { status: 504 }
       );
     }

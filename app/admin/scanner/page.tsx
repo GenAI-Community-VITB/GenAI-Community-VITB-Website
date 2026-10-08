@@ -30,7 +30,7 @@ export default async function ScannerPage() {
               Event Entry QR Scanner
             </h1>
             <p className="text-xs text-zinc-400">
-              Scan participant QR codes for real-time ticket validation and atomic check-in.
+              Scan a valid pass to mark the participant present automatically. Wait for Attendance Recorded before admitting them.
             </p>
           </div>
           <div className="flex items-center gap-3">

@@ -20,7 +20,152 @@ function load(file, mocks = {}) {
 }
 
 const roles = load('lib/auth/roles.ts');
+
+function scannerRoute({ authenticated = true, verify, confirm } = {}) {
+  return load('app/api/checkin/scan/route.ts', {
+    'next/server': { NextResponse: { json: (body, options = {}) => ({ body, status: options.status || 200 }) } },
+    '@/lib/auth/permissions': {
+      getAuthenticatedStaff: async () => authenticated
+        ? { user: { id: 'real-staff' }, profile: { full_name: 'Gate Volunteer' }, role: 'volunteer' }
+        : { user: null },
+      isTop6Admin: () => false,
+    },
+    '@/lib/security/rate-limiter': { checkRateLimit: async () => ({ limited: false }) },
+    '@/lib/data/registrations': { verifyQRTokenDetails: verify, confirmAttendance: confirm },
+  });
+}
+const scanRequest = body => ({ json: async () => body });
+
+test('gate scan saves attendance before replying, using server identity and the verified pass', async () => {
+  const participant = { id: 'real-registration', status: 'verified' };
+  let finishWrite;
+  const write = new Promise(resolve => { finishWrite = resolve; });
+  const route = scannerRoute({
+    verify: async token => { assert.equal(token, 'qr-pass'); return { success: true, participant }; },
+    confirm: async args => {
+      assert.deepEqual(args, { registrationId: participant.id, scannerUserId: 'real-staff', scannerName: 'Gate Volunteer', scannerRole: 'volunteer' });
+      await write;
+      return { success: true, participant: { ...participant, status: 'checked_in' } };
+    },
+  });
+  let replied = false;
+  const pending = route.POST(scanRequest({ action: 'scan', qrToken: 'qr-pass', registrationId: 'forged', isOverride: true, scannerUserId: 'forged' })).then(result => { replied = true; return result; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(replied, false, 'validating a pass alone must not report admission');
+  finishWrite();
+  assert.equal((await pending).body.participant.status, 'checked_in');
+});
+
+test('failed, duplicate, unauthorized and read-only QR lookups do not save attendance', async () => {
+  let writes = 0;
+  const confirm = async () => { writes++; return { success: true }; };
+  for (const verified of [
+    { success: false, errorCode: 'INVALID_QR' },
+    { success: false, errorCode: 'PAYMENT_PENDING' },
+    { success: false, errorCode: 'FORBIDDEN' },
+    { success: true, isAlreadyCheckedIn: true, priorCheckinTime: 'saved-time' },
+  ]) {
+    const route = scannerRoute({ verify: async () => verified, confirm });
+    assert.deepEqual((await route.POST(scanRequest({ action: 'scan', qrToken: 'qr' }))).body, verified);
+  }
+  const route = scannerRoute({ verify: async () => ({ success: true, participant: { id: 'reg' } }), confirm });
+  await route.POST(scanRequest({ action: 'verify', qrToken: 'qr' }));
+  assert.equal((await route.POST(scanRequest({ action: 'scan', qrToken: ' ' }))).status, 400);
+  assert.equal((await scannerRoute({ authenticated: false, confirm }).POST(scanRequest({ action: 'scan', qrToken: 'qr' }))).status, 401);
+  assert.equal(writes, 0);
+});
+
+test('gate scan surfaces write failures and concurrent duplicates instead of false success', async () => {
+  const participant = { id: 'reg', status: 'verified' };
+  for (const result of [
+    { success: false, message: 'Outside event check-in window' },
+    { success: false, message: 'Database unavailable' },
+    { success: false, isAlreadyCheckedIn: true, priorCheckinTime: 'saved-time', priorScannedBy: 'Other volunteer' },
+  ]) {
+    const route = scannerRoute({ verify: async () => ({ success: true, participant }), confirm: async () => result });
+    const response = await route.POST(scanRequest({ qrToken: 'qr' }));
+    assert.deepEqual(response.body, { ...result, participant });
+    assert.equal(response.body.success, false);
+  }
+});
+
 const hierarchy = load('lib/utils/team-hierarchy.ts');
+
+test('attendance writes enforce event assignment and use the authenticated operator for every permitted role', async () => {
+  let assigned = false, writes = 0, role = 'volunteer';
+  const empty = {};
+  const data = load('lib/data/registrations.ts', {
+    '@/lib/auth/permissions': {
+      requireStaffActionRole: async minimum => { assert.equal(minimum, 'volunteer'); return { user: { id: 'operator' }, profile: { full_name: 'Operator' }, role }; },
+      isAssignedEventVolunteer: async (userId, eventId) => { assert.equal(userId, 'operator'); assert.equal(eventId, 'event'); return assigned; },
+    },
+    '@/lib/supabase/admin': { createAdminSupabase: () => ({
+      from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { event_id: 'event' } }) }) }) }),
+      rpc: async (name, args) => {
+        assert.equal(name, 'record_attendance'); assert.equal(args.p_actor, 'operator'); assert.equal(args.p_name, 'Operator');
+        assert.equal(args.p_role, role); assert.equal(args.p_override, false); writes++;
+        return { data: { success: true, participant: { status: 'checked_in' } } };
+      },
+    }) },
+    '@/lib/validation': empty, '@/lib/qr/generator': empty, '@/lib/email/mailer': empty, '@/lib/email/templates': empty,
+    '@/lib/google/sheets': empty, '@/lib/google/drive': empty, '@/lib/data/audit': empty, '@/lib/utils/format': empty, '@/lib/data/events': empty,
+  });
+  const params = { registrationId: 'registration', scannerUserId: 'forged', scannerName: 'forged', scannerRole: 'superadmin' };
+  assert.equal((await data.confirmAttendance(params)).success, false); assert.equal(writes, 0);
+  assigned = true;
+  for (role of ['volunteer', 'core_member', 'finance', 'tech', 'superadmin']) assert.equal((await data.confirmAttendance(params)).success, true);
+  assert.equal(writes, 5);
+});
+
+test('scanner shows saved attendance only after the response and ignores repeated frames until next attendee', async () => {
+  const slots = []; let cursor = 0;
+  const react = {
+    useState: initial => {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = initial;
+      return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }];
+    },
+    useRef: initial => {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index];
+    },
+    useCallback: callback => callback, useEffect: () => {},
+  };
+  const { QrScannerClient } = load('components/admin/qr-scanner.tsx', {
+    react, 'html5-qrcode': {}, '@/lib/utils/scroll-lock': { useScrollLock: () => {} },
+  });
+  const render = () => { cursor = 0; return QrScannerClient({ currentUserRole: 'volunteer', currentUserName: 'Test Scanner' }); };
+  const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
+  const text = tree => typeof tree === 'string' || typeof tree === 'number' ? String(tree) : Array.isArray(tree) ? tree.map(text).join(' ') : text(tree?.props?.children || '');
+  const find = (tree, type, label) => nodes(tree).find(node => node.type === type && (!label || text(node).includes(label)));
+  const originalFetch = global.fetch; let respond; let requests = 0;
+  global.fetch = async (url, options) => {
+    assert.equal(url, '/api/checkin/scan'); assert.equal(JSON.parse(options.body).action, 'scan'); requests++;
+    return new Promise(resolve => { respond = data => resolve({ ok: true, json: async () => data }); });
+  };
+  try {
+    nodes(render()).find(node => node.type === 'input' && node.props.placeholder).props.onChange({ target: { value: 'test-pass' } });
+    find(render(), 'form').props.onSubmit({ preventDefault() {} });
+    assert.ok(text(render()).includes('Checking pass & saving attendance'));
+    assert.ok(!text(render()).includes('ATTENDANCE RECORDED'));
+    find(render(), 'form').props.onSubmit({ preventDefault() {} });
+    assert.equal(requests, 1);
+    respond({ success: true, participant: { id: 'reg', status: 'checked_in', full_name: 'Test participant' } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(text(render()).includes('ATTENDANCE RECORDED'));
+    find(render(), 'form').props.onSubmit({ preventDefault() {} });
+    assert.equal(requests, 1);
+    find(render(), 'button', 'Ready For Next Attendee').props.onClick();
+    nodes(render()).find(node => node.type === 'input' && node.props.placeholder).props.onChange({ target: { value: 'next-pass' } });
+    find(render(), 'form').props.onSubmit({ preventDefault() {} });
+    assert.equal(requests, 2);
+    respond({ success: false, message: 'Database unavailable' });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(text(render()).includes('ATTENDANCE NOT CONFIRMED'));
+    assert.ok(!text(render()).includes('ATTENDANCE RECORDED'));
+  } finally { global.fetch = originalFetch; }
+});
 const hierarchyMemberId = '11111111-1111-4111-8111-111111111111';
 const treeFixture = () => [
   {id:'leader',parentId:null,kind:'member',memberId:hierarchyMemberId,label:''},

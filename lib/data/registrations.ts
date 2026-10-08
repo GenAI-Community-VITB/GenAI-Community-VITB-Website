@@ -748,8 +748,7 @@ export async function reviewPayment(params: {
 }
 
 /**
- * Step 1 of 2-Step Attendance Verification:
- * Look up participant details from QR token without marking attendance.
+ * Read-only participant lookup, also used before the gate scan records attendance.
  * Supports raw opaque token, JSON payloads, URLs, Registration Number, and VIT Reg Number.
  */
 export async function verifyQRTokenDetails(qrToken: string): Promise<{
@@ -917,8 +916,7 @@ export async function verifyQRTokenDetails(qrToken: string): Promise<{
 }
 
 /**
- * Step 2 of 2-Step Attendance Verification:
- * Explicit volunteer button click to confirm and record attendance with IST timestamp.
+ * Atomically record attendance after a gate scan or explicit staff override.
  */
 export async function confirmAttendance(params: {
   registrationId: string;

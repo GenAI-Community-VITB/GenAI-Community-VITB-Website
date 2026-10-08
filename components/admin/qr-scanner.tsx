@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   RefreshCw,
   VideoOff,
-  UserCheck,
   Clock,
   Upload,
   ImageIcon,
@@ -45,7 +44,7 @@ interface ParticipantData {
 }
 
 interface ScanVerificationState {
-  stage: "idle" | "verified_pending_approval" | "approved" | "rejected";
+  stage: "approved" | "rejected";
   message: string;
   errorCode?: string;
   isAlreadyCheckedIn?: boolean;
@@ -157,8 +156,8 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
     }
   }, []);
 
-  // STEP 1: Verify token without marking attendance
-  const handleVerifyToken = useCallback(
+  // A gate scan is complete only after the server has saved attendance.
+  const handleScanToken = useCallback(
     async (token: string) => {
       const cleanToken = token.trim();
       if (!cleanToken || isProcessingRef.current) return;
@@ -173,14 +172,14 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "verify",
+            action: "scan",
             qrToken: cleanToken,
           }),
         });
 
         const data = await res.json();
 
-        if (data.success) {
+        if (res.ok && (data.isAlreadyCheckedIn || (data.success && data.participant?.status === "checked_in"))) {
           if (data.isAlreadyCheckedIn) {
             setScanState({
               stage: "rejected",
@@ -195,29 +194,36 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
             playBeep("error");
           } else {
             setScanState({
-              stage: "verified_pending_approval",
-              message: "Pass Verified: Ready to admit.",
+              stage: "approved",
+              message: "Present — attendance saved.",
               participant: data.participant,
             });
-            playBeep("ready");
+            setSessionCount((prev) => ({ ...prev, approved: prev.approved + 1 }));
+            setScanHistory((prev) => [{
+              name: data.participant.full_name || "Participant",
+              time: new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }),
+              status: "approved",
+              regId: data.participant.registration_number || data.participant.id.slice(0, 8),
+            }, ...prev.slice(0, 7)]);
+            playBeep("success");
           }
         } else {
           setScanState({
             stage: "rejected",
             message: data.message || "Invalid QR code or registration number.",
             errorCode: data.errorCode || "INVALID_QR",
+            participant: data.participant,
           });
           setSessionCount((prev) => ({ ...prev, rejected: prev.rejected + 1 }));
           playBeep("error");
         }
-      } catch (err: any) {
-        setScannerError(err.message || "Failed to process check-in scan.");
+      } catch {
+        setScanState({ stage: "rejected", message: "Could not confirm attendance. Try scanning again to check whether it was saved.", errorCode: "SCAN_FAILED" });
         playBeep("error");
       } finally {
         setIsProcessing(false);
-        setTimeout(() => {
-          isProcessingRef.current = false;
-        }, 1200);
+        // Keep the result visible and prevent camera frames from submitting repeatedly.
+        // Ready For Next Attendee releases the scan lock, including after an error.
       }
     },
     [playBeep],
@@ -237,7 +243,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
       const decoded = await tempScanner.scanFile(file, true);
       await tempScanner.clear();
       if (decoded) {
-        handleVerifyToken(decoded);
+        handleScanToken(decoded);
       }
     } catch (err: any) {
       console.warn("File QR decode failed:", err);
@@ -251,7 +257,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
     }
   }
 
-  // STEP 2: Confirm Attendance Button Click
+  // Explicit, privileged correction when a normal gate scan cannot admit someone.
   async function handleConfirmAttendance(isOverride = false, reason?: string) {
     if (!scanState?.participant?.id || isProcessing) return;
 
@@ -351,7 +357,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
           scanConfig,
           (decodedText) => {
             if (!isProcessingRef.current) {
-              handleVerifyToken(decodedText);
+              handleScanToken(decodedText);
             }
           },
           () => {},
@@ -364,7 +370,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
           scanConfig,
           (decodedText) => {
             if (!isProcessingRef.current) {
-              handleVerifyToken(decodedText);
+              handleScanToken(decodedText);
             }
           },
           () => {},
@@ -379,10 +385,12 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
       );
       setScanning(false);
     }
-  }, [handleVerifyToken, selectedCameraId, stopCamera]);
+  }, [handleScanToken, selectedCameraId, stopCamera]);
 
   function resetToNextScan() {
+    if (isProcessing) return;
     setScanState(null);
+    setScannerError(null);
     setManualToken("");
     isProcessingRef.current = false;
   }
@@ -494,7 +502,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
             <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Scanner Status</p>
             <p className="text-sm font-extrabold text-white flex items-center gap-1.5">
               <span className={`inline-block h-2 w-2 rounded-full ${scanning ? "bg-emerald-400 animate-ping" : "bg-zinc-600"}`} />
-              {scanning ? "Active & Listening" : "Standby"}
+              {scanning ? scanState ? "Ready for next attendee" : "Active & Listening" : "Standby"}
             </p>
           </div>
         </div>
@@ -544,7 +552,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
               <div id={qrRegionId} className="w-full h-full" />
 
               {/* Laser Line Scanning Effect when active */}
-              {scanning && !isProcessing && (
+              {scanning && !isProcessing && !scanState && (
                 <div className="pointer-events-none absolute inset-0 flex flex-col justify-center">
                   <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#f5b642] to-transparent shadow-[0_0_15px_#f5b642] animate-pulse" />
                 </div>
@@ -572,7 +580,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md">
                   <RotateCw className="h-10 w-10 animate-spin text-[#f5b642]" />
                   <p className="mt-4 text-xs font-black tracking-widest text-[#f5b642] uppercase font-mono animate-pulse">
-                    Validating Ticket Cryptography...
+                    Checking pass & saving attendance...
                   </p>
                 </div>
               )}
@@ -630,7 +638,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                 />
                 <button
                   type="button"
-                  disabled={fileScanning || isProcessing}
+                  disabled={fileScanning || isProcessing || !!scanState}
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center justify-center gap-2 rounded-2xl border border-[#2d2416] bg-[#14100b] px-4 py-3.5 text-xs font-bold text-zinc-300 hover:border-[#f5b642] hover:text-white transition active:scale-[0.99] cursor-pointer disabled:opacity-50"
                   title="Scan QR from Image File"
@@ -660,7 +668,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleVerifyToken(manualToken);
+                handleScanToken(manualToken);
               }}
               className="flex gap-2"
             >
@@ -673,10 +681,10 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
               />
               <button
                 type="submit"
-                disabled={!manualToken.trim() || isProcessing}
+                disabled={!manualToken.trim() || isProcessing || !!scanState}
                 className="rounded-2xl bg-[#f5b642] px-5 py-3 text-xs font-black uppercase text-black hover:bg-[#ffd06a] disabled:opacity-50 transition cursor-pointer"
               >
-                Validate
+                Scan & Admit
               </button>
             </form>
           </div>
@@ -690,19 +698,13 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
               className={`rounded-3xl border p-6 shadow-2xl transition-all duration-300 ${
                 scanState.stage === "approved"
                   ? "border-emerald-500/50 bg-gradient-to-b from-emerald-950/40 via-[#0a140d] to-black shadow-emerald-950/50"
-                  : scanState.stage === "verified_pending_approval"
-                    ? "border-[#f5b642] bg-gradient-to-b from-[#241c0e] via-[#141009] to-black shadow-[0_0_35px_rgba(245,182,66,0.2)]"
-                    : "border-red-500/50 bg-gradient-to-b from-red-950/40 via-[#140a0a] to-black shadow-red-950/50"
+                  : "border-red-500/50 bg-gradient-to-b from-red-950/40 via-[#140a0a] to-black shadow-red-950/50"
               }`}
             >
               <div className="flex items-center gap-3 mb-4">
                 {scanState.stage === "approved" ? (
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
                     <CheckCircle2 className="h-7 w-7" />
-                  </div>
-                ) : scanState.stage === "verified_pending_approval" ? (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5b642]/20 text-[#f5b642] border border-[#f5b642]/50 animate-bounce shadow-[0_0_20px_rgba(245,182,66,0.4)]">
-                    <UserCheck className="h-7 w-7" />
                   </div>
                 ) : (
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
@@ -714,20 +716,16 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                     className={`inline-block text-[10px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full ${
                       scanState.stage === "approved"
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        : scanState.stage === "verified_pending_approval"
-                          ? "bg-[#f5b642]/20 text-[#f5b642] border border-[#f5b642]/40"
-                          : "bg-red-500/20 text-red-300 border border-red-500/40"
+                        : "bg-red-500/20 text-red-300 border border-red-500/40"
                     }`}
                   >
                     {scanState.stage === "approved"
                       ? scanState.isOverride
                         ? "OVERRIDE ADMITTED"
                         : "ATTENDANCE RECORDED"
-                      : scanState.stage === "verified_pending_approval"
-                        ? "VERIFIED — READY TO CONFIRM"
-                        : scanState.isAlreadyCheckedIn
+                      : scanState.isAlreadyCheckedIn
                           ? "ALREADY SCANNED"
-                          : "PASS INVALID"}
+                          : "ATTENDANCE NOT CONFIRMED"}
                   </span>
                   <h3 className="text-base font-extrabold text-white leading-tight mt-0.5">
                     {scanState.isAlreadyCheckedIn ? "ALREADY SCANNED: Pass Already Checked In" : scanState.message}
@@ -801,22 +799,11 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
 
               {/* Action Buttons */}
               <div className="flex flex-col gap-2">
-                {scanState.stage === "verified_pending_approval" && (
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmAttendance(false)}
-                    disabled={isProcessing}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 hover:bg-emerald-300 py-3.5 text-xs font-black uppercase tracking-wider text-black shadow-[0_0_25px_rgba(16,185,129,0.4)] transition active:scale-[0.99] cursor-pointer"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    [ CONFIRM ENTRY & ADMIT ]
-                  </button>
-                )}
-
                 {(scanState.stage === "approved" || scanState.stage === "rejected") && (
                   <button
                     type="button"
                     onClick={resetToNextScan}
+                    disabled={isProcessing}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#2d2416] bg-[#1a150c] hover:bg-[#251e11] py-3 text-xs font-bold text-white transition active:scale-[0.99] cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5 text-[#f5b642]" />
@@ -851,7 +838,7 @@ export function QrScannerClient({ currentUserRole, currentUserName }: QrScannerP
                     type="button"
                     onClick={() => {
                       if (manualToken.trim()) {
-                        handleVerifyToken(manualToken);
+                        handleScanToken(manualToken);
                       } else {
                         setShowOverrideModal(true);
                       }
